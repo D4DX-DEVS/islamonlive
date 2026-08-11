@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { Anek_Malayalam } from "next/font/google";
+import { Noto_Sans_Malayalam } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
-const anek = Anek_Malayalam({ subsets: ["malayalam", "latin"], variable: "--font-anek" });
+const notoMalayalam = Noto_Sans_Malayalam({ subsets: ["malayalam", "latin"], variable: "--font-noto-ml", display: "swap" });
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://islamonlive.in"),
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ml">
-      <body className={`${anek.variable} bg-zinc-50 font-sans text-zinc-900 antialiased`}>
+      <body className={`${notoMalayalam.variable} bg-zinc-50 font-sans text-zinc-900 antialiased`}>
         <Header />
         <main className="mx-auto max-w-7xl px-4 py-6">{children}</main>
         <Footer />

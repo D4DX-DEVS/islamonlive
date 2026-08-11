@@ -2,5 +2,16 @@
 @plugin "@tailwindcss/typography";
 
 @theme inline {
-  --font-sans: var(--font-anek), system-ui, sans-serif;
+  --font-sans: var(--font-noto-ml), system-ui, sans-serif;
+}
+
+/* ponytail: one global rule instead of auditing every component for font-*
+   classes. Form controls don't inherit body font, hence the explicit list. */
+html,
+body,
+button,
+input,
+select,
+textarea {
+  font-family: var(--font-noto-ml), system-ui, sans-serif;
 }
