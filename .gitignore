@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local junk
+*.stackdump
+.playwright-mcp/
+.code-review-graph/
+.claude/
