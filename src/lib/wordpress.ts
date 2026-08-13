@@ -11,11 +11,11 @@ export interface WPPost {
   content: { rendered: string };
   categories: number[];
   _embedded?: {
-    author?: { name: string }[];
+    author?: { name: string; avatar_urls?: Record<string, string>; mpp_avatar?: Record<string, string> }[];
     "wp:featuredmedia"?: {
       source_url: string;
       alt_text: string;
-      media_details?: { sizes?: Record<string, { source_url: string; width: number }> };
+      media_details?: { width?: number; sizes?: Record<string, { source_url: string; width: number }> };
     }[];
     "wp:term"?: { id: number; name: string; slug: string; taxonomy: string }[][];
   };
@@ -28,15 +28,21 @@ export interface WPCategory {
   count: number;
 }
 
+// ponytail: one retry — origin 5xx/522 (Cloudflare timeout) is transient. Add backoff if it turns flakier.
 async function wpFetch<T>(path: string, revalidate = 300): Promise<T> {
-  const res = await fetch(`${API}${path}`, { next: { revalidate } });
-  if (!res.ok) throw new Error(`WP API ${res.status}: ${path}`);
-  return res.json();
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(`${API}${path}`, { next: { revalidate } });
+    if (res.ok) return res.json();
+    if (res.status < 500 || attempt > 0) throw new Error(`WP API ${res.status}: ${path}`);
+  }
 }
 
 export function getPosts(opts: { page?: number; perPage?: number; categories?: number[]; search?: string; author?: number; tags?: number[] } = {}) {
   const p = new URLSearchParams({
-    _embed: "1",
+    // lists never render post content; full posts (2-15MB per response) blow Next's
+    // 2MB data-cache limit, which forced a WP round-trip on every request
+    _embed: "wp:featuredmedia,author,wp:term",
+    _fields: "id,date,slug,link,title,excerpt,categories,tags,_links,_embedded",
     page: String(opts.page ?? 1),
     per_page: String(opts.perPage ?? 12),
   });
@@ -72,6 +78,10 @@ export async function getUserBySlug(slug: string): Promise<WPUser | null> {
   return users[0] ?? null;
 }
 
+export function searchUsers(q: string): Promise<WPUser[]> {
+  return wpFetch<WPUser[]>(`/users?search=${encodeURIComponent(q)}&_fields=id,name,slug`, 3600);
+}
+
 export async function getTagBySlug(slug: string): Promise<WPCategory | null> {
   const tags = await wpFetch<WPCategory[]>(`/tags?slug=${encodeURIComponent(slug)}&_fields=id,name,slug,count`, 3600);
   return tags[0] ?? null;
@@ -95,16 +105,34 @@ export async function getCategoryBySlug(slug: string): Promise<WPCategory | null
 // WP stores pre-scaled variants; card thumbnails must not pull the multi-MB original.
 const THUMB_SIZES = ["medium_large", "large", "medium"];
 
+// aspect-preserving WP sizes, widest first (crops like epic-* would change the ratio)
+const FULL_SIZES = ["2048x2048", "1536x1536", "large", "medium_large"];
+
 export function featuredImage(post: WPPost, thumb = false): { url: string; alt: string } | null {
   const m = post._embedded?.["wp:featuredmedia"]?.[0];
   if (!m?.source_url) return null;
   const sizes = m.media_details?.sizes;
-  const variant = thumb && sizes ? THUMB_SIZES.map((s) => sizes[s]).find(Boolean) : null;
-  return { url: variant?.source_url ?? m.source_url, alt: m.alt_text || "" };
+  if (thumb) {
+    const variant = sizes ? THUMB_SIZES.map((s) => sizes[s]).find(Boolean) : null;
+    return { url: variant?.source_url ?? m.source_url, alt: m.alt_text || "" };
+  }
+  // some "full" originals are broken tiny uploads while the generated sizes stay
+  // large — serve the widest variant when it beats the original
+  const fullW = m.media_details?.width ?? Infinity;
+  const big = sizes ? FULL_SIZES.map((s) => sizes[s]).find((v) => v && v.width > fullW) : null;
+  return { url: big?.source_url ?? m.source_url, alt: m.alt_text || "" };
 }
 
 export function authorName(post: WPPost): string {
   return post._embedded?.author?.[0]?.name ?? "";
+}
+
+// real author photos live in mpp_avatar (Metronet Profile Picture plugin).
+// avatar_urls is Gravatar with d=mm, which always returns the grey mystery-person
+// placeholder — so ignore it and let the caller draw an initial instead.
+export function authorAvatar(post: WPPost): string | null {
+  const a = post._embedded?.author?.[0]?.mpp_avatar;
+  return a?.["96"] ?? a?.["150"] ?? a?.["48"] ?? null;
 }
 
 export function primaryCategory(post: WPPost): { name: string; slug: string } | null {

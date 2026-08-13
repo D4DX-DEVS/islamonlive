@@ -1,13 +1,22 @@
 import Link from "next/link";
 import PostCard from "@/components/PostCard";
-import { getPosts } from "@/lib/wordpress";
+import { getPosts, searchUsers } from "@/lib/wordpress";
 
 export const metadata = { title: "Search" };
 
 export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string; page?: string }> }) {
   const { q = "", page: pg } = await searchParams;
   const page = Number(pg ?? 1);
-  const posts = q ? await getPosts({ search: q, perPage: 12, page }).catch(() => []) : [];
+  // ponytail: author posts merged on page 1 only; paginated pages stay pure text search
+  const [textPosts, users] = q
+    ? await Promise.all([
+        getPosts({ search: q, perPage: 12, page }).catch(() => []),
+        page === 1 ? searchUsers(q).catch(() => []) : Promise.resolve([]),
+      ])
+    : [[], []];
+  const authorPosts = users[0] ? await getPosts({ author: users[0].id, perPage: 12 }).catch(() => []) : [];
+  const seen = new Set<number>();
+  const posts = [...authorPosts, ...textPosts].filter((p) => !seen.has(p.id) && seen.add(p.id));
 
   return (
     <div>

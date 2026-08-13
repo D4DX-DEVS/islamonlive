@@ -6,6 +6,16 @@ import { Episode } from "@/lib/podcast";
 
 const RATES = [1, 1.25, 1.5, 2];
 
+/* ponytail: two inline paths instead of an icon dependency */
+function PlayPauseIcon({ paused, className = "h-5 w-5" }: { paused: boolean; className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className={className}>
+      {/* both paths are centred on the 24x24 box so the glyph sits dead centre in its circle */}
+      {paused ? <path d="M7 5v14l10-7z" /> : <path d="M8 5h3v14H8V5Zm5 0h3v14h-3V5Z" />}
+    </svg>
+  );
+}
+
 function fmt(sec: number): string {
   if (!isFinite(sec) || sec <= 0) return "00:00";
   const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
@@ -78,7 +88,7 @@ export default function PodcastPlayer({ episodes, listHeight = 480, spotifyUrl }
             <h3 className="truncate text-base font-bold">{ep.title}</h3>
             {spotifyUrl && (
               <a href={spotifyUrl} target="_blank" rel="noopener noreferrer"
-                 className="shrink-0 rounded-full border border-green-500 px-3 py-1 text-xs font-semibold text-green-600 hover:bg-green-50">
+                 className="inline-flex shrink-0 items-center justify-center rounded-full border border-purple-700 px-3 py-1 text-xs font-semibold leading-none text-purple-800 transition hover:bg-purple-800 hover:text-white">
                 Listen on Spotify
               </a>
             )}
@@ -88,9 +98,9 @@ export default function PodcastPlayer({ episodes, listHeight = 480, spotifyUrl }
             <button
               aria-label={playing ? "Pause" : "Play"}
               onClick={() => play(idx)}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-green-500 text-lg text-white hover:bg-green-600"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-purple-800 text-white shadow-sm transition hover:bg-purple-700"
             >
-              {playing ? "❚❚" : "▶"}
+              <PlayPauseIcon paused={!playing} className="h-5 w-5" />
             </button>
             <button aria-label="Previous" onClick={() => idx > 0 && play(idx - 1)} className="text-zinc-500 hover:text-purple-800">⏮</button>
             <button aria-label="Back 10s" onClick={() => skip(-10)} className="rounded-full border border-zinc-300 px-2 py-1 text-xs text-zinc-600 hover:border-purple-700">-10</button>
@@ -123,8 +133,8 @@ export default function PodcastPlayer({ episodes, listHeight = 480, spotifyUrl }
             onClick={() => play(i)}
             className={`flex w-full items-center gap-3 px-2 py-3 text-left text-sm hover:bg-purple-50 ${i === idx ? "bg-purple-50 font-semibold text-purple-900" : "text-zinc-700"}`}
           >
-            <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border ${i === idx && playing ? "border-green-500 text-green-600" : "border-zinc-300 text-zinc-500"}`}>
-              {i === idx && playing ? "❚❚" : "▶"}
+            <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border ${i === idx && playing ? "border-purple-700 bg-purple-700 text-white" : "border-zinc-300 text-zinc-500"}`}>
+              <PlayPauseIcon paused={!(i === idx && playing)} className="h-3.5 w-3.5" />
             </span>
             <span className="line-clamp-1 flex-1">{e.title}</span>
             {e.duration && <span className="shrink-0 text-xs text-zinc-400">{e.duration}</span>}

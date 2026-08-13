@@ -4,8 +4,9 @@ import { SOCIAL, SocialIcon } from "@/components/social";
 export default function Footer() {
   return (
     <footer className="mt-10 bg-purple-950 text-purple-200">
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 md:grid-cols-4">
-        <div>
+      {/* two columns on phones — one stacked column made the footer taller than the page */}
+      <div className="mx-auto grid max-w-[1600px] grid-cols-2 gap-x-6 gap-y-8 px-4 py-10 md:grid-cols-4">
+        <div className="col-span-2 md:col-span-1">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-white.png" alt="islamonlive" className="h-10 w-auto" />
           <p className="mt-2 text-sm">The one and only Comprehensive Islamic portal in Malayalam.</p>
@@ -30,7 +31,7 @@ export default function Footer() {
             <li><Link href="/category/columns" className="hover:text-white">Columns</Link></li>
           </ul>
         </div>
-        <div>
+        <div className="col-span-2 md:col-span-1">
           <h3 className="font-semibold text-white">Contact Us</h3>
           <p className="mt-2 text-sm">Hira Centre, Mavoor Road, Kozhikode, 673004</p>
           <p className="text-sm">editor@islamonlive.in</p>
@@ -38,7 +39,7 @@ export default function Footer() {
         </div>
       </div>
       <div className="bg-black py-4">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-4 text-xs text-zinc-400 sm:flex-row">
+        <div className="mx-auto flex max-w-[1600px] flex-col items-center justify-between gap-3 px-4 text-xs text-zinc-400 sm:flex-row">
           <p>© {new Date().getFullYear()} Islamonlive | All Rights Reserved | Powered by D4DX</p>
           <div className="flex gap-4">
             {SOCIAL.map((s) => (
