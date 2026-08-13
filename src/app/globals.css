@@ -49,14 +49,12 @@ textarea {
 /* print: paper gets the masthead, the article and nothing else — no nav, no
    footer, no sliders, no share buttons. */
 @media print {
-  /* margin:0 is what suppresses Chrome's own date/title/URL header and footer —
-     the page margin moves onto the body instead. ponytail: if a Chrome update
-     brings the browser header back, the fallback is the print dialog's
-     "Headers and footers" checkbox; no CSS can force it. */
-  @page { margin: 0; }
+  /* real page margin so EVERY page (not just the first) gets a top gap, and
+     Chrome has room to print its date/title header and URL footer like the
+     live site. body padding can't do this — it only pads the first/last page. */
+  @page { margin: 14mm 12mm; }
 
   body {
-    padding: 15mm;
     background: #fff;
   }
 
@@ -67,10 +65,8 @@ textarea {
     display: none !important;
   }
 
-  /* the masthead div in the root layout is print:block — keep its logo and the
-     category badge in colour, Chrome drops backgrounds on paper by default */
-  img,
-  .pill {
+  /* keep ALL colours/backgrounds on paper — Chrome washes them out by default */
+  * {
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }
@@ -86,6 +82,11 @@ textarea {
 
   article {
     break-inside: auto;
+  }
+
+  /* roomier lines on paper — Malayalam stacked vowel signs need the air */
+  article p {
+    line-height: 2 !important;
   }
 
   h1, h2, h3 { break-after: avoid; }
