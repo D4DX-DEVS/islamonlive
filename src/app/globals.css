@@ -36,6 +36,20 @@ textarea {
   font-family: var(--font-noto-ml), system-ui, sans-serif;
 }
 
+/* ponytail: Malayalam fonts reserve tall ascender/descender room for vowel signs,
+   so Latin labels sit visibly high inside pills/buttons. Trim the box to cap-height
+   so items-center centres the glyphs, not the font's dead space. One global rule
+   instead of per-component padding hacks. Chrome 133+/Safari 18.2+; older browsers
+   keep the old look. Only applies to block containers, so inline links in prose
+   are untouched. */
+button,
+a,
+span,
+label,
+summary {
+  text-box: trim-both cap alphabetic;
+}
+
 /* skeleton shimmer: a sweeping highlight reads as "loading" where a flat pulse
    reads as a broken image. Used by <Skel>. */
 @keyframes skel-shimmer {

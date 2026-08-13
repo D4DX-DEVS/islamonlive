@@ -112,7 +112,7 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
               className="w-24 rounded-full border border-zinc-300 px-3 py-1 text-xs outline-none transition-[width] focus:w-44 focus:border-purple-700"
             />
           </form>
-          <a href="https://rzp.io/rzp/5bOM6U7A" target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-purple-800 px-3 py-1.5 text-xs font-semibold leading-none text-white hover:bg-purple-700">
+          <a href="https://rzp.io/rzp/5bOM6U7A" target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-purple-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-purple-700">
             Support Us
           </a>
         </div>

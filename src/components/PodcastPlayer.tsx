@@ -88,7 +88,7 @@ export default function PodcastPlayer({ episodes, listHeight = 480, spotifyUrl }
             <h3 className="truncate text-base font-bold">{ep.title}</h3>
             {spotifyUrl && (
               <a href={spotifyUrl} target="_blank" rel="noopener noreferrer"
-                 className="inline-flex shrink-0 items-center justify-center rounded-full border border-purple-700 px-3 py-1 text-xs font-semibold leading-none text-purple-800 transition hover:bg-purple-800 hover:text-white">
+                 className="inline-flex shrink-0 items-center justify-center rounded-full border border-purple-700 px-3 py-1 text-xs font-semibold text-purple-800 transition hover:bg-purple-800 hover:text-white">
                 Listen on Spotify
               </a>
             )}
