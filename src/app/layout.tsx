@@ -49,6 +49,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="ml">
       <body className={`${notoMalayalam.variable} ${anekMalayalam.variable} bg-zinc-50 font-sans text-zinc-900 antialiased`}>
         <Header previews={previews} />
+        {/* paper masthead — the on-screen <header> is display:none when printing */}
+        <div className="hidden print:block print:border-b print:border-zinc-400 print:pb-3 print:text-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="islamonlive" className="mx-auto h-10 w-auto" />
+        </div>
         <main className="mx-auto max-w-[1600px] px-3 py-6 sm:px-5">{children}</main>
         <Footer />
       </body>

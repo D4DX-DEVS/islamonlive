@@ -36,18 +36,60 @@ textarea {
   font-family: var(--font-noto-ml), system-ui, sans-serif;
 }
 
-/* ponytail: Malayalam fonts reserve tall ascender/descender room for vowel signs,
-   so Latin labels sit visibly high inside pills/buttons. Trim the box to cap-height
-   so items-center centres the glyphs, not the font's dead space. One global rule
-   instead of per-component padding hacks. Chrome 133+/Safari 18.2+; older browsers
-   keep the old look. Only applies to block containers, so inline links in prose
-   are untouched. */
-button,
-a,
-span,
-label,
-summary {
+/* Malayalam fonts reserve tall ascender/descender room for vowel signs, so a Latin
+   label sits visibly high inside a flex-centred pill. Trimming to cap-height makes
+   items-center centre the glyphs instead of the font's dead space.
+   ponytail: opt-in class, NOT a global rule — trimming Malayalam text clips its
+   above-the-line vowel signs. Only put .pill on Latin-label chips/buttons.
+   Chrome 133+/Safari 18.2+; elsewhere the symmetric padding still reads fine. */
+.pill {
   text-box: trim-both cap alphabetic;
+}
+
+/* print: paper gets the masthead, the article and nothing else — no nav, no
+   footer, no sliders, no share buttons. */
+@media print {
+  /* margin:0 is what suppresses Chrome's own date/title/URL header and footer —
+     the page margin moves onto the body instead. ponytail: if a Chrome update
+     brings the browser header back, the fallback is the print dialog's
+     "Headers and footers" checkbox; no CSS can force it. */
+  @page { margin: 0; }
+
+  body {
+    padding: 15mm;
+    background: #fff;
+  }
+
+  header,
+  footer,
+  nav,
+  aside {
+    display: none !important;
+  }
+
+  /* the masthead div in the root layout is print:block — keep its logo and the
+     category badge in colour, Chrome drops backgrounds on paper by default */
+  img,
+  .pill {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  main,
+  article {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
+  article {
+    break-inside: auto;
+  }
+
+  h1, h2, h3 { break-after: avoid; }
+  img { max-width: 100% !important; height: auto !important; break-inside: avoid; }
 }
 
 /* skeleton shimmer: a sweeping highlight reads as "loading" where a flat pulse

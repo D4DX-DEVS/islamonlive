@@ -11,7 +11,7 @@ export interface WPPost {
   content: { rendered: string };
   categories: number[];
   _embedded?: {
-    author?: { name: string; avatar_urls?: Record<string, string>; mpp_avatar?: Record<string, string> }[];
+    author?: { id?: number; slug?: string; name: string; avatar_urls?: Record<string, string>; mpp_avatar?: Record<string, string> }[];
     "wp:featuredmedia"?: {
       source_url: string;
       alt_text: string;
@@ -129,10 +129,15 @@ export function authorName(post: WPPost): string {
 
 // real author photos live in mpp_avatar (Metronet Profile Picture plugin).
 // avatar_urls is Gravatar with d=mm, which always returns the grey mystery-person
-// placeholder — so ignore it and let the caller draw an initial instead.
+// placeholder — so ignore it and let the caller draw its own fallback icon.
 export function authorAvatar(post: WPPost): string | null {
   const a = post._embedded?.author?.[0]?.mpp_avatar;
   return a?.["96"] ?? a?.["150"] ?? a?.["48"] ?? null;
+}
+
+export function author(post: WPPost): { id?: number; name: string; slug?: string; avatar: string | null } | null {
+  const a = post._embedded?.author?.[0];
+  return a?.name ? { id: a.id, name: a.name, slug: a.slug, avatar: authorAvatar(post) } : null;
 }
 
 export function primaryCategory(post: WPPost): { name: string; slug: string } | null {

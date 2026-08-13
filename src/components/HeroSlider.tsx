@@ -43,7 +43,7 @@ export default function HeroSlider({ slides }: { slides: Slide[] }) {
           {/* centred caption straight on the image — no white card */}
           <div className="absolute inset-x-6 bottom-8 flex flex-col items-center text-center sm:inset-x-12 lg:bottom-12">
             {s.category && (
-              <span className="mb-3 inline-block rounded bg-purple-700 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white">{s.category}</span>
+              <span className="pill mb-3 inline-flex items-center justify-center rounded bg-purple-700 px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-white">{s.category}</span>
             )}
             <h1
               className="line-clamp-3 max-w-3xl text-xl font-extrabold leading-snug text-white drop-shadow-lg sm:text-2xl lg:text-3xl"

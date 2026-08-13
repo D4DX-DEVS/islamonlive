@@ -58,7 +58,7 @@ function MegaPanel({ item, posts }: { item: NavItem; posts: NavPreviewItem[] }) 
                   <div className="relative aspect-[16/10] w-full overflow-hidden rounded-lg bg-zinc-100 ring-1 ring-inset ring-zinc-900/10">
                     {p.img && <Image src={p.img} alt="" fill sizes="220px" className="object-cover object-top transition duration-500 group-hover/card:scale-105" />}
                     {p.category && (
-                      <span className="absolute bottom-2 left-2 rounded bg-purple-700 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">{p.category}</span>
+                      <span className="pill absolute bottom-2 left-2 inline-flex items-center justify-center rounded bg-purple-700 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">{p.category}</span>
                     )}
                   </div>
                   <h3
@@ -96,7 +96,7 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
         <time suppressHydrationWarning className="hidden text-xs text-zinc-500 sm:block">{today}</time>
         <Link href="/" className="col-start-2 justify-self-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="islamonlive" className={`w-auto transition-all duration-300 ${shrunk ? "h-9" : "h-10 sm:h-14"}`} />
+          <img src="/logo.png" alt="islamonlive" className={`w-auto transition-all duration-300 ${shrunk ? "h-9" : "h-12 sm:h-16"}`} />
         </Link>
         <div className="flex items-center justify-end gap-3">
           <div className="hidden items-center gap-3 text-zinc-500 lg:flex">
@@ -112,7 +112,7 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
               className="w-24 rounded-full border border-zinc-300 px-3 py-1 text-xs outline-none transition-[width] focus:w-44 focus:border-purple-700"
             />
           </form>
-          <a href="https://rzp.io/rzp/5bOM6U7A" target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-purple-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-purple-700">
+          <a href="https://rzp.io/rzp/5bOM6U7A" target="_blank" rel="noopener noreferrer" className="pill inline-flex items-center justify-center whitespace-nowrap rounded-full bg-purple-800 px-4 py-2 text-xs font-semibold text-white hover:bg-purple-700">
             Support Us
           </a>
         </div>

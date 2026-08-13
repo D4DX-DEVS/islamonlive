@@ -27,7 +27,7 @@ export default function SectionTabs({
             type="button"
             onClick={() => onSelect(n)}
             aria-pressed={n === active}
-            className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide transition ${
+            className={`pill whitespace-nowrap rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide transition ${
               n === active ? "bg-purple-800 text-white" : "text-zinc-500 hover:bg-purple-50 hover:text-purple-800"
             }`}
           >

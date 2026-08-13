@@ -24,7 +24,7 @@ export function OverlayCard({ item, className = "" }: { item: PostItem; classNam
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
       <div className="absolute inset-x-0 bottom-0 p-4">
         {item.category && (
-          <span className="mb-1.5 inline-block rounded bg-purple-700 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">{item.category}</span>
+          <span className="pill mb-1.5 inline-flex items-center justify-center rounded bg-purple-700 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">{item.category}</span>
         )}
         <h3 className="line-clamp-2 text-sm font-bold leading-snug text-white" dangerouslySetInnerHTML={{ __html: item.title }} />
         <Byline className="mt-1.5" light name={item.author} avatar={item.authorAvatar} date={item.date} />
