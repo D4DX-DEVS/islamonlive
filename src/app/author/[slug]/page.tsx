@@ -3,7 +3,7 @@ import Link from "next/link";
 import PostCard from "@/components/PostCard";
 import { getUserBySlug, getPosts } from "@/lib/wordpress";
 
-export const revalidate = 600;
+export const revalidate = 60;
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const user = await getUserBySlug((await params).slug);

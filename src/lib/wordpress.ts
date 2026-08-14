@@ -29,12 +29,19 @@ export interface WPCategory {
 }
 
 // ponytail: one retry — origin 5xx/522 (Cloudflare timeout) is transient. Add backoff if it turns flakier.
-async function wpFetch<T>(path: string, revalidate = 300): Promise<T> {
+async function wpFetch<T>(path: string, revalidate = 60): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     const res = await fetch(`${API}${path}`, { next: { revalidate } });
     if (res.ok) return res.json();
     if (res.status < 500 || attempt > 0) throw new Error(`WP API ${res.status}: ${path}`);
   }
+}
+
+// WP REST `categories=` matches assigned terms only, not descendants — callers
+// append these to show a parent category's full tree like the live site does
+export async function getChildCategoryIds(parent: number): Promise<number[]> {
+  const kids = await wpFetch<{ id: number }[]>(`/categories?parent=${parent}&per_page=50&_fields=id`, 3600);
+  return kids.map((k) => k.id);
 }
 
 export function getPosts(opts: { page?: number; perPage?: number; categories?: number[]; search?: string; author?: number; tags?: number[] } = {}) {
@@ -88,7 +95,7 @@ export async function getTagBySlug(slug: string): Promise<WPCategory | null> {
 }
 
 export async function getPostBySlug(slug: string): Promise<WPPost | null> {
-  const posts = await wpFetch<WPPost[]>(`/posts?slug=${encodeURIComponent(slug)}&_embed=1`, 600);
+  const posts = await wpFetch<WPPost[]>(`/posts?slug=${encodeURIComponent(slug)}&_embed=1`, 60);
   return posts[0] ?? null;
 }
 

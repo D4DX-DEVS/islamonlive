@@ -14,9 +14,17 @@ import { getReels } from "@/lib/instagram";
 import { getEpisodes } from "@/lib/podcast";
 import { getHomeBanners } from "@/lib/banners";
 
-export const revalidate = 300;
+export const revalidate = 60;
 
-const CAT = { opinion: 7899, columns: 28, shariah: 3, culture: 4, infographics: 28546 };
+// WP REST `categories=` doesn't include child terms, so parent sections list
+// children explicitly — live site's queries do include them
+const CAT = {
+  opinion: [7899, 26, 28543, 3147, 25802, 28544],
+  columns: [28, 36, 28545, 43, 45, 50],
+  shariah: [3],
+  culture: [4, 9, 31, 25, 25397, 7],
+  infographics: [28546],
+};
 // Opinion's children on the live site — the tabs its homepage section shows
 const OPINION_SUBS = [
   { label: "India Today", slug: "indian-politics-opinion", id: 26 },
@@ -87,11 +95,11 @@ export default async function Home() {
 
   const [latest, opinion, columns, shariah, culture, infographics, videos, reels, shorts, episodes, banners] = await Promise.all([
     getPosts({ perPage: 18 }),
-    getPosts({ perPage: 5, categories: [CAT.opinion] }),
-    getPosts({ perPage: 7, categories: [CAT.columns] }),
-    getPosts({ perPage: 6, categories: [CAT.shariah] }),
-    getPosts({ perPage: 16, categories: [CAT.culture] }).catch(() => []),
-    getPosts({ perPage: 6, categories: [CAT.infographics] }).catch(() => []),
+    getPosts({ perPage: 5, categories: CAT.opinion }),
+    getPosts({ perPage: 7, categories: CAT.columns }),
+    getPosts({ perPage: 6, categories: CAT.shariah }),
+    getPosts({ perPage: 16, categories: CAT.culture }).catch(() => []),
+    getPosts({ perPage: 6, categories: CAT.infographics }).catch(() => []),
     getVideos(5).catch(() => []),
     getReels(8).catch(() => []),
     getShorts(8).catch(() => []),

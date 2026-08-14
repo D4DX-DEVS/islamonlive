@@ -2,9 +2,9 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import PostCard from "@/components/PostCard";
-import { getCategoryBySlug, getPosts, featuredImage, postPath } from "@/lib/wordpress";
+import { getCategoryBySlug, getChildCategoryIds, getPosts, featuredImage, postPath } from "@/lib/wordpress";
 
-export const revalidate = 300;
+export const revalidate = 60;
 
 // matches WP nested category URLs (/category/opinion/kerala-politics-opinion/);
 // the leaf slug identifies the category.
@@ -29,7 +29,8 @@ export default async function CategoryPage({
   const cat = await getCategoryBySlug(leaf(slug));
   if (!cat) notFound();
 
-  const posts = await getPosts({ categories: [cat.id], perPage: 12, page });
+  const kids = await getChildCategoryIds(cat.id).catch(() => []);
+  const posts = await getPosts({ categories: [cat.id, ...kids], perPage: 12, page });
   const base = `/category/${slug.join("/")}`;
 
   return (

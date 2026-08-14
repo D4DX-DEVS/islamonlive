@@ -5,7 +5,7 @@ import { getPostBySlug, getPosts, featuredImage, author, authorName, primaryCate
 import PostCard from "@/components/PostCard";
 import ShareRow from "@/components/ShareRow";
 
-export const revalidate = 600;
+export const revalidate = 60;
 
 // Catch-all: WP keeps sub-category posts at /{cat}/{subcat}/{slug}/, so depth varies.
 // The last segment is always the post slug.
