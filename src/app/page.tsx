@@ -43,9 +43,9 @@ const CULTURE_SUBS = [
 
 function SectionHead({ title, href, light = false }: { title: string; href?: string; light?: boolean }) {
   return (
-    <div className={`mb-4 flex items-center justify-between border-l-4 pl-3 ${light ? "border-cyan-400" : "border-purple-800"}`}>
+    <div className={`mb-4 flex items-center justify-between border-l-4 pl-3 ${light ? "border-purple-500" : "border-purple-800"}`}>
       <h2 className={`text-xl font-extrabold ${light ? "text-white" : "text-zinc-900"}`}>{title}</h2>
-      {href && <Link href={href} className={`text-sm font-medium hover:underline ${light ? "text-cyan-400" : "text-purple-800"}`}>See all →</Link>}
+      {href && <Link href={href} className={`text-sm font-medium hover:underline ${light ? "text-purple-300" : "text-purple-800"}`}>See all →</Link>}
     </div>
   );
 }

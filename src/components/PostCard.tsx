@@ -8,7 +8,7 @@ export default function PostCard({ post, showExcerpt = false }: { post: WPPost; 
   const cat = primaryCategory(post);
   const author = authorName(post);
   return (
-    <article className="group flex h-full flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition hover:shadow-md">
+    <article className="group flex h-full flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm transition hover:shadow-md">
       <Link href={postPath(post)} className="flex h-full flex-col">
         {img && (
           <div className="relative aspect-[16/9] w-full overflow-hidden bg-zinc-100">

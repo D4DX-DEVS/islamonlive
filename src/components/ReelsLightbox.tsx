@@ -49,7 +49,7 @@ export default function ReelsLightbox({ items }: { items: ReelItem[] }) {
             type="button"
             onClick={() => setOpen(n)}
             aria-label={r.title ?? "Play reel"}
-            className="group relative block w-40 shrink-0 snap-start overflow-hidden rounded-lg bg-zinc-200 shadow-sm transition hover:shadow-md sm:w-auto sm:shrink"
+            className="group relative block w-40 shrink-0 snap-start overflow-hidden rounded-xl bg-zinc-200 shadow-sm transition hover:shadow-md sm:w-auto sm:shrink"
           >
             <div className="relative aspect-[9/16] w-full">
               <Image
