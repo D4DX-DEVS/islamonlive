@@ -26,7 +26,7 @@ export function OverlayCard({ item, className = "" }: { item: PostItem; classNam
         {item.category && (
           <span className="pill mb-1.5 inline-flex items-center justify-center rounded bg-purple-700 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">{item.category}</span>
         )}
-        <h3 className="line-clamp-2 text-sm font-bold leading-snug text-white" dangerouslySetInnerHTML={{ __html: item.title }} />
+        <h3 className="line-clamp-2 text-base font-bold leading-snug text-white lg:text-lg" dangerouslySetInnerHTML={{ __html: item.title }} />
         <Byline className="mt-1.5" light name={item.author} avatar={item.authorAvatar} date={item.date} />
       </div>
     </Link>
@@ -46,7 +46,7 @@ export function ListRow({ item, thumb = true }: { item: PostItem; thumb?: boolea
         </div>
       )}
       <div className="min-w-0">
-        <h3 className="line-clamp-2 text-sm font-bold leading-snug group-hover:text-purple-800" dangerouslySetInnerHTML={{ __html: item.title }} />
+        <h3 className="line-clamp-2 min-h-[2.75em] text-[15px] font-bold leading-snug group-hover:text-purple-800" dangerouslySetInnerHTML={{ __html: item.title }} />
         <Byline className="mt-1.5" name={item.author} avatar={item.authorAvatar} date={item.date} />
       </div>
     </Link>

@@ -12,10 +12,13 @@ export default function CultureTabs({ title, tabs }: { title: string; tabs: Tab[
   const tab = tabs[active];
   if (!tab) return null;
 
+  // cap at 14 (overlay + 6 rows per column) so this block ends level with the
+  // right-hand sidebar instead of running past it into the footer
+  const items = tab.items.slice(0, 14);
   // split into two balanced columns; a short tab keeps a single column instead
   // of leaving an empty half-row
-  const half = Math.ceil(tab.items.length / 2);
-  const cols: PostItem[][] = [tab.items.slice(0, half), tab.items.slice(half)].filter((c) => c.length > 0);
+  const half = Math.ceil(items.length / 2);
+  const cols: PostItem[][] = [items.slice(0, half), items.slice(half)].filter((c) => c.length > 0);
 
   return (
     <section>

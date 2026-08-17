@@ -15,6 +15,16 @@ h4,
   font-family: var(--font-anek-ml), var(--font-noto-ml), system-ui, sans-serif;
 }
 
+/* Tailwind v4 preflight sets cursor:default on buttons — restore hand cursor
+   for everything clickable */
+a,
+button,
+[role="button"],
+summary,
+label[for] {
+  cursor: pointer;
+}
+
 /* Malayalam compounds run long with no break opportunity — without this a single
    headline word sets a min-content width wider than a phone screen. */
 h1,
@@ -42,8 +52,12 @@ textarea {
    ponytail: opt-in class, NOT a global rule — trimming Malayalam text clips its
    above-the-line vowel signs. Only put .pill on Latin-label chips/buttons.
    Chrome 133+/Safari 18.2+; elsewhere the symmetric padding still reads fine. */
+/* text-box-trim no-ops on flex containers, so the trim approach never fired on
+   these inline-flex chips. System font has no Malayalam dead-space above caps,
+   so plain flex centring is enough. Pills are Latin-label only (see above). */
 .pill {
-  text-box: trim-both cap alphabetic;
+  font-family: system-ui, sans-serif;
+  line-height: 1;
 }
 
 /* print: paper gets the masthead, the article and nothing else — no nav, no

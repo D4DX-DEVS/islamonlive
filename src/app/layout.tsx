@@ -3,6 +3,7 @@ import { Noto_Sans_Malayalam, Anek_Malayalam } from "next/font/google";
 import "./globals.css";
 import Header, { NavPreviewItem } from "@/components/Header";
 import Footer from "@/components/Footer";
+import BackToTop from "@/components/BackToTop";
 import { getPosts, featuredImage, postPath, primaryCategory, formatDate } from "@/lib/wordpress";
 
 // which categories feed each nav item's hover preview
@@ -56,6 +57,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </div>
         <main className="mx-auto max-w-[1600px] px-3 py-6 sm:px-5">{children}</main>
         <Footer />
+        <BackToTop />
       </body>
     </html>
   );

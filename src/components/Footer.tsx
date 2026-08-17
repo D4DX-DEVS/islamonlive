@@ -3,7 +3,7 @@ import { SOCIAL, SocialIcon } from "@/components/social";
 
 export default function Footer() {
   return (
-    <footer className="mt-10 bg-purple-950 text-purple-200">
+    <footer className="mt-4 bg-purple-950 text-purple-200">
       {/* two columns on phones — one stacked column made the footer taller than the page */}
       <div className="mx-auto grid max-w-[1600px] grid-cols-2 gap-x-6 gap-y-8 px-4 py-10 md:grid-cols-4">
         <div className="col-span-2 md:col-span-1">

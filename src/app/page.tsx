@@ -43,7 +43,7 @@ const CULTURE_SUBS = [
 
 function SectionHead({ title, href, light = false }: { title: string; href?: string; light?: boolean }) {
   return (
-    <div className={`mb-4 flex items-center justify-between border-l-4 pl-3 ${light ? "border-purple-500" : "border-purple-800"}`}>
+    <div className={`mb-4 flex items-center justify-between border-l-4 pl-3 pr-2 ${light ? "border-purple-500" : "border-purple-800"}`}>
       <h2 className={`text-xl font-extrabold ${light ? "text-white" : "text-zinc-900"}`}>{title}</h2>
       {href && <Link href={href} className={`text-sm font-medium hover:underline ${light ? "text-purple-300" : "text-purple-800"}`}>See all →</Link>}
     </div>
@@ -195,10 +195,12 @@ export default async function Home() {
 
       {/* 5. Two-column flow: left Opinion/Listen/Culture, right Editor's Picks/Columns/Shari'a.
           One grid so columns stack independently — no whitespace gaps between rows */}
-      <div className="grid items-start gap-8 lg:grid-cols-3">
+      {/* both columns stretch to the taller one and spread the slack across their own
+          section gaps — bottoms line up at any width. ponytail: no JS measuring */}
+      <div className="grid gap-8 lg:grid-cols-3">
         {/* min-w-0: grid items default to min-width:auto, and long unbroken Malayalam
             titles would otherwise force the track wider than the phone viewport */}
-        <div className="min-w-0 space-y-10 lg:col-span-2">
+        <div className="flex min-w-0 flex-col justify-between gap-10 lg:col-span-2">
           <TabbedSection title="Opinion" tabs={opinionTabs} />
 
           <section>
@@ -209,7 +211,7 @@ export default async function Home() {
           <CultureTabs title="Culture" tabs={cultureTabs} />
         </div>
 
-        <div className="min-w-0 space-y-10">
+        <div className="flex min-w-0 flex-col justify-between gap-10">
           <SideList title="Editor's Picks" href="/category/news" posts={latest.slice(11, 16)} />
           <SideList title="Columns" href="/category/columns" posts={columns} featured />
           <SideList title="Shari'a" href="/category/shariah" posts={shariah.slice(0, 4)} featured />

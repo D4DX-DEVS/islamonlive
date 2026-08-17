@@ -56,7 +56,7 @@ export default async function PostPage({ params }: { params: Params }) {
         </div>
         {/* right: scrolling content */}
         <div
-          className="prose prose-zinc max-w-none leading-loose prose-a:text-purple-800 prose-img:rounded-lg break-words [&_*]:max-w-full [&_img]:h-auto"
+          className="prose prose-zinc max-w-none leading-relaxed prose-a:text-purple-800 prose-img:rounded-lg break-words [&_*]:max-w-full [&_img]:h-auto"
           dangerouslySetInnerHTML={{ __html: post.content.rendered }}
         />
       </div>
@@ -73,7 +73,7 @@ export default async function PostPage({ params }: { params: Params }) {
 
   return (
     <div className="mx-auto max-w-[1100px]">
-    <article className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-zinc-200 sm:p-8 lg:p-10">
+    <article className="rounded-2xl bg-white p-5 shadow-[0_4px_24px_rgba(0,0,0,0.08)] sm:p-8 lg:p-10">
       {cat && <span className="mb-3 pill inline-flex items-center justify-center rounded bg-purple-800 px-3 py-1.5 text-xs font-semibold text-white">{cat.name}</span>}
       <h1 className="text-2xl font-extrabold leading-snug sm:text-3xl" dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
       <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-zinc-500">
@@ -89,7 +89,7 @@ export default async function PostPage({ params }: { params: Params }) {
         </div>
       )}
       <div
-        className="prose prose-zinc mt-6 max-w-none text-justify leading-loose hyphens-auto prose-headings:text-left prose-headings:leading-snug prose-p:leading-loose prose-a:text-purple-800 prose-img:mx-auto prose-img:rounded-lg [&_iframe]:aspect-video [&_iframe]:h-auto [&_iframe]:w-full break-words [&_*]:max-w-full [&_img]:h-auto [&_table]:block [&_table]:overflow-x-auto"
+        className="prose prose-zinc mt-6 max-w-none leading-relaxed sm:text-justify sm:hyphens-auto prose-headings:text-left prose-headings:leading-snug prose-p:leading-relaxed prose-a:text-purple-800 prose-img:mx-auto prose-img:rounded-lg [&_iframe]:aspect-video [&_iframe]:h-auto [&_iframe]:w-full break-words [&_*]:max-w-full [&_img]:h-auto [&_table]:block [&_table]:overflow-x-auto"
         dangerouslySetInnerHTML={{ __html: post.content.rendered }}
       />
 

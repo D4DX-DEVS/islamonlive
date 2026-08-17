@@ -33,8 +33,11 @@ export async function getHomeBanners(): Promise<Banner[]> {
   for (const m of html.slice(start, end).matchAll(/<a[^>]*href="([^"]+)"[^>]*>\s*<img([^>]*)>/g)) {
     const img = attr(m[2], "src");
     if (!img || !img.includes("/wp-content/uploads/")) continue;
+    // scraped href: allow only http(s)/relative — blocks javascript: and data: URIs
+    const href = decode(m[1]);
+    if (!/^(https?:\/\/|\/)/i.test(href)) continue;
     out.push({
-      href: decode(m[1]),
+      href,
       img,
       width: Number(attr(m[2], "width")) || 1440,
       height: Number(attr(m[2], "height")) || 120,

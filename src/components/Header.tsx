@@ -108,13 +108,13 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
           </div>
           <form action="/search" className="relative hidden items-center md:flex">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-              className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-zinc-400">
+              className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400">
               <circle cx="11" cy="11" r="7" />
               <path d="m21 21-4.35-4.35" />
             </svg>
             <input
               type="search" name="q" placeholder="Search…" aria-label="Search"
-              className="w-28 rounded-full border border-zinc-300 py-1 pl-8 pr-3 text-xs outline-none transition-[width] focus:w-48 focus:border-purple-700"
+              className="h-7 w-28 rounded-full border border-zinc-300 py-0 pl-8 pr-3 text-xs leading-none outline-none transition-[width] [font-family:system-ui,sans-serif] focus:w-48 focus:border-purple-700"
             />
           </form>
           <a href="https://rzp.io/rzp/5bOM6U7A" target="_blank" rel="noopener noreferrer" className="pill inline-flex items-center justify-center whitespace-nowrap rounded-full bg-purple-800 px-4 py-2 text-xs font-semibold text-white hover:bg-purple-700">
