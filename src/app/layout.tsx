@@ -1,9 +1,11 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Noto_Sans_Malayalam, Anek_Malayalam } from "next/font/google";
 import "./globals.css";
 import Header, { NavPreviewItem } from "@/components/Header";
 import Footer from "@/components/Footer";
 import BackToTop from "@/components/BackToTop";
+import MobileTabBar from "@/components/MobileTabBar";
+import PwaSetup from "@/components/PwaSetup";
 import { getPosts, featuredImage, postPath, primaryCategory, formatDate } from "@/lib/wordpress";
 
 // which categories feed each nav item's hover preview
@@ -42,6 +44,14 @@ export const metadata: Metadata = {
     template: "%s | Islamonlive.in",
   },
   description: "Comprehensive Islamic portal in Malayalam - news, opinion, columns, Shariah, Quran and more.",
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "Islamonlive" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#3b0764",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -56,8 +66,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <img src="/logo.png" alt="islamonlive" className="mx-auto h-10 w-auto" />
         </div>
         <main className="mx-auto max-w-[1600px] px-3 py-6 sm:px-5">{children}</main>
-        <Footer />
+        {/* bottom tab bar covers the footer's last rows on phones — pad for it */}
+        <div className="pb-14 md:pb-0 print:hidden">
+          <Footer />
+        </div>
+        <MobileTabBar />
         <BackToTop />
+        <PwaSetup />
       </body>
     </html>
   );

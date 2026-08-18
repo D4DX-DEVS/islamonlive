@@ -1,6 +1,5 @@
-import Link from "next/link";
-import Image from "next/image";
 import { getVideos } from "@/lib/youtube";
+import WatchReels from "@/components/WatchReels";
 
 export const revalidate = 3600;
 export const metadata = { title: "Watch" };
@@ -26,19 +25,8 @@ export default async function WatchPage({ searchParams }: { searchParams: Promis
         />
       </div>
       <p className="mb-8 text-lg font-bold">{main.title}</p>
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {videos.filter((x) => x.id !== main.id).map((x) => (
-          <Link key={x.id} href={`/watch-videos?v=${x.id}`} scroll={true} className="group overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm hover:shadow-md">
-            <div className="relative aspect-video w-full bg-zinc-100">
-              <Image src={x.thumbnail} alt="" fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover transition group-hover:scale-105" />
-              <span className="absolute inset-0 flex items-center justify-center">
-                <span className="rounded-full bg-black/50 p-3 text-white group-hover:bg-purple-700">▶</span>
-              </span>
-            </div>
-            <p className="p-3 text-sm font-bold leading-snug group-hover:text-purple-800">{x.title}</p>
-          </Link>
-        ))}
-      </div>
+      {/* tapping a tile opens the full-screen vertical reels feed */}
+      <WatchReels videos={videos.filter((x) => x.id !== main.id)} />
     </div>
   );
 }

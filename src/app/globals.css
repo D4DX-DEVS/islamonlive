@@ -60,6 +60,25 @@ textarea {
   line-height: 1;
 }
 
+/* hide the scrollbar on swipeable pill rows */
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* WP article HTML carries the old theme's own scroll-to-top widget — we already
+   render <BackToTop/>, so kill any in-content duplicate. */
+.prose [id*="scroll" i][id*="top" i],
+.prose [class*="scroll" i][class*="top" i],
+.prose [class*="totop" i],
+.prose [id*="totop" i],
+.prose a[href="#top"],
+.prose a[href="#"] {
+  display: none !important;
+}
+
 /* print: paper gets the masthead, the article and nothing else — no nav, no
    footer, no sliders, no share buttons. */
 @media print {

@@ -4,14 +4,14 @@ import { SOCIAL, SocialIcon } from "@/components/social";
 export default function Footer() {
   return (
     <footer className="mt-4 bg-purple-950 text-purple-200">
-      {/* two columns on phones — one stacked column made the footer taller than the page */}
-      <div className="mx-auto grid max-w-[1600px] grid-cols-2 gap-x-6 gap-y-8 px-4 py-10 md:grid-cols-4">
+      {/* phones: logo + tagline only — the full link columns made the footer half the page */}
+      <div className="mx-auto grid max-w-[1600px] grid-cols-2 gap-x-6 gap-y-8 px-4 py-6 md:grid-cols-4 md:py-10">
         <div className="col-span-2 md:col-span-1">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-white.png" alt="islamonlive" className="h-10 w-auto" />
           <p className="mt-2 text-sm">The one and only Comprehensive Islamic portal in Malayalam.</p>
         </div>
-        <div>
+        <div className="hidden md:block">
           <h3 className="font-semibold text-white">IslamOnive</h3>
           <ul className="mt-2 space-y-1 text-sm">
             <li><Link href="/about" className="hover:text-white">About Us</Link></li>
@@ -21,7 +21,7 @@ export default function Footer() {
             <li><a href="https://rzp.io/rzp/5bOM6U7A" target="_blank" rel="noopener noreferrer" className="hover:text-white">Support Us</a></li>
           </ul>
         </div>
-        <div>
+        <div className="hidden md:block">
           <h3 className="font-semibold text-white">Subsite</h3>
           <ul className="mt-2 space-y-1 text-sm">
             <li><a href="https://hajj.islamonlive.in/" target="_blank" rel="noopener noreferrer" className="hover:text-white">Hajj &amp; Umrah</a></li>
@@ -31,7 +31,7 @@ export default function Footer() {
             <li><Link href="/category/columns" className="hover:text-white">Columns</Link></li>
           </ul>
         </div>
-        <div className="col-span-2 md:col-span-1">
+        <div className="col-span-2 hidden md:col-span-1 md:block">
           <h3 className="font-semibold text-white">Contact Us</h3>
           <p className="mt-2 text-sm">Hira Centre, Mavoor Road, Kozhikode, 673004</p>
           <p className="text-sm">editor@islamonlive.in</p>

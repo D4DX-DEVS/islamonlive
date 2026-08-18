@@ -22,6 +22,8 @@ function fmt(sec: number): string {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+/* Spotify-style dark player: gradient header with big artwork, green play
+   button, numbered track list. Same audio logic as before. */
 export default function PodcastPlayer({ episodes, listHeight = 480, spotifyUrl }: { episodes: Episode[]; listHeight?: number; spotifyUrl?: string }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [idx, setIdx] = useState(0);
@@ -65,7 +67,7 @@ export default function PodcastPlayer({ episodes, listHeight = 480, spotifyUrl }
   if (!ep) return null;
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+    <div className="overflow-hidden rounded-2xl bg-[#121212] text-white shadow-xl">
       <audio
         ref={audioRef}
         src={ep.audioUrl}
@@ -76,78 +78,94 @@ export default function PodcastPlayer({ episodes, listHeight = 480, spotifyUrl }
         onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
         onEnded={() => idx < episodes.length - 1 && play(idx + 1)}
       />
-      {/* main player */}
-      <div className="flex gap-4">
-        {ep.image && (
-          <div className="relative hidden h-28 w-28 shrink-0 overflow-hidden rounded-lg bg-zinc-100 sm:block">
-            <Image src={ep.image} alt="" fill sizes="112px" className="object-cover" unoptimized />
-          </div>
-        )}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="truncate text-base font-bold">{ep.title}</h3>
-            {spotifyUrl && (
-              <a href={spotifyUrl} target="_blank" rel="noopener noreferrer"
-                 className="pill inline-flex shrink-0 items-center justify-center rounded-full border border-purple-700 px-4 py-2 text-xs font-semibold text-purple-800 transition hover:bg-purple-800 hover:text-white">
-                Listen on Spotify
-              </a>
+
+      {/* gradient header: artwork + now playing */}
+      <div className="bg-gradient-to-b from-purple-800 via-purple-950/80 to-[#121212] p-5 sm:p-6">
+        <div className="flex items-end gap-4 sm:gap-5">
+          <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-zinc-800 shadow-2xl sm:h-36 sm:w-36">
+            {ep.image ? (
+              <Image src={ep.image} alt="" fill sizes="144px" className="object-cover" unoptimized />
+            ) : (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src="/icon-192.png" alt="" className="h-full w-full object-cover" />
             )}
           </div>
-          <p className="text-xs text-zinc-500">Islam Onlive · {episodes.length} episodes</p>
-          <div className="mt-3 flex items-center gap-3">
-            <button
-              aria-label={playing ? "Pause" : "Play"}
-              onClick={() => play(idx)}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-purple-800 text-white shadow-sm transition hover:bg-purple-700"
-            >
-              <PlayPauseIcon paused={!playing} className="h-5 w-5" />
-            </button>
-            <button aria-label="Previous" onClick={() => idx > 0 && play(idx - 1)} className="text-zinc-500 hover:text-purple-800">⏮</button>
-            <button aria-label="Back 10s" onClick={() => skip(-10)} className="rounded-full border border-zinc-300 px-2 py-1 text-xs text-zinc-600 hover:border-purple-700">-10</button>
-            <button aria-label="Playback speed" onClick={cycleRate} className="rounded-full border border-zinc-300 px-2 py-1 text-xs text-zinc-600 hover:border-purple-700">{rate}x</button>
-            <button aria-label="Forward 30s" onClick={() => skip(30)} className="rounded-full border border-zinc-300 px-2 py-1 text-xs text-zinc-600 hover:border-purple-700">+30</button>
-            <button aria-label="Next" onClick={() => idx < episodes.length - 1 && play(idx + 1)} className="text-zinc-500 hover:text-purple-800">⏭</button>
+          <div className="min-w-0 flex-1">
+            <p className="pill text-[10px] font-semibold uppercase tracking-widest text-purple-200">Podcast · Episode {idx + 1}</p>
+            <h3 className="mt-1 line-clamp-2 text-lg font-extrabold leading-snug sm:text-2xl">{ep.title}</h3>
+            <p className="mt-1 text-xs text-purple-200/80">Islam Onlive · {episodes.length} episodes</p>
           </div>
         </div>
+
+        {/* progress */}
+        <div className="mt-5 flex items-center gap-3 text-[11px] text-zinc-300">
+          <span className="w-10">{fmt(time)}</span>
+          <input
+            type="range" min={0} max={duration || 0} step={1} value={time}
+            aria-label="Seek"
+            onChange={(e) => { const t = Number(e.target.value); setTime(t); if (audioRef.current) audioRef.current.currentTime = t; }}
+            className="h-1 flex-1 accent-[#1db954]"
+          />
+          <span className="w-10 text-right">{ep.duration || fmt(duration)}</span>
+        </div>
+
+        {/* transport */}
+        <div className="mt-3 flex items-center justify-center gap-4 sm:gap-5">
+          <button aria-label="Playback speed" onClick={cycleRate} className="w-10 rounded-full border border-zinc-600 px-2 py-1 text-xs text-zinc-300 hover:border-white hover:text-white">{rate}x</button>
+          <button aria-label="Previous" onClick={() => idx > 0 && play(idx - 1)} className="text-xl text-zinc-300 hover:text-white">⏮</button>
+          <button aria-label="Back 10s" onClick={() => skip(-10)} className="text-xs text-zinc-300 hover:text-white">-10s</button>
+          <button
+            aria-label={playing ? "Pause" : "Play"}
+            onClick={() => play(idx)}
+            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#1db954] text-black shadow-lg transition hover:scale-105"
+          >
+            <PlayPauseIcon paused={!playing} className="h-6 w-6" />
+          </button>
+          <button aria-label="Forward 30s" onClick={() => skip(30)} className="text-xs text-zinc-300 hover:text-white">+30s</button>
+          <button aria-label="Next" onClick={() => idx < episodes.length - 1 && play(idx + 1)} className="text-xl text-zinc-300 hover:text-white">⏭</button>
+          {spotifyUrl && (
+            <a href={spotifyUrl} target="_blank" rel="noopener noreferrer" aria-label="Open in Spotify" title="Open in Spotify"
+               className="hidden text-zinc-300 hover:text-[#1db954] sm:block">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="h-6 w-6">
+                <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm4.6 14.5a.62.62 0 0 1-.86.2c-2.36-1.44-5.33-1.76-8.82-.96a.62.62 0 1 1-.28-1.21c3.82-.88 7.1-.5 9.75 1.11.3.18.39.57.21.86Zm1.23-2.73a.78.78 0 0 1-1.07.26c-2.7-1.66-6.82-2.14-10.01-1.17a.78.78 0 1 1-.45-1.49c3.65-1.11 8.19-.57 11.27 1.33.37.22.48.7.26 1.07Zm.1-2.85C14.7 9 9.35 8.82 6.26 9.76a.93.93 0 1 1-.54-1.79c3.55-1.07 9.44-.86 13.16 1.35a.93.93 0 0 1-.95 1.6Z" />
+              </svg>
+            </a>
+          )}
+        </div>
       </div>
-      {/* progress */}
-      <div className="mt-3 flex items-center gap-3 text-xs text-zinc-500">
-        <span className="w-10">{fmt(time)}</span>
+
+      {/* search + track list */}
+      <div className="p-4 sm:p-5">
         <input
-          type="range" min={0} max={duration || 0} step={1} value={time}
-          onChange={(e) => { const t = Number(e.target.value); setTime(t); if (audioRef.current) audioRef.current.currentTime = t; }}
-          className="h-1 flex-1 accent-purple-700"
+          type="search" value={q} onChange={(e) => { setQ(e.target.value); setVisible(20); }} placeholder="Search episodes"
+          className="w-full rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#1db954]"
         />
-        <span className="w-10 text-right">{ep.duration || fmt(duration)}</span>
-      </div>
-      {/* search */}
-      <input
-        type="search" value={q} onChange={(e) => { setQ(e.target.value); setVisible(20); }} placeholder="Search Episodes"
-        className="mt-4 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-purple-700"
-      />
-      {/* episode list */}
-      <div className="mt-2 divide-y divide-zinc-100 overflow-y-auto" style={{ maxHeight: listHeight }}>
-        {filtered.slice(0, visible).map(({ e, i }) => (
-          <button
-            key={e.audioUrl}
-            onClick={() => play(i)}
-            className={`flex w-full items-center gap-3 px-2 py-3 text-left text-sm hover:bg-purple-50 ${i === idx ? "bg-purple-50 font-semibold text-purple-900" : "text-zinc-700"}`}
-          >
-            <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border ${i === idx && playing ? "border-purple-700 bg-purple-700 text-white" : "border-zinc-300 text-zinc-500"}`}>
-              <PlayPauseIcon paused={!(i === idx && playing)} className="h-3.5 w-3.5" />
-            </span>
-            <span className="line-clamp-1 flex-1">{e.title}</span>
-            {e.duration && <span className="shrink-0 text-xs text-zinc-400">{e.duration}</span>}
-          </button>
-        ))}
-        {filtered.length > visible && (
-          <button
-            onClick={() => setVisible(visible + 20)}
-            className="w-full rounded-b-lg bg-purple-50 py-3 text-sm font-semibold text-purple-800 hover:bg-purple-100"
-          >
-            Load more ({visible} of {filtered.length})
-          </button>
-        )}
+        <div className="mt-2 overflow-y-auto" style={{ maxHeight: listHeight }}>
+          {filtered.slice(0, visible).map(({ e, i }, n) => (
+            <button
+              key={e.audioUrl}
+              onClick={() => play(i)}
+              className={`group flex w-full items-center gap-3 rounded-md px-2 py-2.5 text-left text-sm hover:bg-white/10 ${i === idx ? "text-[#1db954]" : "text-zinc-200"}`}
+            >
+              <span className="w-7 shrink-0 text-center text-xs text-zinc-500">
+                <span className="group-hover:hidden">{i === idx && playing ? "▮▮" : n + 1}</span>
+                <span className="hidden group-hover:inline">
+                  <PlayPauseIcon paused={!(i === idx && playing)} className="mx-auto h-3.5 w-3.5" />
+                </span>
+              </span>
+              <span className={`line-clamp-1 flex-1 ${i === idx ? "font-semibold" : ""}`}>{e.title}</span>
+              {e.duration && <span className="shrink-0 text-xs text-zinc-500">{e.duration}</span>}
+            </button>
+          ))}
+          {filtered.length > visible && (
+            <button
+              onClick={() => setVisible(visible + 20)}
+              className="mt-1 w-full rounded-full border border-zinc-700 py-2.5 text-sm font-semibold text-zinc-300 hover:border-white hover:text-white"
+            >
+              Load more ({visible} of {filtered.length})
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

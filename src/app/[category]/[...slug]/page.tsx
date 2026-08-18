@@ -75,11 +75,19 @@ export default async function PostPage({ params }: { params: Params }) {
     <div className="mx-auto max-w-[1100px]">
     <article className="rounded-2xl bg-white p-5 shadow-[0_4px_24px_rgba(0,0,0,0.08)] sm:p-8 lg:p-10">
       {cat && <span className="mb-3 pill inline-flex items-center justify-center rounded bg-purple-800 px-3 py-1.5 text-xs font-semibold text-white">{cat.name}</span>}
-      <h1 className="text-2xl font-extrabold leading-snug sm:text-3xl" dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
-      <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-zinc-500">
-        {authorName(post) && <span>{authorName(post)}</span>}
-        <time>{formatDate(post.date)}</time>
-        <span className="ml-auto">
+      <h1 className="text-[22px] font-extrabold leading-snug sm:text-3xl" dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
+      {/* phones: author · date on one line, share row on its own line below */}
+      <div className="mt-3 flex flex-col gap-3 text-sm text-zinc-500 sm:flex-row sm:flex-wrap sm:items-center">
+        <span className="flex min-w-0 items-center gap-2">
+          {authorName(post) && (
+            <>
+              <span className="truncate font-medium text-zinc-700">{authorName(post)}</span>
+              <span aria-hidden>·</span>
+            </>
+          )}
+          <time className="shrink-0">{formatDate(post.date)}</time>
+        </span>
+        <span className="sm:ml-auto">
           <ShareRow url={post.link} title={stripHtml(post.title.rendered)} />
         </span>
       </div>

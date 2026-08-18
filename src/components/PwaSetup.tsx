@@ -1,0 +1,33 @@
+"use client";
+
+import { useEffect } from "react";
+
+/* Registers the offline service worker and, when an app id is configured,
+   OneSignal web push (v16). Renders nothing. */
+export default function PwaSetup() {
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+
+    const appId = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID;
+    if (!appId || document.getElementById("onesignal-sdk")) return;
+    const s = document.createElement("script");
+    s.id = "onesignal-sdk";
+    s.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
+    s.defer = true;
+    document.head.appendChild(s);
+    // OneSignal v16 deferred init — prompt behaviour configured in the dashboard
+    const w = window as unknown as { OneSignalDeferred?: Array<(os: { init: (o: object) => Promise<void> }) => void> };
+    w.OneSignalDeferred = w.OneSignalDeferred || [];
+    w.OneSignalDeferred.push((OneSignal) => {
+      OneSignal.init({
+        appId,
+        serviceWorkerPath: "OneSignalSDKWorker.js",
+        allowLocalhostAsSecureOrigin: true,
+      }).catch(() => {});
+    });
+  }, []);
+
+  return null;
+}

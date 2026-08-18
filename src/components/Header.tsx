@@ -88,7 +88,8 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
   }, []);
 
   return (
-    <header className="sticky top-0 z-50 bg-white shadow">
+    // phones: brand-purple rule under the header (desktop gets the purple nav bar instead)
+    <header className="sticky top-0 z-50 border-b-2 border-purple-800 bg-white shadow md:border-b-0">
       {/* top bar: date | centered logo | socials + search + support — mirrors live site */}
       <div className={`mx-auto grid max-w-[1600px] grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 transition-[padding] duration-300 sm:px-5 ${shrunk ? "py-1.5" : "py-2 sm:py-3"}`}>
         {/* the date is display:none on mobile, so pin the logo to the middle column
@@ -117,13 +118,19 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
               className="h-7 w-28 rounded-full border border-zinc-300 py-0 pl-8 pr-3 text-xs leading-none outline-none transition-[width] [font-family:system-ui,sans-serif] focus:w-48 focus:border-purple-700"
             />
           </form>
-          <a href="https://rzp.io/rzp/5bOM6U7A" target="_blank" rel="noopener noreferrer" className="pill inline-flex items-center justify-center whitespace-nowrap rounded-full bg-purple-800 px-4 py-2 text-xs font-semibold text-white hover:bg-purple-700">
-            Support Us
+          {/* compact heart chip on phones, full pill on ≥sm — the app-header donate pattern */}
+          <a href="https://rzp.io/rzp/5bOM6U7A" target="_blank" rel="noopener noreferrer" aria-label="Support Us" className="pill inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-purple-800 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-purple-700 sm:px-4 sm:py-2">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="h-3.5 w-3.5">
+              <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z" />
+            </svg>
+            <span className="hidden sm:inline">Support Us</span>
+            <span className="sm:hidden">Support</span>
           </a>
         </div>
       </div>
-      <nav className="relative bg-purple-950">
-        <div className="mx-auto hidden max-w-[1600px] justify-center gap-1 px-3 sm:px-5 md:flex">
+      {/* desktop only — phones use the bottom tab bar */}
+      <nav className="relative hidden bg-purple-950 md:block">
+        <div className="mx-auto flex max-w-[1600px] justify-center gap-1 px-3 sm:px-5">
           {NAV.map((item) => (
             // `static`, not `relative` — the mega panel spans the whole nav width
             <div key={item.label} className={previews[item.label]?.length ? "group static" : "group relative"}>
@@ -151,49 +158,6 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
             </div>
           ))}
         </div>
-        {/* one row per top-level item; sub-items stay folded until tapped */}
-        <details className="group/menu md:hidden">
-          <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 px-4 text-sm font-medium text-purple-100">
-            <span className="text-base leading-none">☰</span> Menu
-          </summary>
-          <div className="border-t border-purple-900">
-            {NAV.map((item) =>
-              item.children ? (
-                <details key={item.label} className="border-b border-purple-900/60">
-                  <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-sm font-medium text-purple-100">
-                    {item.label}
-                    <span className="text-[10px]">▾</span>
-                  </summary>
-                  <div className="bg-purple-900/40">
-                    {item.children.map((c) => (
-                      <Link key={c.href} href={c.href} className="flex min-h-11 items-center px-6 text-sm text-purple-200 hover:text-white">
-                        {c.label}
-                      </Link>
-                    ))}
-                  </div>
-                </details>
-              ) : item.external ? (
-                <a
-                  key={item.label}
-                  href={item.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex min-h-12 items-center border-b border-purple-900/60 px-4 text-sm font-medium text-purple-100"
-                >
-                  {item.label}
-                </a>
-              ) : (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className="flex min-h-12 items-center border-b border-purple-900/60 px-4 text-sm font-medium text-purple-100"
-                >
-                  {item.label}
-                </Link>
-              )
-            )}
-          </div>
-        </details>
       </nav>
     </header>
   );
