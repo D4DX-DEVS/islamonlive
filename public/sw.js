@@ -1,6 +1,6 @@
 /* ponytail: minimal offline-shell SW — network-first pages, cache-first static.
    Bump CACHE version to invalidate. */
-const CACHE = "iol-v1";
+const CACHE = "iol-v2";
 const OFFLINE_URL = "/";
 
 self.addEventListener("install", (e) => {
@@ -17,6 +17,8 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET" || !req.url.startsWith(self.location.origin)) return;
+  // dev: never serve from cache — cache-first JS/CSS made `next dev` show stale code
+  if (/^(localhost|127\.0\.0\.1|192\.168\.)/.test(self.location.hostname)) return;
 
   // static assets: cache-first
   if (/\.(png|jpg|jpeg|webp|svg|woff2?|css|js)$/.test(new URL(req.url).pathname)) {

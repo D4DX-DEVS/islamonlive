@@ -89,7 +89,9 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
 
   return (
     // phones: brand-purple rule under the header (desktop gets the purple nav bar instead)
-    <header className="sticky top-0 z-50 border-b-2 border-purple-800 bg-white shadow md:border-b-0">
+    // pt-safe: in the installed PWA (viewport-fit=cover) the page draws under the
+    // status bar — without it, scrolled content shows through above the header
+    <header className="sticky top-0 z-50 border-b-2 border-purple-800 bg-white pt-[env(safe-area-inset-top)] shadow md:border-b-0">
       {/* top bar: date | centered logo | socials + search + support — mirrors live site */}
       <div className={`mx-auto grid max-w-[1600px] grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 transition-[padding] duration-300 sm:px-5 ${shrunk ? "py-1.5" : "py-2 sm:py-3"}`}>
         {/* the date is display:none on mobile, so pin the logo to the middle column

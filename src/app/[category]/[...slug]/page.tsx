@@ -37,7 +37,9 @@ export default async function PostPage({ params }: { params: Params }) {
     // live-site layout: left = sticky heading block + banner image, right = scrolling content
     return (
       <div className="mx-auto grid max-w-[1300px] items-start gap-8 lg:grid-cols-2">
-        <div className="lg:sticky lg:top-24">
+        {/* min-w-0: WP figures carry inline width:750px — without it the grid track
+            grows to fit and the whole page overflows the phone viewport */}
+        <div className="min-w-0 lg:sticky lg:top-24">
           {cat && <span className="mb-4 pill inline-flex items-center justify-center rounded bg-purple-800 px-3 py-1.5 text-xs font-semibold text-white">{cat.name}</span>}
           <h1 className="border-b-2 border-purple-800 pb-4 text-2xl font-extrabold leading-snug sm:text-3xl" dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
           <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-zinc-600">
@@ -56,7 +58,7 @@ export default async function PostPage({ params }: { params: Params }) {
         </div>
         {/* right: scrolling content */}
         <div
-          className="prose prose-zinc max-w-none leading-relaxed prose-a:text-purple-800 prose-img:rounded-lg break-words [&_*]:max-w-full [&_img]:h-auto"
+          className="prose prose-zinc min-w-0 max-w-none leading-relaxed prose-a:text-purple-800 prose-img:rounded-lg break-words [&_*]:max-w-full [&_img]:h-auto [&_iframe]:aspect-video [&_iframe]:h-auto [&_iframe]:w-full [&_table]:block [&_table]:overflow-x-auto"
           dangerouslySetInnerHTML={{ __html: post.content.rendered }}
         />
       </div>
