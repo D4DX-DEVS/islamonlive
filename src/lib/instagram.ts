@@ -1,6 +1,7 @@
 // Real reels come from Instagram (islam.onlive). Instagram blocks anonymous API access,
 // but the WordPress homepage server-renders the Smash Balloon feed with reel links +
 // signed CDN thumbnails - so we parse them from there. WP refreshes the signed URLs.
+// Batches past the first 10 come from Smash Balloon's own load-more AJAX endpoint.
 export interface Reel {
   id: string;
   url: string;
@@ -8,6 +9,8 @@ export interface Reel {
   /** signed CDN mp4 — plays inline, expires with the feed cache */
   video?: string;
   title?: string;
+  /** unix seconds from the feed's data-date — used to sort newest first */
+  date?: number;
 }
 
 function decode(s: string): string {
@@ -29,13 +32,8 @@ function attr(block: string, name: string): string | null {
   return end < 0 ? null : decode(block.slice(start, end));
 }
 
-export async function getReels(limit = 8): Promise<Reel[]> {
-  const res = await fetch("https://islamonlive.in/", { next: { revalidate: 1800 } });
-  if (!res.ok) return [];
-  const html = await res.text();
-  const out: Reel[] = [];
-  const seen = new Set<string>();
-  // one Smash Balloon item per block — keeps each reel's mp4/caption with its own id
+/** parse Smash Balloon sbi_item blocks out of an HTML fragment */
+function parseReels(html: string, out: Reel[], seen: Set<string>, limit: number): void {
   for (const block of html.split('class="sbi_item').slice(1)) {
     if (out.length >= limit) break;
     const a = block.indexOf("instagram.com/reel/");
@@ -54,8 +52,46 @@ export async function getReels(limit = 8): Promise<Reel[]> {
       url: `https://www.instagram.com/reel/${id}/`,
       thumbnail: "https://" + decode(block.slice(t, tEnd)),
       video: attr(block, "data-video") ?? undefined,
-      title: attr(block, "data-title") ?? undefined,
+      // caption embeds literal <br> tags for line breaks — rendered as plain text, so drop them
+      title: attr(block, "data-title")?.replace(/<br\s*\/?>/gi, " ").replace(/\s+/g, " ").trim() || undefined,
+      date: Number(attr(block, "data-date")) || undefined,
     });
   }
-  return out;
+}
+
+export async function getReels(limit = 8): Promise<Reel[]> {
+  const res = await fetch("https://islamonlive.in/", { next: { revalidate: 1800 } });
+  if (!res.ok) return [];
+  const out: Reel[] = [];
+  const seen = new Set<string>();
+  parseReels(await res.text(), out, seen, limit);
+
+  // homepage widget renders 10; page the rest through Smash Balloon's load-more endpoint
+  // (POST fetches skip the Next data cache — callers' page-level ISR covers it)
+  let offset = out.length;
+  while (out.length < limit && offset > 0) {
+    const more = await fetch("https://islamonlive.in/wp-admin/admin-ajax.php", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        action: "sbi_load_more_clicked",
+        offset: String(offset),
+        page: "1",
+        feed_id: "*1",
+        atts: '{"feed":"1"}',
+        location: "content",
+        post_id: "132642",
+        current_resolution: "full",
+      }),
+    }).catch(() => null);
+    if (!more?.ok) break;
+    const { html } = (await more.json().catch(() => ({ html: "" }))) as { html?: string };
+    if (!html) break;
+    const before = out.length;
+    parseReels(html, out, seen, limit);
+    if (out.length === before) break; // feed exhausted
+    offset += 10;
+  }
+  // newest first, like the Instagram profile
+  return out.sort((a, b) => (b.date ?? 0) - (a.date ?? 0));
 }

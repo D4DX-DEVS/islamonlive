@@ -32,7 +32,8 @@ export default function PodcastPlayer({ episodes, listHeight = 480, spotifyUrl }
   const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [q, setQ] = useState("");
-  const [visible, setVisible] = useState(20);
+  const [page, setPage] = useState(0);
+  const PER_PAGE = 20;
 
   const ep = episodes[idx];
   const filtered = useMemo(
@@ -137,18 +138,18 @@ export default function PodcastPlayer({ episodes, listHeight = 480, spotifyUrl }
       {/* search + track list */}
       <div className="p-4 sm:p-5">
         <input
-          type="search" value={q} onChange={(e) => { setQ(e.target.value); setVisible(20); }} placeholder="Search episodes"
+          type="search" value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} placeholder="Search episodes"
           className="w-full rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#1db954]"
         />
         <div className="mt-2 overflow-y-auto" style={{ maxHeight: listHeight }}>
-          {filtered.slice(0, visible).map(({ e, i }, n) => (
+          {filtered.slice(page * PER_PAGE, (page + 1) * PER_PAGE).map(({ e, i }, n) => (
             <button
               key={e.audioUrl}
               onClick={() => play(i)}
               className={`group flex w-full items-center gap-3 rounded-md px-2 py-2.5 text-left text-sm hover:bg-white/10 ${i === idx ? "text-[#1db954]" : "text-zinc-200"}`}
             >
               <span className="w-7 shrink-0 text-center text-xs text-zinc-500">
-                <span className="group-hover:hidden">{i === idx && playing ? "▮▮" : n + 1}</span>
+                <span className="group-hover:hidden">{i === idx && playing ? "▮▮" : page * PER_PAGE + n + 1}</span>
                 <span className="hidden group-hover:inline">
                   <PlayPauseIcon paused={!(i === idx && playing)} className="mx-auto h-3.5 w-3.5" />
                 </span>
@@ -157,15 +158,28 @@ export default function PodcastPlayer({ episodes, listHeight = 480, spotifyUrl }
               {e.duration && <span className="shrink-0 text-xs text-zinc-500">{e.duration}</span>}
             </button>
           ))}
-          {filtered.length > visible && (
-            <button
-              onClick={() => setVisible(visible + 20)}
-              className="mt-1 w-full rounded-full border border-zinc-700 py-2.5 text-sm font-semibold text-zinc-300 hover:border-white hover:text-white"
-            >
-              Load more ({visible} of {filtered.length})
-            </button>
-          )}
         </div>
+        {filtered.length > PER_PAGE && (
+          <div className="mt-3 flex items-center justify-center gap-4 text-sm text-zinc-300">
+            <button
+              onClick={() => setPage(page - 1)}
+              disabled={page === 0}
+              className="rounded-full border border-zinc-700 px-4 py-1.5 font-semibold hover:border-white hover:text-white disabled:opacity-30 disabled:hover:border-zinc-700"
+            >
+              ← Prev
+            </button>
+            <span className="text-xs text-zinc-500">
+              {page + 1} / {Math.ceil(filtered.length / PER_PAGE)} · {filtered.length} episodes
+            </span>
+            <button
+              onClick={() => setPage(page + 1)}
+              disabled={(page + 1) * PER_PAGE >= filtered.length}
+              className="rounded-full border border-zinc-700 px-4 py-1.5 font-semibold hover:border-white hover:text-white disabled:opacity-30 disabled:hover:border-zinc-700"
+            >
+              Next →
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

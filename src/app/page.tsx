@@ -164,7 +164,7 @@ export default async function Home() {
       {/* 3. Reels — Instagram (fallback: YouTube shorts) */}
       {reelItems.length > 0 && (
         <section className="rounded-xl bg-zinc-100 p-5">
-          <SectionHead title="Reels" href="https://www.instagram.com/islam.onlive/" />
+          <SectionHead title="Reels" href="/reels" />
           {/* 6 latest, one full row — plays in-page in a lightbox */}
           <ReelsLightbox items={reelItems.slice(0, 6)} />
         </section>

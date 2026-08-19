@@ -81,7 +81,13 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
   // ponytail: single boolean drives the shrink — no scroll-linked animation lib
   const [shrunk, setShrunk] = useState(false);
   useEffect(() => {
-    const onScroll = () => setShrunk(window.scrollY > 60);
+    // hysteresis: shrink past 120, expand only under 40 — the gap must exceed the
+    // header's height change (~50px) or shrinking shifts scrollY back across the
+    // threshold and the header oscillates (the "jerk")
+    const onScroll = () => {
+      const y = window.scrollY;
+      setShrunk((prev) => (prev ? y > 40 : y > 120));
+    };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);

@@ -60,6 +60,14 @@ textarea {
   line-height: 1;
 }
 
+/* the sticky header animates its height on shrink; Chrome's scroll anchoring
+   fights that animation by re-adjusting scrollY every frame — visible jerk.
+   Anchoring exists for content inserted above the viewport (ads/images); we
+   don't do that, so losing it costs nothing. */
+html {
+  overflow-anchor: none;
+}
+
 /* hide the scrollbar on swipeable pill rows */
 .scrollbar-none {
   scrollbar-width: none;

@@ -6,7 +6,9 @@ import { useEffect } from "react";
    OneSignal web push (v16). Renders nothing. */
 export default function PwaSetup() {
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
+    // prod only — a dev-registered SW serves stale JS chunks after edits,
+    // which shows up as hydration mismatches against the fresh server HTML
+    if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
 

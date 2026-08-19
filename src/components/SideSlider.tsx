@@ -30,6 +30,7 @@ export default function SideSlider({ slides, interval = 6000, className = "" }: 
               src={sl.img}
               alt=""
               fill
+              priority={n === 0}
               sizes="(max-width: 1024px) 50vw, 25vw"
               className={`object-cover object-top transition-opacity duration-700 ${n === i ? "opacity-100" : "opacity-0"}`}
             />

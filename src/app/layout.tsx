@@ -58,16 +58,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const previews = await navPreviews();
   return (
     <html lang="ml">
-      <body className={`${notoMalayalam.variable} ${anekMalayalam.variable} bg-zinc-50 font-sans text-zinc-900 antialiased`}>
+      <body className={`${notoMalayalam.variable} ${anekMalayalam.variable} bg-zinc-50 font-sans text-zinc-900 antialiased flex min-h-dvh flex-col`}>
         <Header previews={previews} />
         {/* paper masthead — the on-screen <header> is display:none when printing */}
         <div className="hidden print:block print:border-b print:border-zinc-400 print:pb-3 print:text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="islamonlive" className="mx-auto h-10 w-auto" />
         </div>
-        <main className="mx-auto max-w-[1600px] px-3 py-6 sm:px-5">{children}</main>
-        {/* bottom tab bar covers the footer's last rows on phones — pad for it */}
-        <div className="pb-14 md:pb-0 print:hidden">
+        <main className="mx-auto w-full max-w-[1600px] flex-1 px-3 py-6 sm:px-5">{children}</main>
+        {/* bottom tab bar covers the footer's last rows on phones — pad for it (incl. iOS home-bar inset) */}
+        <div className="pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0 print:hidden">
           <Footer />
         </div>
         <MobileTabBar />
