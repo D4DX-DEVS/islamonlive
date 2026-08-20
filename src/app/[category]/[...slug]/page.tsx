@@ -36,8 +36,7 @@ export default async function PostPage({ params }: { params: Params }) {
   const isInfographic = post._embedded?.["wp:term"]?.flat().some((t) => t.taxonomy === "category" && t.slug === "infographics") ?? false;
 
   if (isInfographic) {
-    // side-by-side at every width: left = sticky title/meta (featured image desktop-only —
-    // the content column opens with the same graphic, showing both duplicated it on phones),
+    // side-by-side at every width: left = sticky title/meta + featured image,
     // right = scrolling infographic content
     return (
       <div className="mx-auto grid max-w-[1300px] grid-cols-2 items-start gap-4 sm:gap-6 lg:gap-8">
@@ -54,7 +53,7 @@ export default async function PostPage({ params }: { params: Params }) {
             </span>
           </div>
           {img && (
-            <div className="mt-6 hidden w-full overflow-hidden rounded-2xl bg-zinc-100 ring-1 ring-zinc-200 lg:block">
+            <div className="mt-4 w-full overflow-hidden rounded-xl bg-zinc-100 ring-1 ring-zinc-200 sm:mt-6 sm:rounded-2xl">
               {/* unoptimized: infographic text goes soft through the optimizer's downscale */}
               <Image src={img.url} alt={img.alt} width={1080} height={1350} priority unoptimized className="h-auto w-full" />
             </div>
