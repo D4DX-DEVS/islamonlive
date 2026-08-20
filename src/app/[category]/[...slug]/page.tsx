@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { getPostBySlug, getPosts, featuredImage, author, authorName, primaryCategory, formatDate, stripHtml, WPPost } from "@/lib/wordpress";
+import { getPostBySlug, getPosts, featuredImage, author, authorName, primaryCategory, formatDate, stripHtml, postPath, WPPost } from "@/lib/wordpress";
 import PostCard from "@/components/PostCard";
 import ShareRow from "@/components/ShareRow";
 
@@ -29,28 +29,32 @@ export default async function PostPage({ params }: { params: Params }) {
 
   const img = featuredImage(post);
   const cat = primaryCategory(post);
+  // share this site's own URL, not the WP backend permalink
+  const shareUrl = new URL(postPath(post), "https://islamonlive.in").href;
 
   // infographics get the live-site split layout: content column + sticky banner
   const isInfographic = post._embedded?.["wp:term"]?.flat().some((t) => t.taxonomy === "category" && t.slug === "infographics") ?? false;
 
   if (isInfographic) {
-    // live-site layout: left = sticky heading block + banner image, right = scrolling content
+    // side-by-side at every width: left = sticky title/meta (featured image desktop-only —
+    // the content column opens with the same graphic, showing both duplicated it on phones),
+    // right = scrolling infographic content
     return (
-      <div className="mx-auto grid max-w-[1300px] items-start gap-8 lg:grid-cols-2">
+      <div className="mx-auto grid max-w-[1300px] grid-cols-2 items-start gap-4 sm:gap-6 lg:gap-8">
         {/* min-w-0: WP figures carry inline width:750px — without it the grid track
             grows to fit and the whole page overflows the phone viewport */}
-        <div className="min-w-0 lg:sticky lg:top-24">
-          {cat && <span className="mb-4 pill inline-flex items-center justify-center rounded bg-purple-800 px-3 py-1.5 text-xs font-semibold text-white">{cat.name}</span>}
-          <h1 className="border-b-2 border-purple-800 pb-4 text-2xl font-extrabold leading-snug sm:text-3xl" dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
-          <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-zinc-600">
+        <div className="sticky top-2 min-w-0 lg:top-24">
+          {cat && <span className="mb-3 pill inline-flex items-center justify-center rounded bg-purple-800 px-2 py-1 text-[10px] font-semibold text-white sm:mb-4 sm:px-3 sm:py-1.5 sm:text-xs">{cat.name}</span>}
+          <h1 className="border-b-2 border-purple-800 pb-3 text-base font-extrabold leading-snug sm:pb-4 sm:text-2xl lg:text-3xl" dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-zinc-600 sm:mt-4 sm:gap-3 sm:text-sm">
             {authorName(post) && <span className="font-medium">{authorName(post)}</span>}
             <time className="border-l border-zinc-300 pl-3">{formatDate(post.date)}</time>
             <span className="ml-auto">
-              <ShareRow url={post.link} title={stripHtml(post.title.rendered)} />
+              <ShareRow url={shareUrl} title={stripHtml(post.title.rendered)} />
             </span>
           </div>
           {img && (
-            <div className="mt-6 w-full overflow-hidden rounded-2xl bg-zinc-100 ring-1 ring-zinc-200">
+            <div className="mt-6 hidden w-full overflow-hidden rounded-2xl bg-zinc-100 ring-1 ring-zinc-200 lg:block">
               {/* unoptimized: infographic text goes soft through the optimizer's downscale */}
               <Image src={img.url} alt={img.alt} width={1080} height={1350} priority unoptimized className="h-auto w-full" />
             </div>
@@ -58,7 +62,7 @@ export default async function PostPage({ params }: { params: Params }) {
         </div>
         {/* right: scrolling content */}
         <div
-          className="prose prose-zinc min-w-0 max-w-none leading-relaxed prose-a:text-purple-800 prose-img:rounded-lg break-words [&_*]:max-w-full [&_img]:h-auto [&_iframe]:aspect-video [&_iframe]:h-auto [&_iframe]:w-full [&_table]:block [&_table]:overflow-x-auto"
+          className="prose prose-zinc min-w-0 max-w-none text-sm leading-relaxed prose-a:text-purple-800 prose-img:rounded-lg break-words sm:text-base [&_*]:max-w-full [&_img]:h-auto [&_iframe]:aspect-video [&_iframe]:h-auto [&_iframe]:w-full [&_table]:block [&_table]:overflow-x-auto"
           dangerouslySetInnerHTML={{ __html: post.content.rendered }}
         />
       </div>
@@ -90,7 +94,7 @@ export default async function PostPage({ params }: { params: Params }) {
           <time className="shrink-0">{formatDate(post.date)}</time>
         </span>
         <span className="sm:ml-auto">
-          <ShareRow url={post.link} title={stripHtml(post.title.rendered)} />
+          <ShareRow url={shareUrl} title={stripHtml(post.title.rendered)} />
         </span>
       </div>
       {img && (

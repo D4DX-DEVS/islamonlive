@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { SOCIAL, SocialIcon } from "@/components/social";
@@ -80,6 +81,8 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
   const today = new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
   // ponytail: single boolean drives the shrink — no scroll-linked animation lib
   const [shrunk, setShrunk] = useState(false);
+  // phones: header only on the home page — inner pages keep just the bottom tab bar
+  const isHome = usePathname() === "/";
   useEffect(() => {
     // hysteresis: shrink past 120, expand only under 40 — the gap must exceed the
     // header's height change (~50px) or shrinking shifts scrollY back across the
@@ -97,17 +100,18 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
     // phones: brand-purple rule under the header (desktop gets the purple nav bar instead)
     // pt-safe: in the installed PWA (viewport-fit=cover) the page draws under the
     // status bar — without it, scrolled content shows through above the header
-    <header className="sticky top-0 z-50 border-b-2 border-purple-800 bg-white pt-[env(safe-area-inset-top)] shadow md:border-b-0">
+    <header className={`sticky top-0 z-50 border-b-2 border-purple-800 bg-white pt-[env(safe-area-inset-top)] shadow-md md:border-b-0 ${isHome ? "" : "hidden md:block"}`}>
       {/* top bar: date | centered logo | socials + search + support — mirrors live site */}
       <div className={`mx-auto grid max-w-[1600px] grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 transition-[padding] duration-300 sm:px-5 ${shrunk ? "py-1.5" : "py-2 sm:py-3"}`}>
         {/* the date is display:none on mobile, so pin the logo to the middle column
             explicitly — otherwise it collapses into the first track and sits left */}
         <time suppressHydrationWarning className="hidden text-xs text-zinc-500 sm:block">{today}</time>
-        <Link href="/" className="col-start-2 justify-self-center">
+        {/* phones: logo left; desktop keeps it centred */}
+        <Link href="/" className="col-start-1 justify-self-start sm:col-start-2 sm:justify-self-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="islamonlive" className={`w-auto transition-all duration-300 ${shrunk ? "h-9" : "h-12 sm:h-16"}`} />
         </Link>
-        <div className="flex items-center justify-end gap-3">
+        <div className="col-start-3 flex items-center justify-end gap-3">
           <div className="hidden items-center gap-3 text-zinc-500 lg:flex">
             {SOCIAL.map((s) => (
               <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label} title={s.label} className="hover:text-purple-800">
@@ -115,7 +119,8 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
               </a>
             ))}
           </div>
-          <form action="/search" className="relative hidden items-center md:flex">
+          {/* visible on phones too — field with icon, left of the Support chip */}
+          <form action="/search" className="relative flex items-center">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
               className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400">
               <circle cx="11" cy="11" r="7" />
@@ -123,7 +128,7 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
             </svg>
             <input
               type="search" name="q" placeholder="Search…" aria-label="Search"
-              className="h-7 w-28 rounded-full border border-zinc-300 py-0 pl-8 pr-3 text-xs leading-none outline-none transition-[width] [font-family:system-ui,sans-serif] focus:w-48 focus:border-purple-700"
+              className="h-7 w-24 rounded-full border border-zinc-300 py-0 pl-8 pr-3 text-xs leading-none outline-none transition-[width] [font-family:system-ui,sans-serif] focus:w-36 focus:border-purple-700 sm:w-28 sm:focus:w-48"
             />
           </form>
           {/* compact heart chip on phones, full pill on ≥sm — the app-header donate pattern */}

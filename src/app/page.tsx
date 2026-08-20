@@ -154,9 +154,19 @@ export default async function Home() {
         </section>
       )}
 
-      {/* 2b. Promo banner — Elementor image widget pulled from the WP homepage */}
+      {/* Editor's Picks — phones only: thumbnail slider right after Watch (desktop keeps the sidebar list) */}
+      <section className="lg:hidden">
+        <SectionHead title="Editor's Picks" href="/category/news" />
+        <div className="scrollbar-none flex gap-4 overflow-x-auto">
+          {latest.slice(11, 16).map((p) => (
+            <OverlayCard key={p.id} item={toItem(p)} className="aspect-[16/10] w-64 flex-none" />
+          ))}
+        </div>
+      </section>
+
+      {/* 2b. Promo banner — Elementor image widget pulled from the WP homepage. Hidden on phones. */}
       {banners.map((b) => (
-        <a key={b.img} href={b.href} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-xl">
+        <a key={b.img} href={b.href} target="_blank" rel="noopener noreferrer" className="hidden overflow-hidden rounded-xl md:block">
           <Image src={b.img} alt={b.alt} width={b.width} height={b.height} sizes="100vw" className="h-auto w-full" />
         </a>
       ))}
@@ -174,12 +184,12 @@ export default async function Home() {
       {infographics.length > 0 && (
         <section>
           <SectionHead title="Infographics" href="/category/infographics" />
-          {/* 6 fills the 2- and 3-column rows evenly; the 5-wide desktop row drops the last one */}
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5 lg:[&>*:nth-child(6)]:hidden">
+          {/* phones: horizontal slider; ≥sm: grid (5-wide desktop row drops the 6th) */}
+          <div className="scrollbar-none flex gap-4 overflow-x-auto sm:grid sm:grid-cols-3 lg:grid-cols-5 lg:[&>*:nth-child(6)]:hidden">
             {infographics.map((p) => {
               const img = featuredImage(p);
               return (
-                <Link key={p.id} href={postPath(p)} className="group">
+                <Link key={p.id} href={postPath(p)} className="group w-40 flex-none sm:w-auto">
                   {/* ring, not a plain bg — light-background infographics need an edge to read against the page */}
                   <div className="relative aspect-[4/5] w-full overflow-hidden rounded-lg bg-zinc-100 shadow-sm ring-1 ring-inset ring-zinc-900/10 transition group-hover:shadow-md group-hover:ring-purple-300">
                     {img && <Image src={img.url} alt="" fill sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw" className="object-cover transition group-hover:scale-105" />}
@@ -212,7 +222,10 @@ export default async function Home() {
         </div>
 
         <div className="flex min-w-0 flex-col justify-between gap-10">
-          <SideList title="Editor's Picks" href="/category/news" posts={latest.slice(11, 16)} />
+          {/* phones get the slider version after Watch instead */}
+          <div className="hidden lg:block">
+            <SideList title="Editor's Picks" href="/category/news" posts={latest.slice(11, 16)} />
+          </div>
           <SideList title="Columns" href="/category/columns" posts={columns} featured />
           <SideList title="Shari'a" href="/category/shariah" posts={shariah.slice(0, 4)} featured />
         </div>

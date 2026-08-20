@@ -4,8 +4,8 @@ import { SOCIAL, SocialIcon } from "@/components/social";
 export default function Footer() {
   return (
     <footer className="mt-4 bg-purple-950 text-purple-200">
-      {/* phones: logo + tagline only — the full link columns made the footer half the page */}
-      <div className="mx-auto grid max-w-[1600px] grid-cols-2 gap-x-6 gap-y-8 px-4 py-6 md:grid-cols-4 md:py-10">
+      {/* phones: whole top block hidden — mobile footer is just the tiny credit bar below */}
+      <div className="mx-auto hidden max-w-[1600px] grid-cols-2 gap-x-6 gap-y-8 px-4 py-6 md:grid md:grid-cols-4 md:py-10">
         <div className="col-span-2 md:col-span-1">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-white.png" alt="islamonlive" className="h-10 w-auto" />
@@ -38,10 +38,15 @@ export default function Footer() {
           <p className="text-sm">+91 9895 944 006</p>
         </div>
       </div>
-      <div className="bg-black py-4">
-        <div className="mx-auto flex max-w-[1600px] flex-col items-center justify-between gap-3 px-4 text-xs text-zinc-400 sm:flex-row">
-          <p>© {new Date().getFullYear()} Islamonlive | All Rights Reserved | Powered by D4DX</p>
-          <div className="flex gap-4">
+      <div className="bg-black py-2 md:py-4">
+        <div className="mx-auto flex max-w-[1600px] flex-col items-center justify-between gap-3 px-4 text-[11px] text-zinc-400 sm:flex-row md:text-xs">
+          <p>
+            © {new Date().getFullYear()} Islamonlive
+            <span className="hidden md:inline"> | All Rights Reserved</span>
+            {" "}| Powered by{" "}
+            <a href="https://www.d4dx.co" target="_blank" rel="noopener noreferrer" className="font-semibold hover:text-white">D4DX</a>
+          </p>
+          <div className="hidden gap-4 md:flex">
             {SOCIAL.map((s) => (
               <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label} className="hover:text-white">
                 <SocialIcon path={s.path} size={14} />

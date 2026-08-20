@@ -13,10 +13,25 @@ export default function ShareRow({ url, title }: { url: string; title: string })
   ];
   const btn = "flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100 text-zinc-600 transition hover:bg-purple-800 hover:text-white";
 
+  // phones: one native share sheet — the OS picker chooses the app. Fallback: copy link.
+  const nativeShare = async () => {
+    try {
+      if (navigator.share) await navigator.share({ title, url });
+      else await navigator.clipboard.writeText(url);
+    } catch {
+      /* user dismissed the sheet */
+    }
+  };
+
   return (
     <div className="flex items-center gap-2 print:hidden">
+      <button type="button" onClick={nativeShare} aria-label="Share" title="Share" className={`${btn} sm:hidden`}>
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="h-[18px] w-[18px]">
+          <path d="M12 2.6 16.2 6.8l-1.4 1.4-1.8-1.8V15h-2V6.4L9.2 8.2 7.8 6.8 12 2.6ZM5 10h4v2H7v8h10v-8h-2v-2h4v12H5V10Z" />
+        </svg>
+      </button>
       {links.map((s) => (
-        <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label} title={s.label} className={btn}>
+        <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label} title={s.label} className={`${btn} hidden sm:flex`}>
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="h-[18px] w-[18px]"><path d={s.d} /></svg>
         </a>
       ))}

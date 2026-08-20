@@ -20,8 +20,8 @@ export default function SectionTabs({
     <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-l-4 border-purple-800 pl-3 pr-2">
       <h2 className="text-xl font-extrabold text-zinc-900">{title}</h2>
       {/* pushed right of the title, like the live site's section menus */}
-      {/* phones: one swipeable row under the title, never a vertical stack */}
-      <div className="scrollbar-none -mx-1 order-last flex w-full flex-nowrap items-center gap-1 overflow-x-auto px-1 sm:order-none sm:w-auto sm:flex-1 sm:flex-wrap sm:justify-center sm:gap-2">
+      {/* phones: pills hidden — title + "See all" only */}
+      <div className="scrollbar-none hidden flex-1 flex-wrap items-center justify-center gap-2 sm:flex">
         {labels.map((label, n) => (
           <button
             key={label}
@@ -36,7 +36,7 @@ export default function SectionTabs({
           </button>
         ))}
       </div>
-      <Link href={href} className="text-sm font-medium text-purple-800 hover:underline">
+      <Link href={href} className="ml-auto text-sm font-medium text-purple-800 hover:underline sm:ml-0">
         See all →
       </Link>
     </div>

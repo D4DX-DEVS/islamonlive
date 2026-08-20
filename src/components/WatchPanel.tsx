@@ -33,12 +33,13 @@ export default function WatchPanel({ videos }: { videos: YTVideo[] }) {
         <p className="border-b border-zinc-700 pb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
           Our Videos <span className="text-zinc-500">· {videos.length} videos</span>
         </p>
-        {rest.map(({ v, i }) => (
+        {rest.map(({ v, i }, n) => (
           <button
             key={v.id}
             type="button"
             onClick={() => { setActive(i); setPicked(true); }}
-            className="group flex min-h-0 flex-1 items-center gap-3 rounded-lg p-2 text-left transition hover:bg-purple-900/50"
+            // phones show only the first 2 suggestions
+            className={`group min-h-0 flex-1 items-center gap-3 rounded-lg p-2 text-left transition hover:bg-purple-900/50 ${n >= 2 ? "hidden lg:flex" : "flex"}`}
           >
             <div className="relative aspect-video w-32 shrink-0 self-stretch overflow-hidden rounded-lg bg-zinc-800 sm:w-36">
               <Image src={v.thumbnail} alt="" fill sizes="144px" className="object-cover transition duration-500 group-hover:scale-105" />

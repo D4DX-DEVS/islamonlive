@@ -110,9 +110,9 @@ export default function PodcastPlayer({ episodes, listHeight = 480, spotifyUrl }
           <span className="w-10 text-right">{ep.duration || fmt(duration)}</span>
         </div>
 
-        {/* transport */}
-        <div className="mt-3 flex items-center justify-center gap-4 sm:gap-5">
-          <button aria-label="Playback speed" onClick={cycleRate} className="w-10 rounded-full border border-zinc-600 px-2 py-1 text-xs text-zinc-300 hover:border-white hover:text-white">{rate}x</button>
+        {/* transport — rate/Spotify pinned to the edges so the play cluster stays dead centre */}
+        <div className="relative mt-3 flex items-center justify-center gap-4 sm:gap-5">
+          <button aria-label="Playback speed" onClick={cycleRate} className="absolute left-0 w-10 rounded-full border border-zinc-600 px-2 py-1 text-xs text-zinc-300 hover:border-white hover:text-white">{rate}x</button>
           <button aria-label="Previous" onClick={() => idx > 0 && play(idx - 1)} className="text-xl text-zinc-300 hover:text-white">⏮</button>
           <button aria-label="Back 10s" onClick={() => skip(-10)} className="text-xs text-zinc-300 hover:text-white">-10s</button>
           <button
@@ -126,7 +126,7 @@ export default function PodcastPlayer({ episodes, listHeight = 480, spotifyUrl }
           <button aria-label="Next" onClick={() => idx < episodes.length - 1 && play(idx + 1)} className="text-xl text-zinc-300 hover:text-white">⏭</button>
           {spotifyUrl && (
             <a href={spotifyUrl} target="_blank" rel="noopener noreferrer" aria-label="Open in Spotify" title="Open in Spotify"
-               className="hidden text-zinc-300 hover:text-[#1db954] sm:block">
+               className="absolute right-0 hidden text-zinc-300 hover:text-[#1db954] sm:block">
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="h-6 w-6">
                 <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm4.6 14.5a.62.62 0 0 1-.86.2c-2.36-1.44-5.33-1.76-8.82-.96a.62.62 0 1 1-.28-1.21c3.82-.88 7.1-.5 9.75 1.11.3.18.39.57.21.86Zm1.23-2.73a.78.78 0 0 1-1.07.26c-2.7-1.66-6.82-2.14-10.01-1.17a.78.78 0 1 1-.45-1.49c3.65-1.11 8.19-.57 11.27 1.33.37.22.48.7.26 1.07Zm.1-2.85C14.7 9 9.35 8.82 6.26 9.76a.93.93 0 1 1-.54-1.79c3.55-1.07 9.44-.86 13.16 1.35a.93.93 0 0 1-.95 1.6Z" />
               </svg>
@@ -154,7 +154,8 @@ export default function PodcastPlayer({ episodes, listHeight = 480, spotifyUrl }
                   <PlayPauseIcon paused={!(i === idx && playing)} className="mx-auto h-3.5 w-3.5" />
                 </span>
               </span>
-              <span className={`line-clamp-1 flex-1 ${i === idx ? "font-semibold" : ""}`}>{e.title}</span>
+              {/* full label on phones too — wrap to a 2nd line instead of clipping */}
+              <span className={`line-clamp-2 flex-1 leading-snug ${i === idx ? "font-semibold" : ""}`}>{e.title}</span>
               {e.duration && <span className="shrink-0 text-xs text-zinc-500">{e.duration}</span>}
             </button>
           ))}
