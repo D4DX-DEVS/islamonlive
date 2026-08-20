@@ -119,8 +119,16 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
               </a>
             ))}
           </div>
-          {/* visible on phones too — field with icon, left of the Support chip */}
-          <form action="/search" className="relative flex items-center">
+          {/* phones: field is a tap-through to the search page — no inline typing */}
+          <Link href="/search" aria-label="Search" className="flex h-7 w-24 items-center gap-2 rounded-full border border-zinc-300 pl-2.5 text-xs text-zinc-400 md:hidden">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden className="h-3.5 w-3.5">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m21 21-4.35-4.35" />
+            </svg>
+            Search…
+          </Link>
+          {/* desktop: real inline search field */}
+          <form action="/search" className="relative hidden items-center md:flex">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
               className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400">
               <circle cx="11" cy="11" r="7" />
