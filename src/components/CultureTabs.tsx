@@ -27,7 +27,8 @@ export default function CultureTabs({ title, tabs }: { title: string; tabs: Tab[
         {cols.map((col, n) => {
           const [first, ...rest] = col;
           return (
-            <div key={n}>
+            // phones: only first column visible, rows capped below — 4 posts max per section
+            <div key={n} className={n > 0 ? "hidden sm:block" : undefined}>
               {/* the two columns stack on phones, so a hero per column reads as the
                   section repeating itself — only the first keeps its big card */}
               {n === 0 ? (
@@ -42,7 +43,11 @@ export default function CultureTabs({ title, tabs }: { title: string; tabs: Tab[
               )}
               {rest.length > 0 && (
                 <div className="mt-3 space-y-3">
-                  {rest.map((p) => <ListRow key={p.href} item={p} />)}
+                  {rest.map((p, i) => (
+                    <div key={p.href} className={i >= 3 ? "hidden sm:block" : undefined}>
+                      <ListRow item={p} />
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

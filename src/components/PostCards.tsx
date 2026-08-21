@@ -46,7 +46,8 @@ export function ListRow({ item, thumb = true }: { item: PostItem; thumb?: boolea
         </div>
       )}
       <div className="min-w-0">
-        <h3 className="line-clamp-2 min-h-[2.75em] text-[15px] font-bold leading-snug group-hover:text-purple-800" dangerouslySetInnerHTML={{ __html: item.title }} />
+        {/* phones: 3 lines so long Malayalam titles fit; desktop rows stay 2 */}
+        <h3 className="line-clamp-3 min-h-[2.75em] text-[15px] font-bold leading-snug group-hover:text-purple-800 sm:line-clamp-2" dangerouslySetInnerHTML={{ __html: item.title }} />
         <Byline className="mt-1.5" name={item.author} avatar={item.authorAvatar} date={item.date} />
       </div>
     </Link>
