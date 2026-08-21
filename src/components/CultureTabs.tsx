@@ -23,12 +23,23 @@ export default function CultureTabs({ title, tabs }: { title: string; tabs: Tab[
   return (
     <section>
       <SectionTabs title={title} labels={tabs.map((t) => t.label)} active={active} onSelect={setActive} href={tab.href} />
-      <div className={`grid gap-x-8 gap-y-6 [&>*]:min-w-0 ${cols.length > 1 ? "sm:grid-cols-2" : ""}`}>
+      <div className={`grid gap-x-8 gap-y-3 [&>*]:min-w-0 sm:gap-y-6 ${cols.length > 1 ? "sm:grid-cols-2" : ""}`}>
         {cols.map((col, n) => {
           const [first, ...rest] = col;
           return (
             <div key={n}>
-              <OverlayCard item={first} className="aspect-[16/10]" />
+              {/* the two columns stack on phones, so a hero per column reads as the
+                  section repeating itself — only the first keeps its big card */}
+              {n === 0 ? (
+                <OverlayCard item={first} className="aspect-[16/10]" />
+              ) : (
+                <>
+                  <OverlayCard item={first} className="hidden aspect-[16/10] sm:block" />
+                  <div className="sm:hidden">
+                    <ListRow item={first} />
+                  </div>
+                </>
+              )}
               {rest.length > 0 && (
                 <div className="mt-3 space-y-3">
                   {rest.map((p) => <ListRow key={p.href} item={p} />)}

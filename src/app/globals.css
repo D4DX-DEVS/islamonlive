@@ -68,6 +68,20 @@ html {
   overflow-anchor: none;
 }
 
+/* iOS/Android paint a grey flash on every tap; components declare their own
+   active: states instead, which read as intentional rather than as lag. */
+a,
+button,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* indeterminate progress sweep under the search field */
+@keyframes searchbar {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
 /* hide the scrollbar on swipeable pill rows */
 .scrollbar-none {
   scrollbar-width: none;

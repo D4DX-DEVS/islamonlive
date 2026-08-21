@@ -4,19 +4,19 @@ import { Skel, SkelSectionHead, SkelListRow } from "@/components/Skeleton";
    then the two-column flow (Opinion / Listen / Culture + right rail) */
 export default function Loading() {
   return (
-    <div className="space-y-10">
+    <div className="space-y-8 sm:space-y-12">
       {/* hero: slider + two stacked cards */}
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 sm:gap-5 lg:grid-cols-3">
         <Skel className="aspect-[16/9] rounded-xl lg:col-span-2 lg:aspect-auto" />
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-1 lg:grid-rows-2">
+        <div className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-1 lg:grid-rows-2">
           <Skel className="aspect-[4/5] rounded-xl sm:aspect-[16/10] lg:aspect-auto" />
           <Skel className="aspect-[4/5] rounded-xl sm:aspect-[16/10] lg:aspect-auto" />
         </div>
       </div>
 
       {/* watch: player + list (light band; real section is dark but a black skeleton reads as broken) */}
-      <div className="rounded-xl bg-zinc-100 p-5">
-        <Skel className="mb-4 h-6 w-28" />
+      <div className="rounded-2xl bg-zinc-100 p-4 sm:rounded-xl sm:p-6">
+        <Skel className="mb-3 h-6 w-28 sm:mb-4" />
         <div className="grid gap-4 lg:grid-cols-3">
           <Skel className="aspect-video rounded-lg lg:col-span-2" />
           <div className="space-y-3">
@@ -31,8 +31,8 @@ export default function Loading() {
       </div>
 
       {/* reels */}
-      <div className="rounded-xl bg-zinc-100 p-5">
-        <Skel className="mb-4 h-6 w-24" />
+      <div className="rounded-2xl bg-zinc-100 p-4 sm:rounded-xl sm:p-6">
+        <Skel className="mb-3 h-6 w-24 sm:mb-4" />
         <div className="grid grid-cols-3 gap-4 lg:grid-cols-6">
           {Array.from({ length: 6 }, (_, i) => <Skel key={i} className="aspect-[9/16] rounded-lg" />)}
         </div>
@@ -52,8 +52,8 @@ export default function Loading() {
         </div>
       </div>
 
-      <div className="grid items-start gap-8 lg:grid-cols-3">
-        <div className="space-y-10 lg:col-span-2">
+      <div className="grid items-start gap-8 lg:grid-cols-3 lg:gap-10">
+        <div className="space-y-8 sm:space-y-10 lg:col-span-2 lg:space-y-12">
           {/* Opinion: image + headline, then 2x2 cards */}
           <div>
             <SkelSectionHead tabs={4} />
@@ -82,10 +82,11 @@ export default function Loading() {
           {/* Culture: two columns of overlay card + list */}
           <div>
             <SkelSectionHead tabs={4} />
-            <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
+            <div className="grid gap-x-8 gap-y-3 sm:grid-cols-2 sm:gap-y-6">
               {Array.from({ length: 2 }, (_, c) => (
                 <div key={c}>
-                  <Skel className="aspect-[16/10] w-full rounded-xl" />
+                  <Skel className={`aspect-[16/10] w-full rounded-xl ${c > 0 ? "hidden sm:block" : ""}`} />
+                  {c > 0 && <div className="sm:hidden"><SkelListRow /></div>}
                   <div className="mt-3 space-y-3">
                     {Array.from({ length: 3 }, (_, i) => <SkelListRow key={i} />)}
                   </div>
@@ -96,7 +97,7 @@ export default function Loading() {
         </div>
 
         {/* right rail: Editor's Picks, Columns, Shari'a */}
-        <div className="space-y-10">
+        <div className="space-y-8 sm:space-y-10 lg:space-y-12">
           {Array.from({ length: 3 }, (_, s) => (
             <div key={s}>
               <SkelSectionHead />

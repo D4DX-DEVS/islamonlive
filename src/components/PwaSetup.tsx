@@ -26,6 +26,10 @@ export default function PwaSetup() {
       OneSignal.init({
         appId,
         serviceWorkerPath: "OneSignalSDKWorker.js",
+        // narrow scope so OneSignal's worker coexists with /sw.js — two workers
+        // registered at "/" fight over the scope and the loser stops controlling
+        // the page (push silently dies, or the offline shell does)
+        serviceWorkerParam: { scope: "/push/onesignal/" },
         allowLocalhostAsSecureOrigin: true,
       }).catch(() => {});
     });

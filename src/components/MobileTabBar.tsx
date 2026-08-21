@@ -1,13 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 // links the tab bar doesn't carry — shown in the Menu drop-up
 const MENU = [
   { label: "Infographics", href: "/category/infographics" },
-  { label: "Hajj & Umrah", href: "https://hajj.islamonlive.in/", external: true },
   { label: "About Us", href: "/about" },
   { label: "Contact Us", href: "/contact" },
   { label: "Privacy Policy", href: "/privacy-policy" },
@@ -45,7 +44,42 @@ const TABS = [
 /* app-style bottom navigation, phones only */
 export default function MobileTabBar() {
   const pathname = usePathname();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const router = useRouter();
+  // the panel is open only for the route it was opened on, so navigating anywhere
+  // closes it for free — an effect that reset a boolean on pathname change would
+  // cost an extra render (and trip react-hooks/set-state-in-effect)
+  const [openedOn, setOpenedOn] = useState<string | null>(null);
+  const menuOpen = openedOn === pathname;
+
+  /* Android back should close the panel, not leave the site, so opening pushes a
+     throwaway history entry. Everything that closes the panel unwinds that entry
+     first — navigating on top of it would leave a duplicate the user has to back
+     through twice. */
+  const close = useCallback(
+    (href?: string) => {
+      setOpenedOn(null);
+      if (!history.state?.iolMenu) {
+        if (href) router.push(href);
+        return;
+      }
+      const after = () => {
+        window.removeEventListener("popstate", after);
+        if (href) router.push(href);
+      };
+      window.addEventListener("popstate", after);
+      history.back();
+    },
+    [router]
+  );
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    history.pushState({ ...history.state, iolMenu: true }, "");
+    const onPop = () => setOpenedOn(null);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [menuOpen]);
+
   const active = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href.split("/").slice(0, 2).join("/"));
 
@@ -54,30 +88,43 @@ export default function MobileTabBar() {
       aria-label="Bottom navigation"
       className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 border-t border-purple-900 bg-purple-950 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_12px_rgba(0,0,0,0.25)] md:hidden print:hidden"
     >
+      {/* tap-anywhere-else dismissal. First child so it paints under the panel and
+          the tabs; it stops at the bar so the bar itself stays un-dimmed. */}
+      {menuOpen && (
+        <div
+          aria-hidden
+          onClick={() => close()}
+          className="fixed inset-x-0 top-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] bg-black/40"
+        />
+      )}
       {/* drop-up menu panel, sits on top of the bar */}
       {menuOpen && (
         <div
           className="absolute inset-x-0 bottom-full border-t border-purple-900 bg-purple-950 px-4 py-1 shadow-[0_-4px_12px_rgba(0,0,0,0.25)]"
-          onClick={() => setMenuOpen(false)}
         >
-          {MENU.map((m) =>
-            m.external ? (
-              <a key={m.href} href={m.href} target="_blank" rel="noopener noreferrer" className="block border-b border-purple-900/60 py-2.5 text-sm font-medium text-purple-100 last:border-0">
-                {m.label}
-              </a>
-            ) : (
-              <Link key={m.href} href={m.href} className="block border-b border-purple-900/60 py-2.5 text-sm font-medium text-purple-100 last:border-0">
-                {m.label}
-              </Link>
-            )
-          )}
+          {MENU.map((m) => (
+            <Link
+              key={m.href}
+              href={m.href}
+              onClick={(e) => {
+                e.preventDefault();
+                close(m.href);
+              }}
+              className="block touch-manipulation border-b border-purple-900/60 py-3 text-sm font-medium text-purple-100 transition-colors last:border-0 active:bg-purple-900 active:text-white"
+            >
+              {m.label}
+            </Link>
+          ))}
         </div>
       )}
       {TABS.map((t) => (
         <Link
           key={t.href}
           href={t.href}
-          className={`relative flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-medium ${
+          // with the panel open, route through close() so its history entry is
+          // unwound before the push — otherwise back lands on a phantom entry
+          onClick={menuOpen ? (e) => { e.preventDefault(); close(t.href); } : undefined}
+          className={`relative flex min-h-14 touch-manipulation flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors active:bg-purple-900 ${
             active(t.href) ? "text-white" : "text-purple-300"
           }`}
         >
@@ -92,8 +139,8 @@ export default function MobileTabBar() {
         type="button"
         aria-label="Menu"
         aria-expanded={menuOpen}
-        onClick={() => setMenuOpen((v) => !v)}
-        className={`relative flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-medium ${menuOpen ? "text-white" : "text-purple-300"}`}
+        onClick={() => (menuOpen ? close() : setOpenedOn(pathname))}
+        className={`relative flex min-h-14 touch-manipulation flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors active:bg-purple-900 ${menuOpen ? "text-white" : "text-purple-300"}`}
       >
         {menuOpen && <span aria-hidden className="absolute top-0 h-0.5 w-8 rounded-full bg-purple-400" />}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="h-5 w-5">

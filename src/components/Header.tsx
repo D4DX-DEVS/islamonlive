@@ -119,13 +119,18 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
               </a>
             ))}
           </div>
-          {/* phones: field is a tap-through to the search page — no inline typing */}
-          <Link href="/search" aria-label="Search" className="flex h-7 w-24 items-center gap-2 rounded-full border border-zinc-300 pl-2.5 text-xs text-zinc-400 md:hidden">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden className="h-3.5 w-3.5">
+          {/* phones: icon only, straight to the search page — the dummy field read as
+              a real input and swallowed the first tap while the page loaded */}
+          <Link
+            href="/search"
+            prefetch
+            aria-label="Search"
+            className="flex h-9 w-9 touch-manipulation items-center justify-center rounded-full text-zinc-600 transition-colors active:bg-purple-100 active:text-purple-800 md:hidden"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden className="h-5 w-5">
               <circle cx="11" cy="11" r="7" />
               <path d="m21 21-4.35-4.35" />
             </svg>
-            Search…
           </Link>
           {/* desktop: real inline search field */}
           <form action="/search" className="relative hidden items-center md:flex">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 
 export interface ReelItem {
@@ -19,6 +19,12 @@ export default function ReelsLightbox({ items, grid = false }: { items: ReelItem
   const [open, setOpen] = useState<number | null>(null);
   const [active, setActive] = useState(0);
   const feedRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const jump = useCallback((n: number) => {
+    const i = Math.max(0, Math.min(items.length - 1, n));
+    feedRef.current?.children[i]?.scrollIntoView({ behavior: "smooth" });
+  }, [items.length]);
 
   // lock page scroll + Esc to close while the feed is open
   useEffect(() => {
@@ -51,6 +57,29 @@ export default function ReelsLightbox({ items, grid = false }: { items: ReelItem
     Array.from(feed.children).forEach((c) => io.observe(c));
     return () => io.disconnect();
   }, [open]);
+
+  /* Screen-off playback: the OS only keeps media alive for a tab that owns a
+     media session, so publish one for the on-screen mp4 (Instagram feed items).
+     YouTube-hosted reels play in an iframe and YouTube blocks background
+     playback there — nothing this side can change that. */
+  useEffect(() => {
+    const ms = typeof navigator !== "undefined" ? navigator.mediaSession : undefined;
+    const item = open === null ? null : items[active];
+    if (!ms || !item?.video) return;
+    ms.metadata = new MediaMetadata({
+      title: item.title || "Reel",
+      artist: "Islam Onlive",
+      artwork: [{ src: item.thumbnail, sizes: "512x512" }],
+    });
+    const handlers: [MediaSessionAction, MediaSessionActionHandler][] = [
+      ["play", () => videoRef.current?.play().catch(() => {})],
+      ["pause", () => videoRef.current?.pause()],
+      ["previoustrack", () => jump(active - 1)],
+      ["nexttrack", () => jump(active + 1)],
+    ];
+    for (const [a, h] of handlers) { try { ms.setActionHandler(a, h); } catch {} }
+    return () => { for (const [a] of handlers) { try { ms.setActionHandler(a, null); } catch {} } };
+  }, [open, active, items, jump]);
 
   return (
     <>
@@ -107,11 +136,14 @@ export default function ReelsLightbox({ items, grid = false }: { items: ReelItem
                   ) : r.video ? (
                     <video
                       key={r.id}
+                      ref={videoRef}
                       src={r.video}
                       poster={r.thumbnail}
                       controls
                       autoPlay
+                      loop
                       playsInline
+                      preload="auto"
                       className="h-full w-full object-contain"
                     />
                   ) : (
@@ -142,9 +174,9 @@ export default function ReelsLightbox({ items, grid = false }: { items: ReelItem
 
           {/* desktop convenience arrows; phones swipe */}
           <div className="absolute bottom-4 right-3 z-10 hidden flex-col gap-2 sm:flex">
-            <button type="button" aria-label="Previous reel" onClick={() => feedRef.current?.children[Math.max(0, active - 1)]?.scrollIntoView({ behavior: "smooth" })}
+            <button type="button" aria-label="Previous reel" onClick={() => jump(active - 1)}
               className="rounded-full bg-white/10 p-2 text-white backdrop-blur-sm hover:bg-white/25">▲</button>
-            <button type="button" aria-label="Next reel" onClick={() => feedRef.current?.children[Math.min(items.length - 1, active + 1)]?.scrollIntoView({ behavior: "smooth" })}
+            <button type="button" aria-label="Next reel" onClick={() => jump(active + 1)}
               className="rounded-full bg-white/10 p-2 text-white backdrop-blur-sm hover:bg-white/25">▼</button>
           </div>
         </div>

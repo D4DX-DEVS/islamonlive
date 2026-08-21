@@ -43,7 +43,7 @@ const CULTURE_SUBS = [
 
 function SectionHead({ title, href, light = false }: { title: string; href?: string; light?: boolean }) {
   return (
-    <div className={`mb-4 flex items-center justify-between border-l-4 pl-3 pr-2 ${light ? "border-purple-500" : "border-purple-800"}`}>
+    <div className={`mb-3 flex items-center justify-between border-l-4 pl-3 pr-2 sm:mb-4 ${light ? "border-purple-500" : "border-purple-800"}`}>
       <h2 className={`text-xl font-extrabold ${light ? "text-white" : "text-zinc-900"}`}>{title}</h2>
       {href && <Link href={href} className={`text-sm font-medium hover:underline ${light ? "text-purple-300" : "text-purple-800"}`}>See all →</Link>}
     </div>
@@ -135,11 +135,11 @@ export default async function Home() {
   ].filter((t) => t.items.length > 0);
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8 sm:space-y-12">
       {/* 1. Hero: big slider + 2 stacked overlay cards — live-site layout */}
-      <section className="grid gap-4 lg:grid-cols-3">
+      <section className="grid gap-4 sm:gap-5 lg:grid-cols-3">
         <div className="lg:col-span-2"><HeroSlider slides={slides} /></div>
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-1 lg:grid-rows-2">
+        <div className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-1 lg:grid-rows-2">
           {sideSlides.map((set, n) => (
             <SideSlider key={n} slides={set} interval={7000 + n * 2500} className="aspect-[4/5] sm:aspect-[16/10] lg:aspect-auto" />
           ))}
@@ -148,7 +148,7 @@ export default async function Home() {
 
       {/* 2. Watch — dark band, player + sidebar list */}
       {videos.length > 0 && (
-        <section className="rounded-xl bg-zinc-900 p-5">
+        <section className="rounded-2xl bg-zinc-900 p-4 sm:rounded-xl sm:p-6">
           <SectionHead title="Watch" href="/watch-videos" light />
           <WatchPanel videos={videos} />
         </section>
@@ -173,7 +173,7 @@ export default async function Home() {
 
       {/* 3. Reels — Instagram (fallback: YouTube shorts) */}
       {reelItems.length > 0 && (
-        <section className="rounded-xl bg-zinc-100 p-5">
+        <section className="rounded-2xl bg-zinc-100 p-4 sm:rounded-xl sm:p-6">
           <SectionHead title="Reels" href="/reels" />
           {/* 6 latest, one full row — plays in-page in a lightbox */}
           <ReelsLightbox items={reelItems.slice(0, 6)} />
@@ -207,10 +207,10 @@ export default async function Home() {
           One grid so columns stack independently — no whitespace gaps between rows */}
       {/* both columns stretch to the taller one and spread the slack across their own
           section gaps — bottoms line up at any width. ponytail: no JS measuring */}
-      <div className="grid gap-8 lg:grid-cols-3">
+      <div className="grid gap-8 lg:grid-cols-3 lg:gap-10">
         {/* min-w-0: grid items default to min-width:auto, and long unbroken Malayalam
             titles would otherwise force the track wider than the phone viewport */}
-        <div className="flex min-w-0 flex-col justify-between gap-10 lg:col-span-2">
+        <div className="flex min-w-0 flex-col justify-between gap-8 sm:gap-10 lg:col-span-2 lg:gap-12">
           <TabbedSection title="Opinion" tabs={opinionTabs} />
 
           <section>
@@ -221,7 +221,7 @@ export default async function Home() {
           <CultureTabs title="Culture" tabs={cultureTabs} />
         </div>
 
-        <div className="flex min-w-0 flex-col justify-between gap-10">
+        <div className="flex min-w-0 flex-col justify-between gap-8 sm:gap-10 lg:gap-12">
           {/* phones get the slider version after Watch instead */}
           <div className="hidden lg:block">
             <SideList title="Editor's Picks" href="/category/news" posts={latest.slice(11, 16)} />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { Episode } from "@/lib/podcast";
 
@@ -41,29 +41,69 @@ export default function PodcastPlayer({ episodes, listHeight = 480, spotifyUrl }
     [episodes, q]
   );
 
-  const play = (i: number) => {
+  // side effects stay OUT of the state updater: StrictMode invokes updaters twice,
+  // which turned one tap into play()+pause(). Plain body, idx read from scope.
+  const play = useCallback((i: number) => {
     if (i === idx) {
       const a = audioRef.current;
       if (!a) return;
-      if (a.paused) { a.play(); } else { a.pause(); }
+      if (a.paused) a.play().catch(() => {}); else a.pause();
       return;
     }
     setIdx(i);
     setTime(0);
     // let React swap the src, then start
-    requestAnimationFrame(() => audioRef.current?.play());
-  };
+    requestAnimationFrame(() => audioRef.current?.play().catch(() => {}));
+  }, [idx]);
 
-  const skip = (s: number) => {
+  const skip = useCallback((s: number) => {
     const a = audioRef.current;
     if (a) a.currentTime = Math.max(0, Math.min(a.duration || 0, a.currentTime + s));
-  };
+  }, []);
 
   const cycleRate = () => {
     const next = RATES[(RATES.indexOf(rate) + 1) % RATES.length];
     setRate(next);
     if (audioRef.current) audioRef.current.playbackRate = next;
   };
+
+
+  /* Lock-screen / notification controls. Without these the OS has no media
+     session to attach to and both Android Chrome and iOS suspend the audio a
+     few seconds after the screen sleeps; with them playback survives sleep and
+     the user gets real transport buttons. */
+  useEffect(() => {
+    const ms = typeof navigator !== "undefined" ? navigator.mediaSession : undefined;
+    if (!ms || !ep) return;
+    ms.metadata = new MediaMetadata({
+      title: ep.topic || ep.title,
+      artist: ep.speaker || "Islam Onlive",
+      album: "Islam Onlive Podcast",
+      artwork: [
+        { src: ep.image || "/icon-512.png", sizes: "512x512", type: "image/png" },
+        { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      ],
+    });
+    const handlers: [MediaSessionAction, MediaSessionActionHandler][] = [
+      ["play", () => audioRef.current?.play().catch(() => {})],
+      ["pause", () => audioRef.current?.pause()],
+      ["previoustrack", () => idx > 0 && play(idx - 1)],
+      ["nexttrack", () => idx < episodes.length - 1 && play(idx + 1)],
+      ["seekbackward", (d) => skip(-(d.seekOffset || 10))],
+      ["seekforward", (d) => skip(d.seekOffset || 30)],
+      ["seekto", (d) => { if (audioRef.current && d.seekTime != null) audioRef.current.currentTime = d.seekTime; }],
+    ];
+    // an unsupported action throws rather than no-ops in some browsers
+    for (const [a, h] of handlers) { try { ms.setActionHandler(a, h); } catch {} }
+    return () => { for (const [a] of handlers) { try { ms.setActionHandler(a, null); } catch {} } };
+  }, [ep, idx, episodes.length, play, skip]);
+
+  // keeps the OS widget's play/pause glyph in step with the element
+  useEffect(() => {
+    if (typeof navigator !== "undefined" && navigator.mediaSession) {
+      navigator.mediaSession.playbackState = playing ? "playing" : "paused";
+    }
+  }, [playing]);
 
   if (!ep) return null;
 
@@ -75,7 +115,15 @@ export default function PodcastPlayer({ episodes, listHeight = 480, spotifyUrl }
         preload="none"
         onPlay={() => { setPlaying(true); if (audioRef.current) audioRef.current.playbackRate = rate; }}
         onPause={() => setPlaying(false)}
-        onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
+        onTimeUpdate={(e) => {
+          setTime(e.currentTarget.currentTime);
+          const ms = navigator.mediaSession;
+          if (ms?.setPositionState && isFinite(e.currentTarget.duration)) {
+            try {
+              ms.setPositionState({ duration: e.currentTarget.duration, playbackRate: e.currentTarget.playbackRate, position: e.currentTarget.currentTime });
+            } catch {}
+          }
+        }}
         onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
         onEnded={() => idx < episodes.length - 1 && play(idx + 1)}
       />
@@ -93,8 +141,8 @@ export default function PodcastPlayer({ episodes, listHeight = 480, spotifyUrl }
           </div>
           <div className="min-w-0 flex-1">
             <p className="pill text-[10px] font-semibold uppercase tracking-widest text-purple-200">Podcast · Episode {idx + 1}</p>
-            <h3 className="mt-1 line-clamp-2 text-lg font-extrabold leading-snug sm:text-2xl">{ep.title}</h3>
-            <p className="mt-1 text-xs text-purple-200/80">Islam Onlive · {episodes.length} episodes</p>
+            <h3 className="mt-1 line-clamp-3 text-lg font-extrabold leading-snug sm:text-2xl">{ep.topic}</h3>
+            <p className="mt-1 truncate text-xs text-purple-200/80">{ep.speaker ? `${ep.speaker} · ` : ""}Islam Onlive · {episodes.length} episodes</p>
           </div>
         </div>
 
@@ -154,9 +202,12 @@ export default function PodcastPlayer({ episodes, listHeight = 480, spotifyUrl }
                   <PlayPauseIcon paused={!(i === idx && playing)} className="mx-auto h-3.5 w-3.5" />
                 </span>
               </span>
-              {/* full label on phones too — wrap to a 2nd line instead of clipping */}
-              <span className={`line-clamp-2 flex-1 leading-snug ${i === idx ? "font-semibold" : ""}`}>{e.title}</span>
-              {e.duration && <span className="shrink-0 text-xs text-zinc-500">{e.duration}</span>}
+              {/* full label, never clipped — speaker credited underneath */}
+              <span className="min-w-0 flex-1">
+                <span className={`block leading-snug ${i === idx ? "font-semibold" : ""}`}>{e.topic}</span>
+                {e.speaker && <span className="mt-0.5 block truncate text-xs text-zinc-400">{e.speaker}</span>}
+              </span>
+              {e.duration && <span className="shrink-0 self-start pt-0.5 text-xs text-zinc-500">{e.duration}</span>}
             </button>
           ))}
         </div>

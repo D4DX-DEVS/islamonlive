@@ -17,7 +17,7 @@ export default function SectionTabs({
   href: string;
 }) {
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-l-4 border-purple-800 pl-3 pr-2">
+    <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-l-4 border-purple-800 pl-3 pr-2 sm:mb-4">
       <h2 className="text-xl font-extrabold text-zinc-900">{title}</h2>
       {/* pushed right of the title, like the live site's section menus */}
       {/* phones: pills hidden — title + "See all" only */}

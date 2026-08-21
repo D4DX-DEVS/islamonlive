@@ -65,7 +65,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="islamonlive" className="mx-auto h-10 w-auto" />
         </div>
-        <main className="mx-auto w-full max-w-[1600px] flex-1 px-3 py-6 sm:px-5">{children}</main>
+        <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-5 sm:px-5 sm:py-7 lg:py-8">{children}</main>
         {/* bottom tab bar covers the footer's last rows on phones — pad for it (incl. iOS home-bar inset) */}
         <div className="pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0 print:hidden">
           <Footer />
