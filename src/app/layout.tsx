@@ -45,6 +45,7 @@ export const metadata: Metadata = {
   },
   description: "Comprehensive Islamic portal in Malayalam - news, opinion, columns, Shariah, Quran and more.",
   appleWebApp: { capable: true, statusBarStyle: "default", title: "Islamonlive" },
+  icons: { icon: "/icon-192.png", apple: "/icon-192.png" },
 };
 
 export const viewport: Viewport = {
