@@ -82,6 +82,23 @@ button,
   100% { transform: translateX(400%); }
 }
 
+/* headline ticker in the masthead: the track holds two identical runs, so
+   translating exactly -50% lands run 2 where run 1 started — a seamless loop */
+@keyframes ticker {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.ticker-track {
+  animation: ticker 45s linear infinite;
+}
+/* fade the headlines out at both ends instead of clipping mid-word */
+.ticker-mask {
+  mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track { animation: none; }
+}
+
 /* hide the scrollbar on swipeable pill rows */
 .scrollbar-none {
   scrollbar-width: none;

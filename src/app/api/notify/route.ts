@@ -7,6 +7,9 @@ export const dynamic = "force-dynamic";
 const APP_ID = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID ?? "";
 const REST_KEY = process.env.ONESIGNAL_REST_API_KEY ?? "";
 const SECRET = process.env.NOTIFY_SECRET ?? "";
+// Vercel Cron sends `Authorization: Bearer $CRON_SECRET` on scheduled hits. Using
+// it keeps NOTIFY_SECRET out of vercel.json, which is committed.
+const CRON_SECRET = process.env.CRON_SECRET ?? "";
 const SITE = "https://islamonlive.in";
 // new OneSignal apps call the everyone-segment "Total Subscriptions"; apps created
 // before the rename still answer to "Subscribed Users" — try both before failing
@@ -57,6 +60,8 @@ async function send(p: Push) {
 }
 
 function authed(req: NextRequest): boolean {
+  // the scheduled run carries no secret of ours — Vercel signs it with CRON_SECRET
+  if (CRON_SECRET && req.headers.get("authorization") === `Bearer ${CRON_SECRET}`) return true;
   if (!SECRET) return false; // no secret configured = endpoint stays shut
   const given = req.headers.get("x-notify-secret") ?? req.nextUrl.searchParams.get("secret") ?? "";
   return given === SECRET;

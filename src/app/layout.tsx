@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Noto_Sans_Malayalam, Anek_Malayalam } from "next/font/google";
 import "./globals.css";
-import Header, { NavPreviewItem } from "@/components/Header";
+import Header, { NavPreviewItem, TickerItem } from "@/components/Header";
 import Footer from "@/components/Footer";
 import BackToTop from "@/components/BackToTop";
 import MobileTabBar from "@/components/MobileTabBar";
@@ -33,6 +33,16 @@ async function navPreviews(): Promise<Record<string, NavPreviewItem[]>> {
   return Object.fromEntries(entries);
 }
 
+// headlines for the masthead ticker
+async function navTicker(): Promise<TickerItem[]> {
+  const posts = await getPosts({ perPage: 10 }).catch(() => []);
+  return posts.map((p) => ({
+    href: postPath(p),
+    title: p.title.rendered,
+    category: primaryCategory(p)?.name ?? "",
+  }));
+}
+
 const notoMalayalam = Noto_Sans_Malayalam({ subsets: ["malayalam", "latin"], variable: "--font-noto-ml", display: "swap" });
 // headings/titles
 const anekMalayalam = Anek_Malayalam({ subsets: ["malayalam", "latin"], variable: "--font-anek-ml", display: "swap" });
@@ -56,11 +66,11 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const previews = await navPreviews();
+  const [previews, ticker] = await Promise.all([navPreviews(), navTicker()]);
   return (
     <html lang="ml">
       <body className={`${notoMalayalam.variable} ${anekMalayalam.variable} bg-zinc-50 font-sans text-zinc-900 antialiased flex min-h-dvh flex-col`}>
-        <Header previews={previews} />
+        <Header previews={previews} ticker={ticker} />
         {/* paper masthead — the on-screen <header> is display:none when printing */}
         <div className="hidden print:block print:border-b print:border-zinc-400 print:pb-3 print:text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}

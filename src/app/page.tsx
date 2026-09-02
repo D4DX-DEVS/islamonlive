@@ -16,6 +16,10 @@ import { getHomeBanners } from "@/lib/banners";
 
 export const revalidate = 60;
 
+// posts each hero source contributes: 3 Opinion + 3 Shari'ah in the big slider,
+// 3 Columns and 3 Culture in the two cards beside it
+const HERO_TAKE = 3;
+
 // WP REST `categories=` doesn't include child terms, so parent sections list
 // children explicitly — live site's queries do include them
 const CAT = {
@@ -95,10 +99,12 @@ export default async function Home() {
 
   const [latest, opinion, columns, shariah, culture, infographics, videos, reels, shorts, episodes, banners] = await Promise.all([
     getPosts({ perPage: 18 }),
-    getPosts({ perPage: 5, categories: CAT.opinion }),
-    getPosts({ perPage: 7, categories: CAT.columns }),
-    getPosts({ perPage: 6, categories: CAT.shariah }),
-    getPosts({ perPage: 16, categories: CAT.culture }).catch(() => []),
+    // each fetches HERO_TAKE extra: the first 3 go into the hero, the rest feed
+    // the section further down, so no post shows up twice on the page
+    getPosts({ perPage: 5 + HERO_TAKE, categories: CAT.opinion }),
+    getPosts({ perPage: 7 + HERO_TAKE, categories: CAT.columns }),
+    getPosts({ perPage: 4 + HERO_TAKE, categories: CAT.shariah }),
+    getPosts({ perPage: 16 + HERO_TAKE, categories: CAT.culture }).catch(() => []),
     getPosts({ perPage: 6, categories: CAT.infographics }).catch(() => []),
     getVideos(5).catch(() => []),
     getReels(8).catch(() => []),
@@ -107,9 +113,24 @@ export default async function Home() {
     getHomeBanners().catch(() => []),
   ]);
 
-  const slides: Slide[] = latest.slice(0, 5).map((p) => toItem(p));
-  // the two cards beside the hero rotate too — staggered so they don't flip together
-  const sideSlides = [latest.slice(5, 8).map((p) => toItem(p)), latest.slice(8, 11).map((p) => toItem(p))];
+  // hero banner: the big slider carries Opinion + Shari'ah (alternating so neither
+  // section owns the top slot), the two small cards beside it carry Columns and Culture
+  const slides: Slide[] = opinion
+    .slice(0, HERO_TAKE)
+    .flatMap((p, n) => [p, shariah[n]])
+    .filter(Boolean)
+    .map((p) => toItem(p));
+  // the two cards rotate too — staggered so they don't flip together
+  const sideSlides = [
+    columns.slice(0, HERO_TAKE).map((p) => toItem(p)),
+    culture.slice(0, HERO_TAKE).map((p) => toItem(p)),
+  ];
+
+  // what's left after the hero took its share — the sections below use these
+  const opinionRest = opinion.slice(HERO_TAKE);
+  const columnsRest = columns.slice(HERO_TAKE);
+  const shariahRest = shariah.slice(HERO_TAKE);
+  const cultureRest = culture.slice(HERO_TAKE);
 
   const [cultureSubPosts, opinionSubPosts] = await Promise.all([cultureSubsP, opinionSubsP]);
 
@@ -117,7 +138,7 @@ export default async function Home() {
 
   // drop tabs with nothing behind them rather than rendering an empty grid
   const cultureTabs = [
-    { label: "All", href: "/category/culture", items: culture.map((p) => toItem(p)) },
+    { label: "All", href: "/category/culture", items: cultureRest.map((p) => toItem(p)) },
     ...CULTURE_SUBS.map((c, n) => ({
       label: c.label,
       href: `/category/${c.slug}`,
@@ -126,7 +147,7 @@ export default async function Home() {
   ].filter((t) => t.items.length > 0);
 
   const opinionTabs = [
-    { label: "All", href: "/category/opinion", items: opinion.map((p) => toItem(p)) },
+    { label: "All", href: "/category/opinion", items: opinionRest.map((p) => toItem(p)) },
     ...OPINION_SUBS.map((c, n) => ({
       label: c.label,
       href: `/category/${c.slug}`,
@@ -203,7 +224,7 @@ export default async function Home() {
         </section>
       )}
 
-      {/* 5. Two-column flow: left Opinion/Listen/Culture, right Editor's Picks/Columns/Shari'a.
+      {/* 5. Two-column flow: left Opinion/Shari'ah/Listen, right Editor's Picks/Columns/Culture.
           One grid so columns stack independently — no whitespace gaps between rows */}
       {/* both columns stretch to the taller one and spread the slack across their own
           section gaps — bottoms line up at any width. ponytail: no JS measuring */}
@@ -226,8 +247,8 @@ export default async function Home() {
           <div className="hidden lg:block">
             <SideList title="Editor's Picks" href="/category/news" posts={latest.slice(11, 16)} />
           </div>
-          <SideList title="Columns" href="/category/columns" posts={columns} featured />
-          <SideList title="Shari'a" href="/category/shariah" posts={shariah.slice(0, 4)} featured />
+          <SideList title="Columns" href="/category/columns" posts={columnsRest} featured />
+          <SideList title="Shari'a" href="/category/shariah" posts={shariahRest.slice(0, 4)} featured />
         </div>
       </div>
     </div>

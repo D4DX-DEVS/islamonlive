@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -16,21 +16,24 @@ export interface NavPreviewItem {
 
 type NavItem = { label: string; href: string; external?: boolean; children?: { label: string; href: string }[] };
 
-// mirrors the live site's menu: Read (mega), Infographics, Watch, Listen, Hajj & Umrah
+// mirrors the live site's menu (islamonlive.in): Home, Read (mega), Watch, Listen,
+// Infographics — the live nav carries no Hajj & Umrah entry, and Infographics sits last
 const NAV: NavItem[] = [
   { label: "Home", href: "/" },
   {
     label: "Read", href: "/category/opinion", children: [
       { label: "Opinion", href: "/category/opinion" },
+      { label: "India Today", href: "/category/indian-politics-opinion" },
+      { label: "Kerala Voice", href: "/category/kerala-politics-opinion" },
       { label: "Shari'ah", href: "/category/shariah" },
+      { label: "Quran", href: "/category/quran" },
       { label: "Culture", href: "/category/culture" },
       { label: "Columns", href: "/category/columns" },
     ],
   },
-  { label: "Infographics", href: "/category/infographics" },
   { label: "Watch", href: "/watch-videos" },
   { label: "Listen", href: "/listen" },
-  { label: "Hajj & Umrah", href: "https://hajj.islamonlive.in/", external: true },
+  { label: "Infographics", href: "/category/infographics" },
 ];
 
 /* post previews shown while hovering a nav item — the live site's mega menu */
@@ -77,8 +80,47 @@ function MegaPanel({ item, posts }: { item: NavItem; posts: NavPreviewItem[] }) 
   );
 }
 
-export default function Header({ previews = {} }: { previews?: Record<string, NavPreviewItem[]> }) {
-  const today = new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+export interface TickerItem {
+  href: string;
+  title: string;
+  category: string;
+}
+
+/* Gregorian + Hijri, formatted in the reader's own timezone. Rendering these on
+   the server printed the *server's* day (the host runs UTC), so the header could
+   sit a day behind for readers in IST — the server snapshot is empty and the
+   browser fills both in on hydration instead. */
+type Today = { greg: string; hijri: string };
+let cachedToday: Today | null = null;
+
+const subscribeToday = () => () => {};
+const serverToday = () => null;
+function readToday(): Today {
+  // cached: useSyncExternalStore re-reads on every render and needs a stable value
+  if (!cachedToday) {
+    const now = new Date();
+    let hijri = "";
+    try {
+      hijri = new Intl.DateTimeFormat("en-US-u-ca-islamic-umalqura", { day: "numeric", month: "long", year: "numeric" })
+        .format(now)
+        .replace(/\s*AH$/, "");
+    } catch {
+      // Intl without the umalqura calendar — the Gregorian date alone still reads fine
+    }
+    cachedToday = {
+      greg: now.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" }),
+      hijri,
+    };
+  }
+  return cachedToday;
+}
+
+function useToday() {
+  return useSyncExternalStore(subscribeToday, readToday, serverToday);
+}
+
+export default function Header({ previews = {}, ticker = [] }: { previews?: Record<string, NavPreviewItem[]>; ticker?: TickerItem[] }) {
+  const today = useToday();
   // ponytail: single boolean drives the shrink — no scroll-linked animation lib
   const [shrunk, setShrunk] = useState(false);
   // phones: header only on the home page — inner pages keep just the bottom tab bar
@@ -104,8 +146,20 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
       {/* top bar: date | centered logo | socials + search + support — mirrors live site */}
       <div className={`mx-auto grid max-w-[1600px] grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 transition-[padding] duration-300 sm:px-5 ${shrunk ? "py-1.5" : "py-2 sm:py-3"}`}>
         {/* the date is display:none on mobile, so pin the logo to the middle column
-            explicitly — otherwise it collapses into the first track and sits left */}
-        <time suppressHydrationWarning className="hidden text-xs text-zinc-500 sm:block">{today}</time>
+            explicitly — otherwise it collapses into the first track and sits left.
+            min-h holds the row steady while the client fills the date in. */}
+        <div className="hidden min-h-[2.25rem] items-center gap-2 sm:flex">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden className="h-4 w-4 shrink-0 text-purple-800">
+            <rect x="3" y="5" width="18" height="16" rx="2" />
+            <path d="M8 3v4M16 3v4M3 10h18" />
+          </svg>
+          {today && (
+            <span className="leading-tight">
+              <time className="block text-xs font-semibold text-zinc-700">{today.greg}</time>
+              {today.hijri && <span className="block text-[11px] text-purple-800">{today.hijri} AH</span>}
+            </span>
+          )}
+        </div>
         {/* phones: logo left; desktop keeps it centred */}
         <Link href="/" className="col-start-1 justify-self-start sm:col-start-2 sm:justify-self-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -185,6 +239,34 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
           ))}
         </div>
       </nav>
+      {/* latest-headlines strip — the live site stops at the nav bar; this is the one
+          addition, kept in the same purple/white palette so it still reads as masthead */}
+      {ticker.length > 0 && (
+        <div className={`border-b border-zinc-200 bg-white ${shrunk ? "hidden md:block" : ""}`}>
+          <div className="mx-auto flex max-w-[1600px] items-center gap-3 px-3 sm:px-5">
+            <span className="pill z-10 -ml-3 inline-flex shrink-0 items-center gap-1.5 bg-purple-800 py-2 pl-3 pr-3 text-[11px] font-bold uppercase tracking-wide text-white sm:-ml-5 sm:pl-5">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-400" />
+              Latest
+            </span>
+            {/* two identical runs so the loop has no visible seam; the second is
+                aria-hidden so screen readers don't hear every headline twice */}
+            <div className="ticker-mask group relative flex-1 overflow-hidden py-2">
+              <div className="ticker-track flex w-max gap-8 group-hover:[animation-play-state:paused]">
+                {[0, 1].map((run) => (
+                  <div key={run} className="flex gap-8" aria-hidden={run === 1}>
+                    {ticker.map((t) => (
+                      <Link key={`${run}-${t.href}`} href={t.href} className="flex items-center gap-2 whitespace-nowrap text-sm text-zinc-700 hover:text-purple-800">
+                        {t.category && <span className="pill rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-purple-800">{t.category}</span>}
+                        <span dangerouslySetInnerHTML={{ __html: t.title }} />
+                      </Link>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

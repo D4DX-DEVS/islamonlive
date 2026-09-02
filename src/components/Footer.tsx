@@ -6,13 +6,15 @@ export default function Footer() {
     <footer className="mt-4 bg-purple-950 text-purple-200">
       {/* phones: whole top block hidden — mobile footer is just the tiny credit bar below */}
       <div className="mx-auto hidden max-w-[1600px] grid-cols-2 gap-x-6 gap-y-8 px-4 py-6 md:grid md:grid-cols-4 md:py-10">
-        <div className="col-span-2 md:col-span-1">
+        {/* logo and tagline sit on one line — stacked, they left a tall empty
+            gutter beside the link columns */}
+        <div className="col-span-2 flex items-center gap-3 md:col-span-1">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-white.png" alt="islamonlive" className="h-10 w-auto" />
-          <p className="mt-2 text-sm">The one and only Comprehensive Islamic portal in Malayalam.</p>
+          <img src="/logo-white.png" alt="islamonlive" className="h-10 w-auto shrink-0" />
+          <p className="border-l border-purple-800 pl-3 text-sm leading-snug">The one and only Comprehensive Islamic portal in Malayalam.</p>
         </div>
         <div className="hidden md:block">
-          <h3 className="font-semibold text-white">IslamOnive</h3>
+          <h3 className="font-semibold text-white">IslamOnlive</h3>
           <ul className="mt-2 space-y-1 text-sm">
             <li><Link href="/about" className="hover:text-white">About Us</Link></li>
             <li><Link href="/contact" className="hover:text-white">Contact Us</Link></li>
