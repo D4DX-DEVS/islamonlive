@@ -24,7 +24,7 @@ function fmt(sec: number): string {
 
 /* Spotify-style dark player: gradient header with big artwork, green play
    button, numbered track list. Same audio logic as before. */
-export default function PodcastPlayer({ episodes, listHeight = 480, spotifyUrl }: { episodes: Episode[]; listHeight?: number; spotifyUrl?: string }) {
+export default function PodcastPlayer({ episodes, listHeight = 480, fill = false, spotifyUrl }: { episodes: Episode[]; listHeight?: number; /** stretch to the container instead of a fixed list height — the homepage column uses it to absorb the sidebar's extra height */ fill?: boolean; spotifyUrl?: string }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [idx, setIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -108,7 +108,7 @@ export default function PodcastPlayer({ episodes, listHeight = 480, spotifyUrl }
   if (!ep) return null;
 
   return (
-    <div className="overflow-hidden rounded-2xl bg-[#121212] text-white shadow-xl">
+    <div className={`overflow-hidden rounded-2xl bg-[#121212] text-white shadow-xl ${fill ? "lg:flex lg:h-full lg:min-h-0 lg:flex-col" : ""}`}>
       <audio
         ref={audioRef}
         src={ep.audioUrl}
@@ -129,7 +129,7 @@ export default function PodcastPlayer({ episodes, listHeight = 480, spotifyUrl }
       />
 
       {/* gradient header: artwork + now playing */}
-      <div className="bg-gradient-to-b from-purple-800 via-purple-950/80 to-[#121212] p-5 sm:p-6">
+      <div className="shrink-0 bg-gradient-to-b from-purple-800 via-purple-950/80 to-[#121212] p-5 sm:p-6">
         <div className="flex items-end gap-4 sm:gap-5">
           <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-zinc-800 shadow-2xl sm:h-36 sm:w-36">
             {ep.image ? (
@@ -184,12 +184,12 @@ export default function PodcastPlayer({ episodes, listHeight = 480, spotifyUrl }
       </div>
 
       {/* search + track list */}
-      <div className="p-4 sm:p-5">
+      <div className={`p-4 sm:p-5 ${fill ? "lg:flex lg:min-h-0 lg:flex-1 lg:flex-col" : ""}`}>
         <input
           type="search" value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} placeholder="Search episodes"
-          className="w-full rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#1db954]"
+          className="w-full shrink-0 rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#1db954]"
         />
-        <div className="mt-2 overflow-y-auto" style={{ maxHeight: listHeight }}>
+        <div className={`mt-2 overflow-y-auto ${fill ? "max-h-[320px] lg:max-h-none lg:min-h-0 lg:flex-1" : ""}`} style={fill ? undefined : { maxHeight: listHeight }}>
           {filtered.slice(page * PER_PAGE, (page + 1) * PER_PAGE).map(({ e, i }, n) => (
             <button
               key={e.audioUrl}

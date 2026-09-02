@@ -48,7 +48,7 @@ export default function TabbedSection({ title, tabs }: { title: string; tabs: Ta
           </div>
         )}
         {row.length > 0 && (
-          <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2 sm:gap-x-8">
+          <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2 sm:gap-x-8 [&>*]:min-w-0">
             {/* phones: 4 posts max per section — featured + 3 rows */}
             {row.map((p, i) => (
               <div key={p.href} className={i >= 3 ? "hidden sm:block" : undefined}>

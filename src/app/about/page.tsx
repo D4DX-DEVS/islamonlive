@@ -31,20 +31,6 @@ export default async function AboutPage() {
       <h1 className="mb-6 text-3xl font-extrabold" dangerouslySetInnerHTML={{ __html: page.title }} />
 
       <div className="grid gap-5 lg:grid-cols-3">
-        {/* editorial masthead — its own card so the names don't run into the copy */}
-        <aside className="lg:col-span-1">
-          <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-zinc-900/10">
-            <h2 className="mb-3 inline-flex rounded bg-purple-800 px-3 py-1 text-sm font-semibold text-white">
-              എഡിറ്റോറിയല്‍
-            </h2>
-            <div className="space-y-3 text-sm leading-relaxed text-zinc-700 [&_a]:text-purple-800 [&_a:hover]:underline [&_strong]:text-zinc-900">
-              {editorial.map((p, n) => (
-                <p key={n} dangerouslySetInnerHTML={{ __html: p }} />
-              ))}
-            </div>
-          </div>
-        </aside>
-
         <div className="lg:col-span-2">
           <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-zinc-900/10 sm:p-6">
             <div className="space-y-4 text-[15px] leading-8 text-zinc-800">
@@ -67,6 +53,21 @@ export default async function AboutPage() {
             </div>
           </div>
         </div>
+
+        {/* editorial masthead — its own card so the names don't run into the copy */}
+        <aside className="lg:col-span-1">
+          <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-zinc-900/10">
+            <h2 className="mb-3 inline-flex rounded bg-purple-800 px-3 py-1 text-sm font-semibold text-white">
+              എഡിറ്റോറിയല്‍
+            </h2>
+            <div className="space-y-3 text-sm leading-relaxed text-zinc-700 [&_a]:text-purple-800 [&_a:hover]:underline [&_strong]:text-zinc-900">
+              {editorial.map((p, n) => (
+                <p key={n} dangerouslySetInnerHTML={{ __html: p }} />
+              ))}
+            </div>
+          </div>
+        </aside>
+
       </div>
     </div>
   );

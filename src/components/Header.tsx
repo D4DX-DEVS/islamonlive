@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -16,24 +16,21 @@ export interface NavPreviewItem {
 
 type NavItem = { label: string; href: string; external?: boolean; children?: { label: string; href: string }[] };
 
-// mirrors the live site's menu (islamonlive.in): Home, Read (mega), Watch, Listen,
-// Infographics — the live nav carries no Hajj & Umrah entry, and Infographics sits last
+// mirrors the live site's menu (islamonlive.in) exactly: Home, Read (mega),
+// Infographics (mega), Watch, Listen — Infographics sits second, not last
 const NAV: NavItem[] = [
   { label: "Home", href: "/" },
   {
     label: "Read", href: "/category/opinion", children: [
       { label: "Opinion", href: "/category/opinion" },
-      { label: "India Today", href: "/category/indian-politics-opinion" },
-      { label: "Kerala Voice", href: "/category/kerala-politics-opinion" },
       { label: "Shari'ah", href: "/category/shariah" },
-      { label: "Quran", href: "/category/quran" },
       { label: "Culture", href: "/category/culture" },
       { label: "Columns", href: "/category/columns" },
     ],
   },
+  { label: "Infographics", href: "/category/infographics" },
   { label: "Watch", href: "/watch-videos" },
   { label: "Listen", href: "/listen" },
-  { label: "Infographics", href: "/category/infographics" },
 ];
 
 /* post previews shown while hovering a nav item — the live site's mega menu */
@@ -51,7 +48,7 @@ function MegaPanel({ item, posts }: { item: NavItem; posts: NavPreviewItem[] }) 
                     {c.label}
                   </Link>
                 ))}
-                <Link href={item.href} className="mt-1 px-2 text-xs font-semibold text-purple-800 hover:underline">
+                <Link href={item.href} className="mt-1 px-2 text-xs font-semibold text-[#31094C] hover:underline">
                   See all →
                 </Link>
               </div>
@@ -62,11 +59,11 @@ function MegaPanel({ item, posts }: { item: NavItem; posts: NavPreviewItem[] }) 
                   <div className="relative aspect-[16/10] w-full overflow-hidden rounded-lg bg-zinc-100 ring-1 ring-inset ring-zinc-900/10">
                     {p.img && <Image src={p.img} alt="" fill sizes="220px" className="object-cover object-top transition duration-500 group-hover/card:scale-105" />}
                     {p.category && (
-                      <span className="pill absolute bottom-2 left-2 inline-flex items-center justify-center rounded bg-purple-700 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">{p.category}</span>
+                      <span className="pill absolute bottom-2 left-2 inline-flex items-center justify-center rounded bg-[#693FE2] px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">{p.category}</span>
                     )}
                   </div>
                   <h3
-                    className="mt-2 line-clamp-2 text-sm font-bold leading-snug text-zinc-900 group-hover/card:text-purple-800"
+                    className="mt-2 line-clamp-2 text-sm font-bold leading-snug text-zinc-900 group-hover/card:text-[#31094C]"
                     dangerouslySetInnerHTML={{ __html: p.title }}
                   />
                   <time className="mt-0.5 block text-xs text-zinc-500">{p.date}</time>
@@ -80,37 +77,18 @@ function MegaPanel({ item, posts }: { item: NavItem; posts: NavPreviewItem[] }) 
   );
 }
 
-export interface TickerItem {
-  href: string;
-  title: string;
-  category: string;
-}
-
-/* Gregorian + Hijri, formatted in the reader's own timezone. Rendering these on
-   the server printed the *server's* day (the host runs UTC), so the header could
-   sit a day behind for readers in IST — the server snapshot is empty and the
-   browser fills both in on hydration instead. */
-type Today = { greg: string; hijri: string };
-let cachedToday: Today | null = null;
+/* Gregorian date, formatted in the reader's own timezone. Rendering this on the
+   server printed the *server's* day (the host runs UTC), so the header could sit
+   a day behind for readers in IST — the server snapshot is empty and the browser
+   fills it in on hydration instead. */
+let cachedToday: string | null = null;
 
 const subscribeToday = () => () => {};
 const serverToday = () => null;
-function readToday(): Today {
+function readToday(): string {
   // cached: useSyncExternalStore re-reads on every render and needs a stable value
   if (!cachedToday) {
-    const now = new Date();
-    let hijri = "";
-    try {
-      hijri = new Intl.DateTimeFormat("en-US-u-ca-islamic-umalqura", { day: "numeric", month: "long", year: "numeric" })
-        .format(now)
-        .replace(/\s*AH$/, "");
-    } catch {
-      // Intl without the umalqura calendar — the Gregorian date alone still reads fine
-    }
-    cachedToday = {
-      greg: now.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" }),
-      hijri,
-    };
+    cachedToday = new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
   }
   return cachedToday;
 }
@@ -119,109 +97,84 @@ function useToday() {
   return useSyncExternalStore(subscribeToday, readToday, serverToday);
 }
 
-export default function Header({ previews = {}, ticker = [] }: { previews?: Record<string, NavPreviewItem[]>; ticker?: TickerItem[] }) {
+function SearchIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden className={className}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m21 21-4.35-4.35" />
+    </svg>
+  );
+}
+
+export default function Header({ previews = {} }: { previews?: Record<string, NavPreviewItem[]> }) {
   const today = useToday();
-  // ponytail: single boolean drives the shrink — no scroll-linked animation lib
-  const [shrunk, setShrunk] = useState(false);
-  // phones: header only on the home page — inner pages keep just the bottom tab bar
-  const isHome = usePathname() === "/";
-  useEffect(() => {
-    // hysteresis: shrink past 120, expand only under 40 — the gap must exceed the
-    // header's height change (~50px) or shrinking shifts scrollY back across the
-    // threshold and the header oscillates (the "jerk")
-    const onScroll = () => {
-      const y = window.scrollY;
-      setShrunk((prev) => (prev ? y > 40 : y > 120));
-    };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+  const pathname = usePathname();
+  // phones: the live site's slide-down drawer behind the hamburger
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+
+  // navigating away must close the drawer — the header itself never unmounts.
+  // adjusted during render, not in an effect, so the drawer never paints open on
+  // the new page (https://react.dev/learn/you-might-not-need-an-effect)
+  const [lastPath, setLastPath] = useState(pathname);
+  if (lastPath !== pathname) {
+    setLastPath(pathname);
+    setMenuOpen(false);
+    setOpenGroup(null);
+  }
 
   return (
-    // phones: brand-purple rule under the header (desktop gets the purple nav bar instead)
+    // static, like the live site's masthead — it scrolls away with the page.
     // pt-safe: in the installed PWA (viewport-fit=cover) the page draws under the
-    // status bar — without it, scrolled content shows through above the header
-    <header className={`sticky top-0 z-50 border-b-2 border-purple-800 bg-white pt-[env(safe-area-inset-top)] shadow-md md:border-b-0 ${isHome ? "" : "hidden md:block"}`}>
-      {/* top bar: date | centered logo | socials + search + support — mirrors live site */}
-      <div className={`mx-auto grid max-w-[1600px] grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 transition-[padding] duration-300 sm:px-5 ${shrunk ? "py-1.5" : "py-2 sm:py-3"}`}>
-        {/* the date is display:none on mobile, so pin the logo to the middle column
-            explicitly — otherwise it collapses into the first track and sits left.
-            min-h holds the row steady while the client fills the date in. */}
-        <div className="hidden min-h-[2.25rem] items-center gap-2 sm:flex">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden className="h-4 w-4 shrink-0 text-purple-800">
-            <rect x="3" y="5" width="18" height="16" rx="2" />
-            <path d="M8 3v4M16 3v4M3 10h18" />
-          </svg>
-          {today && (
-            <span className="leading-tight">
-              <time className="block text-xs font-semibold text-zinc-700">{today.greg}</time>
-              {today.hijri && <span className="block text-[11px] text-purple-800">{today.hijri} AH</span>}
-            </span>
-          )}
+    // status bar — without it the logo capsule sits under the clock.
+    <header className="relative z-40 bg-white pt-[env(safe-area-inset-top)] print:hidden">
+      {/* top row: date left, actions right — the middle is left empty for the
+          logo capsule, which is positioned absolutely so it can straddle the bar */}
+      <div className="mx-auto grid max-w-[1600px] grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 py-2.5 sm:px-5 md:py-4">
+        {/* min-h holds the row steady while the client fills the date in */}
+        <div className="hidden min-h-[1.5rem] items-center md:flex">
+          {/* nowrap: at ~768 the date wrapped to two lines and grew the whole row */}
+          {today && <time className="whitespace-nowrap text-sm text-zinc-700">{today}</time>}
         </div>
-        {/* phones: logo left; desktop keeps it centred */}
-        <Link href="/" className="col-start-1 justify-self-start sm:col-start-2 sm:justify-self-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="islamonlive" className={`w-auto transition-all duration-300 ${shrunk ? "h-9" : "h-12 sm:h-16"}`} />
-        </Link>
-        <div className="col-start-3 flex items-center justify-end gap-3">
-          <div className="hidden items-center gap-3 text-zinc-500 lg:flex">
+        {/* reserves the centre track so the two side tracks never slide under the logo */}
+        <div className="h-9 w-[190px] md:h-12 md:w-[320px]" aria-hidden />
+        <div className="col-start-3 flex items-center justify-end gap-4">
+          <div className="hidden items-center gap-4 text-zinc-600 lg:flex">
             {SOCIAL.map((s) => (
-              <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label} title={s.label} className="hover:text-purple-800">
+              <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label} title={s.label} className="hover:text-[#31094C]">
                 <SocialIcon path={s.path} />
               </a>
             ))}
           </div>
-          {/* phones: icon only, straight to the search page — the dummy field read as
-              a real input and swallowed the first tap while the page loaded */}
-          <Link
-            href="/search"
-            prefetch
-            aria-label="Search"
-            className="flex h-9 w-9 touch-manipulation items-center justify-center rounded-full text-zinc-600 transition-colors active:bg-purple-100 active:text-purple-800 md:hidden"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden className="h-5 w-5">
-              <circle cx="11" cy="11" r="7" />
-              <path d="m21 21-4.35-4.35" />
-            </svg>
+          {/* icon only, straight to the search page — the live header has no inline field */}
+          <Link href="/search" prefetch aria-label="Search" className="hidden text-zinc-700 hover:text-[#31094C] md:block">
+            <SearchIcon className="h-5 w-5" />
           </Link>
-          {/* desktop: real inline search field */}
-          <form action="/search" className="relative hidden items-center md:flex">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-              className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400">
-              <circle cx="11" cy="11" r="7" />
-              <path d="m21 21-4.35-4.35" />
-            </svg>
-            <input
-              type="search" name="q" placeholder="Search…" aria-label="Search"
-              className="h-7 w-24 rounded-full border border-zinc-300 py-0 pl-8 pr-3 text-xs leading-none outline-none transition-[width] [font-family:system-ui,sans-serif] focus:w-36 focus:border-purple-700 sm:w-28 sm:focus:w-48"
-            />
-          </form>
-          {/* compact heart chip on phones, full pill on ≥sm — the app-header donate pattern */}
-          <a href="https://rzp.io/rzp/5bOM6U7A" target="_blank" rel="noopener noreferrer" aria-label="Support Us" className="pill inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-purple-800 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-purple-700 sm:px-4 sm:py-2">
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="h-3.5 w-3.5">
-              <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z" />
-            </svg>
-            <span className="hidden sm:inline">Support Us</span>
-            <span className="sm:hidden">Support</span>
+          <a
+            href="https://rzp.io/rzp/5bOM6U7A"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="pill hidden whitespace-nowrap rounded-full bg-[#693FE2] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#5a34c7] md:inline-block"
+          >
+            Support Us
           </a>
         </div>
       </div>
-      {/* desktop only — phones use the bottom tab bar */}
-      <nav className="relative hidden bg-purple-950 md:block">
-        <div className="mx-auto flex max-w-[1600px] justify-center gap-1 px-3 sm:px-5">
+
+      {/* purple bar — desktop nav; phones get hamburger + search, as on the live site */}
+      <div className="relative bg-[#31094C]">
+        <nav className="mx-auto hidden max-w-[1600px] justify-center gap-1 px-3 sm:px-5 md:flex">
           {NAV.map((item) => (
             // `static`, not `relative` — the mega panel spans the whole nav width
             <div key={item.label} className={previews[item.label]?.length ? "group static" : "group relative"}>
               {item.external ? (
-                <a href={item.href} target="_blank" rel="noopener noreferrer" className={`flex items-center whitespace-nowrap px-4 text-sm font-medium text-purple-100 transition-[padding] duration-300 hover:bg-purple-800 hover:text-white ${shrunk ? "py-2" : "py-3"}`}>
+                <a href={item.href} target="_blank" rel="noopener noreferrer" className="flex items-center whitespace-nowrap px-4 py-3.5 text-[15px] font-medium text-white/90 hover:text-white">
                   {item.label}
                 </a>
               ) : (
-                <Link href={item.href} className={`flex items-center gap-1 whitespace-nowrap px-4 text-sm font-medium text-purple-100 transition-[padding] duration-300 hover:bg-purple-800 hover:text-white ${shrunk ? "py-2" : "py-3"}`}>
+                <Link href={item.href} className="flex items-center gap-1 whitespace-nowrap px-4 py-3.5 text-[15px] font-medium text-white/90 hover:text-white">
                   {item.label}
-                  {item.children && <span className="text-[10px]">▾</span>}
+                  {(item.children || previews[item.label]?.length) && <span className="text-[10px]">▾</span>}
                 </Link>
               )}
               {previews[item.label]?.length ? (
@@ -237,33 +190,85 @@ export default function Header({ previews = {}, ticker = [] }: { previews?: Reco
               ) : null}
             </div>
           ))}
+        </nav>
+
+        <div className="flex items-center justify-between px-4 py-3 md:hidden">
+          <button
+            type="button"
+            aria-label="Menu"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((v) => !v)}
+            className="-ml-1 flex h-11 w-11 touch-manipulation items-center justify-center text-white"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden className="h-6 w-6">
+              {menuOpen ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M3 6h18M3 12h18M3 18h18" />}
+            </svg>
+          </button>
+          <Link href="/search" prefetch aria-label="Search" className="-mr-1 flex h-11 w-11 touch-manipulation items-center justify-center text-white">
+            <SearchIcon className="h-6 w-6" />
+          </Link>
         </div>
-      </nav>
-      {/* latest-headlines strip — the live site stops at the nav bar; this is the one
-          addition, kept in the same purple/white palette so it still reads as masthead */}
-      {ticker.length > 0 && (
-        <div className={`border-b border-zinc-200 bg-white ${shrunk ? "hidden md:block" : ""}`}>
-          <div className="mx-auto flex max-w-[1600px] items-center gap-3 px-3 sm:px-5">
-            <span className="pill z-10 -ml-3 inline-flex shrink-0 items-center gap-1.5 bg-purple-800 py-2 pl-3 pr-3 text-[11px] font-bold uppercase tracking-wide text-white sm:-ml-5 sm:pl-5">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-400" />
-              Latest
-            </span>
-            {/* two identical runs so the loop has no visible seam; the second is
-                aria-hidden so screen readers don't hear every headline twice */}
-            <div className="ticker-mask group relative flex-1 overflow-hidden py-2">
-              <div className="ticker-track flex w-max gap-8 group-hover:[animation-play-state:paused]">
-                {[0, 1].map((run) => (
-                  <div key={run} className="flex gap-8" aria-hidden={run === 1}>
-                    {ticker.map((t) => (
-                      <Link key={`${run}-${t.href}`} href={t.href} className="flex items-center gap-2 whitespace-nowrap text-sm text-zinc-700 hover:text-purple-800">
-                        {t.category && <span className="pill rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-purple-800">{t.category}</span>}
-                        <span dangerouslySetInnerHTML={{ __html: t.title }} />
-                      </Link>
-                    ))}
-                  </div>
-                ))}
+      </div>
+
+      {/* logo capsule — white, 30px radius, straddling the white row and the purple
+          bar exactly as on the live site; z-10 keeps it above the bar */}
+      <Link
+        href="/"
+        className="absolute left-1/2 top-[calc(env(safe-area-inset-top)+0.25rem)] z-10 -translate-x-1/2 rounded-[30px] bg-white px-6 py-1.5 md:top-[calc(env(safe-area-inset-top)+0.5rem)] md:px-10 md:py-2"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.png" alt="islamonlive" className="h-11 w-auto md:h-[68px]" />
+      </Link>
+
+      {/* phones: drawer under the purple bar */}
+      {menuOpen && (
+        <div className="border-b border-zinc-200 bg-white shadow-lg md:hidden">
+          {NAV.map((item) => (
+            <div key={item.label} className="border-b border-zinc-100 last:border-0">
+              <div className="flex items-center">
+                <Link href={item.href} className="flex-1 px-4 py-3 text-sm font-semibold text-zinc-800">
+                  {item.label}
+                </Link>
+                {item.children && (
+                  <button
+                    type="button"
+                    aria-label={`Toggle ${item.label}`}
+                    aria-expanded={openGroup === item.label}
+                    onClick={() => setOpenGroup((g) => (g === item.label ? null : item.label))}
+                    className="px-4 py-3 text-zinc-500"
+                  >
+                    <span className="text-xs">{openGroup === item.label ? "▴" : "▾"}</span>
+                  </button>
+                )}
               </div>
+              {item.children && openGroup === item.label && (
+                <div className="bg-zinc-50 pb-1">
+                  {item.children.map((c) => (
+                    <Link key={c.href} href={c.href} className="block px-7 py-2 text-sm text-zinc-700">
+                      {c.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
+          ))}
+          {/* the live drawer carries the actions the top row hides on phones */}
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+            <div className="flex flex-wrap items-center gap-0.5 text-zinc-600">
+              {SOCIAL.map((s) => (
+                <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label} className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-purple-50 hover:text-[#31094C]">
+                  <SocialIcon path={s.path} />
+                </a>
+              ))}
+            </div>
+            <a
+              href="https://rzp.io/rzp/5bOM6U7A"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="pill inline-flex min-h-11 items-center whitespace-nowrap rounded-full bg-[#693FE2] px-4 py-2 text-xs font-semibold text-white"
+            >
+              Support Us
+            </a>
           </div>
         </div>
       )}

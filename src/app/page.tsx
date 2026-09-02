@@ -6,7 +6,7 @@ import ReelsLightbox from "@/components/ReelsLightbox";
 import WatchPanel from "@/components/WatchPanel";
 import PodcastPlayer from "@/components/PodcastPlayer";
 import TabbedSection from "@/components/TabbedSection";
-import CultureTabs from "@/components/CultureTabs";
+import SideListTabs from "@/components/SideListTabs";
 import { OverlayCard, ListRow, PostItem } from "@/components/PostCards";
 import { getPosts, featuredImage, postPath, primaryCategory, formatDate, stripHtml, authorName, authorAvatar, WPPost } from "@/lib/wordpress";
 import { getVideos, getShorts } from "@/lib/youtube";
@@ -25,7 +25,7 @@ const HERO_TAKE = 3;
 const CAT = {
   opinion: [7899, 26, 28543, 3147, 25802, 28544],
   columns: [28, 36, 28545, 43, 45, 50],
-  shariah: [3],
+  shariah: [3, 22, 51, 24, 23, 30, 49, 26549],
   culture: [4, 9, 31, 25, 25397, 7],
   infographics: [28546],
 };
@@ -36,6 +36,14 @@ const OPINION_SUBS = [
   { label: "Palestine", slug: "palestine-2", id: 3147 },
   { label: "Top Stories", slug: "top-stories-news-analysis", id: 25802 },
   { label: "World Wide", slug: "internationalpolitics-opinion", id: 28544 },
+];
+// Shari'ah's children — the tabs its section shows, now that it leads the column
+const SHARIAH_SUBS = [
+  { label: "Quran", slug: "quran", id: 22 },
+  { label: "Faith", slug: "faith", id: 51 },
+  { label: "Fiqh", slug: "fiqh", id: 24 },
+  { label: "Sunnah", slug: "sunnah", id: 23 },
+  { label: "Tharbiya", slug: "tharbiya", id: 30 },
 ];
 // Culture's children on the live site
 const CULTURE_SUBS = [
@@ -96,6 +104,9 @@ export default async function Home() {
   const opinionSubsP = Promise.all(
     OPINION_SUBS.map((c) => getPosts({ perPage: 5, categories: [c.id] }).catch(() => [] as WPPost[]))
   );
+  const shariahSubsP = Promise.all(
+    SHARIAH_SUBS.map((c) => getPosts({ perPage: 5, categories: [c.id] }).catch(() => [] as WPPost[]))
+  );
 
   const [latest, opinion, columns, shariah, culture, infographics, videos, reels, shorts, episodes, banners] = await Promise.all([
     getPosts({ perPage: 18 }),
@@ -103,13 +114,15 @@ export default async function Home() {
     // the section further down, so no post shows up twice on the page
     getPosts({ perPage: 5 + HERO_TAKE, categories: CAT.opinion }),
     getPosts({ perPage: 7 + HERO_TAKE, categories: CAT.columns }),
-    getPosts({ perPage: 4 + HERO_TAKE, categories: CAT.shariah }),
+    // Shari'ah now leads the main column, so it needs a section's worth of posts
+    getPosts({ perPage: 5 + HERO_TAKE, categories: CAT.shariah }),
     getPosts({ perPage: 16 + HERO_TAKE, categories: CAT.culture }).catch(() => []),
     getPosts({ perPage: 6, categories: CAT.infographics }).catch(() => []),
     getVideos(5).catch(() => []),
     getReels(8).catch(() => []),
     getShorts(8).catch(() => []),
-    getEpisodes(15).catch(() => []),
+    // the player's list stretches to the column now — 15 left it half empty
+    getEpisodes(40).catch(() => []),
     getHomeBanners().catch(() => []),
   ]);
 
@@ -132,7 +145,7 @@ export default async function Home() {
   const shariahRest = shariah.slice(HERO_TAKE);
   const cultureRest = culture.slice(HERO_TAKE);
 
-  const [cultureSubPosts, opinionSubPosts] = await Promise.all([cultureSubsP, opinionSubsP]);
+  const [cultureSubPosts, opinionSubPosts, shariahSubPosts] = await Promise.all([cultureSubsP, opinionSubsP, shariahSubsP]);
 
   const reelItems = reels.length ? reels : shorts;
 
@@ -155,14 +168,27 @@ export default async function Home() {
     })),
   ].filter((t) => t.items.length > 0);
 
+  const shariahTabs = [
+    { label: "All", href: "/category/shariah", items: shariahRest.map((p) => toItem(p)) },
+    ...SHARIAH_SUBS.map((c, n) => ({
+      label: c.label,
+      href: `/category/${c.slug}`,
+      items: shariahSubPosts[n].map((p) => toItem(p)),
+    })),
+  ].filter((t) => t.items.length > 0);
+
   return (
     <div className="space-y-8 sm:space-y-12">
-      {/* 1. Hero: big slider + 2 stacked overlay cards — live-site layout */}
-      <section className="grid gap-4 sm:gap-5 lg:grid-cols-3">
-        <div className="lg:col-span-2"><HeroSlider slides={slides} /></div>
-        <div className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-1 lg:grid-rows-2">
+      {/* 1. Hero: big slider + 2 stacked overlay cards. The live site splits the
+          row 887/500 with a 37px gutter — 1.77fr / 1fr, gap-9. The side cards take
+          their height from the row (lg:aspect-auto), so both columns end level. */}
+      <section className="grid gap-4 sm:gap-5 lg:grid-cols-[1.77fr_1fr] lg:gap-9">
+        <HeroSlider slides={slides} />
+        {/* phones: full-width cards stacked under the hero, as on the live site —
+            two-up here squeezes the title against the advance disc */}
+        <div className="grid min-w-0 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-1 lg:grid-rows-2">
           {sideSlides.map((set, n) => (
-            <SideSlider key={n} slides={set} interval={7000 + n * 2500} className="aspect-[4/5] sm:aspect-[16/10] lg:aspect-auto" />
+            <SideSlider key={n} slides={set} interval={7000 + n * 2500} className="aspect-[16/10] sm:aspect-[2/1] lg:aspect-auto" />
           ))}
         </div>
       </section>
@@ -201,7 +227,43 @@ export default async function Home() {
         </section>
       )}
 
-      {/* 4. Infographics — portrait tiles, caption below (live-site style) */}
+      {/* 5. Two-column flow: left Shari'ah/Opinion/Listen, right Editor's Picks/Columns/Culture.
+          One grid so columns stack independently — no whitespace gaps between rows */}
+      {/* fixed section gaps, not justify-between: the columns hold different amounts
+          of content, and spreading the slack to line the bottoms up left canyons
+          between the shorter column's sections. The shorter column just ends earlier. */}
+      <div className="grid gap-8 lg:grid-cols-3 lg:gap-10">
+        {/* min-w-0: grid items default to min-width:auto, and long unbroken Malayalam
+            titles would otherwise force the track wider than the phone viewport */}
+        <div className="flex min-w-0 flex-col gap-8 sm:gap-10 lg:col-span-2">
+          <TabbedSection title="Shari'ah" tabs={shariahTabs} />
+
+          <TabbedSection title="Opinion" tabs={opinionTabs} />
+
+          {/* last section in the column, so it takes the slack: the sidebar runs
+              longer than the main column at wide widths, and a fixed-height player
+              left a block of empty page under it. The episode list flexes instead. */}
+          <section className="lg:flex lg:h-0 lg:min-h-[320px] lg:flex-1 lg:flex-col">
+            <SectionHead title="Listen" href="/listen" />
+            <PodcastPlayer episodes={episodes} fill spotifyUrl="https://podcasters.spotify.com/pod/show/islamonlive" />
+          </section>
+        </div>
+
+        {/* the sidebar carries whatever is left over after the player has flexed —
+            a few dozen px spread over two gaps, so both columns end on the same line */}
+        <div className="flex min-w-0 flex-col gap-8 sm:gap-10 lg:justify-between">
+          {/* phones get the slider version after Watch instead */}
+          <div className="hidden lg:block">
+            <SideList title="Editor's Picks" href="/category/news" posts={latest.slice(11, 16)} />
+          </div>
+          <SideList title="Columns" href="/category/columns" posts={columnsRest} featured />
+          {/* Culture took Shari'ah's old sidebar slot — its topics move into the "…" menu */}
+          {/* a long list on purpose: the sidebar should stay the taller column so the Listen player
+              below absorbs the difference instead of the page showing dead space */}
+          <SideListTabs title="Culture" tabs={cultureTabs} rows={9} />
+        </div>
+      </div>
+      {/* 6. Infographics — portrait tiles, caption below (live-site style) */}
       {infographics.length > 0 && (
         <section>
           <SectionHead title="Infographics" href="/category/infographics" />
@@ -224,33 +286,6 @@ export default async function Home() {
         </section>
       )}
 
-      {/* 5. Two-column flow: left Opinion/Shari'ah/Listen, right Editor's Picks/Columns/Culture.
-          One grid so columns stack independently — no whitespace gaps between rows */}
-      {/* both columns stretch to the taller one and spread the slack across their own
-          section gaps — bottoms line up at any width. ponytail: no JS measuring */}
-      <div className="grid gap-8 lg:grid-cols-3 lg:gap-10">
-        {/* min-w-0: grid items default to min-width:auto, and long unbroken Malayalam
-            titles would otherwise force the track wider than the phone viewport */}
-        <div className="flex min-w-0 flex-col justify-between gap-8 sm:gap-10 lg:col-span-2 lg:gap-12">
-          <TabbedSection title="Opinion" tabs={opinionTabs} />
-
-          <section>
-            <SectionHead title="Listen" href="/listen" />
-            <PodcastPlayer episodes={episodes} listHeight={320} spotifyUrl="https://podcasters.spotify.com/pod/show/islamonlive" />
-          </section>
-
-          <CultureTabs title="Culture" tabs={cultureTabs} />
-        </div>
-
-        <div className="flex min-w-0 flex-col justify-between gap-8 sm:gap-10 lg:gap-12">
-          {/* phones get the slider version after Watch instead */}
-          <div className="hidden lg:block">
-            <SideList title="Editor's Picks" href="/category/news" posts={latest.slice(11, 16)} />
-          </div>
-          <SideList title="Columns" href="/category/columns" posts={columnsRest} featured />
-          <SideList title="Shari'a" href="/category/shariah" posts={shariahRest.slice(0, 4)} featured />
-        </div>
-      </div>
     </div>
   );
 }

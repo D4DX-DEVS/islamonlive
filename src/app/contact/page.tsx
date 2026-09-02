@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getStaticPage } from "@/lib/wpPage";
 import { SOCIAL, SocialIcon } from "@/components/social";
+import ContactForm from "@/components/ContactForm";
 
 export const revalidate = 3600;
 
@@ -54,6 +55,42 @@ export default async function ContactPage() {
       <h1 className="mb-6 text-3xl font-extrabold">Contact Us</h1>
 
       <div className="grid gap-5 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <Card title="Send Your Post To">
+            <div className="space-y-4 text-[15px] leading-8 text-zinc-800">
+              {guidelines.map((p, n) => (
+                <p key={n} dangerouslySetInnerHTML={{ __html: p }} />
+              ))}
+            </div>
+            {/* the WP page's feedback form is a JS-only Elementor widget that can't
+                run here — this form composes the message and hands it to the
+                sender's own mail app instead */}
+            <div className="mt-6 border-t border-zinc-100 pt-5">
+              <ContactForm />
+            </div>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <a
+                href={`mailto:${EMAIL}?subject=${encodeURIComponent("Article submission — Islamonlive")}`}
+                className="pill inline-flex min-h-11 items-center gap-2 rounded-full bg-purple-800 px-4 py-2 text-xs font-semibold text-white hover:bg-purple-700"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden className="h-3.5 w-3.5">
+                  <rect x="3" y="5" width="18" height="14" rx="2" />
+                  <path d="m3 7 9 6 9-6" />
+                </svg>
+                Mail the editor
+              </a>
+              <a
+                href={WHATSAPP}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="pill inline-flex min-h-11 items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold text-purple-800 ring-1 ring-purple-300 hover:bg-purple-50"
+              >
+                WhatsApp us
+              </a>
+            </div>
+          </Card>
+        </div>
+
         <div className="space-y-5 lg:col-span-1">
           <Card title="Office">
             <Row
@@ -99,7 +136,7 @@ export default async function ContactPage() {
                   rel="noopener noreferrer"
                   aria-label={s.label}
                   title={s.label}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-purple-50 text-purple-800 transition hover:bg-purple-800 hover:text-white"
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-purple-50 text-purple-800 transition hover:bg-purple-800 hover:text-white sm:h-9 sm:w-9"
                 >
                   <SocialIcon path={s.path} size={16} />
                 </a>
@@ -108,37 +145,6 @@ export default async function ContactPage() {
           </Card>
         </div>
 
-        <div className="lg:col-span-2">
-          <Card title="Send Your Post To">
-            <div className="space-y-4 text-[15px] leading-8 text-zinc-800">
-              {guidelines.map((p, n) => (
-                <p key={n} dangerouslySetInnerHTML={{ __html: p }} />
-              ))}
-            </div>
-            {/* the WP page's feedback form is a JS-only Elementor widget that can't
-                run here — a direct mail/WhatsApp handoff replaces it */}
-            <div className="mt-6 flex flex-wrap gap-3 border-t border-zinc-100 pt-5">
-              <a
-                href={`mailto:${EMAIL}?subject=${encodeURIComponent("Article submission — Islamonlive")}`}
-                className="pill inline-flex items-center gap-2 rounded-full bg-purple-800 px-4 py-2 text-xs font-semibold text-white hover:bg-purple-700"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden className="h-3.5 w-3.5">
-                  <rect x="3" y="5" width="18" height="14" rx="2" />
-                  <path d="m3 7 9 6 9-6" />
-                </svg>
-                Mail the editor
-              </a>
-              <a
-                href={WHATSAPP}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="pill inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold text-purple-800 ring-1 ring-purple-300 hover:bg-purple-50"
-              >
-                WhatsApp us
-              </a>
-            </div>
-          </Card>
-        </div>
       </div>
     </div>
   );

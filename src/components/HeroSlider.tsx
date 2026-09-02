@@ -14,6 +14,7 @@ export default function HeroSlider({ slides }: { slides: Slide[] }) {
   const [i, setI] = useState(0);
 
   useEffect(() => {
+    if (slides.length < 2) return;
     const t = setInterval(() => setI((v) => (v + 1) % slides.length), 6000);
     return () => clearInterval(t);
   }, [slides.length]);
@@ -22,52 +23,74 @@ export default function HeroSlider({ slides }: { slides: Slide[] }) {
   const s = slides[i];
 
   return (
-    <div className="relative h-full overflow-hidden rounded-xl bg-zinc-900">
-      <Link href={s.href} className="block h-full">
-        <div className="relative aspect-[16/10] w-full lg:aspect-auto lg:h-full lg:min-h-[540px]">
-          {/* all slides stay mounted; crossfade via opacity — no grey flash while images load */}
-          {slides.map((sl, n) => (
-            sl.img && (
-              <Image
-                key={sl.img}
-                src={sl.img}
-                alt=""
-                fill
-                priority={n === 0}
-                sizes="(max-width: 1024px) 100vw, 66vw"
-                className={`object-cover object-top transition-opacity duration-700 ${n === i ? "opacity-100" : "opacity-0"}`}
-              />
-            )
-          ))}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent" />
-          {/* centred caption straight on the image — no white card */}
-          <div className="absolute inset-x-6 bottom-8 flex flex-col items-center text-center sm:inset-x-12 lg:bottom-12">
-            {s.category && (
-              <span className="pill mb-3 inline-flex items-center justify-center rounded bg-purple-700 px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-white">{s.category}</span>
-            )}
-            <h1
-              className="line-clamp-3 max-w-3xl text-xl font-extrabold leading-snug text-white drop-shadow-lg sm:text-2xl lg:text-3xl"
-              dangerouslySetInnerHTML={{ __html: s.title }}
+    // live-site hero: a 887×400 image with a white caption card offset over its
+    // bottom-left corner, hanging past the image — not a caption on the image.
+    // min-w-0: the card's headline is in normal flow now, and grid items default
+    // to min-width:auto — one long Malayalam word would widen the whole row
+    <div className="relative min-w-0">
+      <div className="relative aspect-[16/10] w-full overflow-hidden sm:aspect-[887/400]">
+        {/* all slides stay mounted; crossfade via opacity — no grey flash while images load */}
+        {slides.map((sl, n) => (
+          sl.img && (
+            <Image
+              key={sl.img}
+              src={sl.img}
+              alt=""
+              fill
+              priority={n === 0}
+              sizes="(max-width: 1024px) 100vw, 62vw"
+              className={`object-cover object-top transition-opacity duration-700 ${n === i ? "opacity-100" : "opacity-0"}`}
             />
-            <Byline className="mt-3 justify-center" light name={s.author} avatar={s.authorAvatar} date={s.date} />
-          </div>
-          <span className="absolute bottom-5 right-5 flex flex-col gap-1.5">
+          )
+        ))}
+        {/* dots sit centred in the strip of image the card leaves uncovered */}
+        {slides.length > 1 && (
+          <span className="absolute inset-x-0 bottom-14 flex justify-center gap-2 sm:bottom-[34%]">
             {slides.map((_, n) => (
-              <span key={n} className={`h-2 w-2 rounded-full ${n === i ? "bg-white" : "bg-white/40"}`} />
+              <button
+                key={n}
+                type="button"
+                aria-label={`Slide ${n + 1}`}
+                onClick={() => setI(n)}
+                className={`h-2.5 w-2.5 rounded-full transition ${n === i ? "bg-white" : "bg-white/50 hover:bg-white/80"}`}
+              />
             ))}
           </span>
+        )}
+      </div>
+
+      {/* the card: 81% of the image's width, inset 9.6% from its left edge, and
+          overlapping its bottom 31% — the live proportions */}
+      <div className="relative z-10 mx-4 -mt-10 bg-white p-5 shadow-[0_0_10px_rgba(0,0,0,0.35)] sm:mx-0 sm:-mt-[14%] sm:ml-[9.6%] sm:w-[81%] sm:p-7 lg:p-[30px]">
+        {s.category && (
+          <span className="pill inline-flex items-center justify-center bg-[#693FE2] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white">
+            {s.category}
+          </span>
+        )}
+        <Link href={s.href} className="group block">
+          <h1
+            className="mt-3 line-clamp-3 [overflow-wrap:anywhere] text-xl font-semibold leading-snug text-black transition-colors group-hover:text-[#31094C] sm:text-2xl lg:text-[34px] lg:leading-tight"
+            dangerouslySetInnerHTML={{ __html: s.title }}
+          />
+        </Link>
+        <div className="mt-4 flex items-end justify-between gap-4">
+          {/* min-w-0 so the author name can truncate instead of pushing the row wide */}
+          <Byline className="min-w-0" name={s.author} avatar={s.authorAvatar} date={s.date} />
+          {slides.length > 1 && (
+            // the live card's purple disc — it advances the slider
+            <button
+              type="button"
+              aria-label="Next slide"
+              onClick={() => setI((i + 1) % slides.length)}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#693FE2] text-white transition hover:bg-[#5a34c7]"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="h-4 w-4">
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
+            </button>
+          )}
         </div>
-      </Link>
-      <button
-        aria-label="Previous slide"
-        onClick={() => setI((i - 1 + slides.length) % slides.length)}
-        className="absolute left-3 top-[35%] z-10 rounded-full bg-black/40 px-3 py-1.5 text-white hover:bg-black/70"
-      >‹</button>
-      <button
-        aria-label="Next slide"
-        onClick={() => setI((i + 1) % slides.length)}
-        className="absolute right-3 top-[35%] z-10 rounded-full bg-black/40 px-3 py-1.5 text-white hover:bg-black/70"
-      >›</button>
+      </div>
     </div>
   );
 }
