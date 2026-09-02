@@ -43,8 +43,8 @@ plugin can't reach the site. Same idempotency, so a 5-minute schedule won't spam
 
 ## Scheduled fallback (Vercel Cron)
 
-`vercel.json` schedules `GET /api/notify` every 15 minutes, so a new post goes out
-even when WordPress never calls us. Vercel signs those requests with
+`vercel.json` schedules `GET /api/notify` once a day (`0 4 * * *`, 09:30 IST), so a
+new post still goes out if WordPress never calls us. Vercel signs those requests with
 `Authorization: Bearer $CRON_SECRET`, which `authed()` accepts alongside the
 `X-Notify-Secret` header — that keeps `NOTIFY_SECRET` out of the committed
 `vercel.json`. **Set `CRON_SECRET` in Vercel → Settings → Environment Variables**;
