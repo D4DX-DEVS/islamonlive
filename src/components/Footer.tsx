@@ -5,13 +5,15 @@ export default function Footer() {
   return (
     <footer className="mt-4 bg-purple-950 text-purple-200">
       {/* phones: whole top block hidden — mobile footer is just the tiny credit bar below */}
-      <div className="mx-auto hidden max-w-[1600px] grid-cols-2 gap-x-6 gap-y-8 px-4 py-6 md:grid md:grid-cols-4 md:py-10">
-        {/* logo and tagline sit on one line — stacked, they left a tall empty
-            gutter beside the link columns */}
-        <div className="col-span-2 flex items-center gap-3 md:col-span-1">
+      {/* ≥xl the brand track is max-content: the tagline keeps its full sentence on one
+          line and the three link columns start after it. A quarter of the grid is far
+          too narrow for that sentence, so md/lg stack it under the logo instead —
+          forcing the inline row there squeezed the text to one letter per line. */}
+      <div className="mx-auto hidden max-w-[1600px] grid-cols-2 gap-x-6 gap-y-8 px-4 py-6 md:grid md:grid-cols-4 md:gap-x-10 md:py-10 xl:grid-cols-[max-content_repeat(3,minmax(0,1fr))] xl:gap-x-14">
+        <div className="col-span-2 md:col-span-1 xl:flex xl:items-center xl:gap-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-white.png" alt="islamonlive" className="h-10 w-auto shrink-0" />
-          <p className="border-l border-purple-800 pl-3 text-sm leading-snug">The one and only Comprehensive Islamic portal in Malayalam.</p>
+          <p className="mt-2 min-w-0 text-sm leading-snug xl:mt-0 xl:whitespace-nowrap xl:border-l xl:border-purple-800 xl:pl-4">The one and only Comprehensive Islamic portal in Malayalam.</p>
         </div>
         <div className="hidden md:block">
           <h3 className="font-semibold text-white">IslamOnlive</h3>
