@@ -50,13 +50,14 @@ new post still goes out if WordPress never calls us. Vercel signs those requests
 `vercel.json`. **Set `CRON_SECRET` in Vercel → Settings → Environment Variables**;
 without it the scheduled hit gets a 401 and nothing is sent.
 
-The `external_id` is derived from the post id, so the every-15-minutes run pushes a
-given post exactly once no matter how often it fires.
+The `external_id` is derived from the post id, so a given post pushes exactly once no
+matter how often the schedule fires.
 
-Note the plan limits: **Hobby allows at most 2 cron jobs and only one run per day**,
-so `*/15 * * * *` needs a Pro plan. On Hobby, change the schedule to something like
-`0 4 * * *` (or keep the WordPress hook as the real trigger and treat cron as a
-once-a-day safety net).
+**Plan limit:** Hobby allows at most 2 cron jobs, running **once per day**. Anything
+more frequent (`*/15 * * * *`) makes the deployment itself fail with
+"Deployment failed" on Vercel — that is why the schedule here is daily. On Pro you can
+tighten it to `*/15 * * * *`. Either way the WordPress hook is the real trigger; cron
+is only the safety net.
 
 ## WordPress side
 
