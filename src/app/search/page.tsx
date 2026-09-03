@@ -1,21 +1,21 @@
-import Link from "next/link";
-import PostCard from "@/components/PostCard";
+import InfiniteFeed from "@/components/InfiniteFeed";
 import SearchBox from "@/components/SearchBox";
+import { FEED_PER_PAGE } from "@/lib/feed";
 import { getPosts, searchUsers } from "@/lib/wordpress";
 
 export const metadata = { title: "Search" };
 
 export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string; page?: string }> }) {
   const { q = "", page: pg } = await searchParams;
-  const page = Number(pg ?? 1);
+  const page = Math.max(1, Number(pg ?? 1) || 1);
   // ponytail: author posts merged on page 1 only; paginated pages stay pure text search
   const [textPosts, users] = q
     ? await Promise.all([
-        getPosts({ search: q, perPage: 12, page }).catch(() => []),
+        getPosts({ search: q, perPage: FEED_PER_PAGE, page }).catch(() => []),
         page === 1 ? searchUsers(q).catch(() => []) : Promise.resolve([]),
       ])
     : [[], []];
-  const authorPosts = users[0] ? await getPosts({ author: users[0].id, perPage: 12 }).catch(() => []) : [];
+  const authorPosts = users[0] ? await getPosts({ author: users[0].id, perPage: FEED_PER_PAGE }).catch(() => []) : [];
   const seen = new Set<number>();
   const posts = [...authorPosts, ...textPosts].filter((p) => !seen.has(p.id) && seen.add(p.id));
 
@@ -38,14 +38,14 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
         <SearchBox initialQ={q} />
       </div>
       {posts.length === 0 && <p className="text-center text-zinc-500">No results for “{q}”.</p>}
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {posts.map((p) => <PostCard key={p.id} post={p} showExcerpt />)}
-      </div>
-      {posts.length === 12 && (
-        <div className="mt-8 flex justify-center">
-          <Link href={`/search?q=${encodeURIComponent(q)}&page=${page + 1}`} className="rounded bg-purple-800 px-4 py-2 text-sm font-medium text-white">Next →</Link>
-        </div>
-      )}
+      <InfiniteFeed
+        // the author block only pads page 1, so whether more exists is decided by
+        // the text search alone
+        initial={posts}
+        query={{ kind: "search", q }}
+        startPage={page}
+        hasMore={textPosts.length >= FEED_PER_PAGE}
+      />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { ElementType } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import Byline from "@/components/Byline";
@@ -20,7 +21,6 @@ export default function HeroSlider({ slides }: { slides: Slide[] }) {
   }, [slides.length]);
 
   if (!slides.length) return null;
-  const s = slides[i];
 
   return (
     // live-site hero: a 887×400 image with a white caption card offset over its
@@ -33,7 +33,7 @@ export default function HeroSlider({ slides }: { slides: Slide[] }) {
         {slides.map((sl, n) => (
           sl.img && (
             <Image
-              key={sl.img}
+              key={n}
               src={sl.img}
               alt=""
               fill
@@ -60,36 +60,68 @@ export default function HeroSlider({ slides }: { slides: Slide[] }) {
       </div>
 
       {/* the card: 81% of the image's width, inset 9.6% from its left edge, and
-          overlapping its bottom 31% — the live proportions */}
-      <div className="relative z-10 mx-4 -mt-20 bg-white p-5 shadow-[0_0_10px_rgba(0,0,0,0.35)] sm:mx-0 sm:-mt-[14%] sm:ml-[9.6%] sm:w-[81%] sm:p-7 lg:p-[30px]">
-        {s.category && (
-          <span className="pill inline-flex items-center justify-center bg-[#693FE2] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white">
-            {s.category}
-          </span>
-        )}
-        <Link href={s.href} className="group block">
-          <h1
-            className="mt-3 line-clamp-3 [overflow-wrap:anywhere] text-xl font-semibold leading-snug text-black transition-colors group-hover:text-[#31094C] sm:text-2xl lg:text-[34px] lg:leading-tight"
-            dangerouslySetInnerHTML={{ __html: s.title }}
-          />
-        </Link>
-        <div className="mt-4 flex items-end justify-between gap-4">
-          {/* min-w-0 so the author name can truncate instead of pushing the row wide */}
-          <Byline className="min-w-0" name={s.author} avatar={s.authorAvatar} date={s.date} />
-          {slides.length > 1 && (
-            // the live card's purple disc — it advances the slider
-            <button
-              type="button"
-              aria-label="Next slide"
-              onClick={() => setI((i + 1) % slides.length)}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#693FE2] text-white transition hover:bg-[#5a34c7]"
+          overlapping its bottom 31% — the live proportions.
+          Every slide's card is mounted into the same grid cell, so the block is
+          always as tall as the tallest of them. Sizing it to whichever slide is
+          showing resized the hero on each advance — and with it the grid row and
+          the side column, which takes its height from that row: a 1-line
+          headline followed by a 3-line one jumped the whole section.
+          The waiting cards use `invisible`, not `opacity-0`: visibility:hidden
+          still reserves the height but drops them from the a11y tree. */}
+      <div className="relative z-10 mx-4 -mt-20 grid sm:mx-0 sm:-mt-[14%] sm:ml-[9.6%] sm:w-[81%]">
+        {slides.map((s, n) => {
+          const live = n === i;
+          // only the slide on screen is the page's h1; the four waiting behind it
+          // would otherwise stack up as duplicate headings in the markup
+          const Heading: ElementType = live ? "h1" : "div";
+          return (
+            <div
+              key={n}
+              className={`col-start-1 row-start-1 flex flex-col bg-white p-5 shadow-[0_0_10px_rgba(0,0,0,0.35)] sm:p-7 lg:p-[30px] ${live ? "" : "invisible"}`}
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="h-4 w-4">
-                <path d="M5 12h14M13 6l6 6-6 6" />
-              </svg>
-            </button>
-          )}
-        </div>
+              {/* w-fit: the pill is a flex item now, and a flex column stretches
+                  its children to full width unless told not to */}
+              {s.category ? (
+                <span className="pill inline-flex w-fit items-center justify-center bg-[#693FE2] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white">
+                  {s.category}
+                </span>
+              ) : (
+                // an uncategorised post still reserves the pill's line, so the
+                // headline starts at the same height on every slide
+                <span aria-hidden className="pill invisible inline-flex w-fit px-2.5 py-1 text-[11px]">
+                  &nbsp;
+                </span>
+              )}
+              <Link href={s.href} className="group block" tabIndex={live ? undefined : -1}>
+                <Heading
+                  className="mt-3 line-clamp-3 [overflow-wrap:anywhere] text-xl font-semibold leading-snug text-black transition-colors group-hover:text-[#31094C] sm:text-2xl lg:text-[34px] lg:leading-tight"
+                  dangerouslySetInnerHTML={{ __html: s.title }}
+                />
+              </Link>
+              {/* mt-auto pins the byline to the bottom of the plate: on a slide
+                  whose headline is shorter than the tallest one, the slack sits
+                  above the byline rather than dangling under it */}
+              <div className="mt-auto flex items-end justify-between gap-4 pt-4">
+                {/* min-w-0 so the author name can truncate instead of pushing the row wide */}
+                <Byline className="min-w-0" name={s.author} avatar={s.authorAvatar} date={s.date} />
+                {slides.length > 1 && (
+                  // the live card's purple disc — it advances the slider
+                  <button
+                    type="button"
+                    aria-label="Next slide"
+                    tabIndex={live ? undefined : -1}
+                    onClick={() => setI((i + 1) % slides.length)}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#693FE2] text-white transition hover:bg-[#5a34c7]"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="h-4 w-4">
+                      <path d="M5 12h14M13 6l6 6-6 6" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

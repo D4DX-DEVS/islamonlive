@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useChromeVisible } from "@/lib/appChrome";
 
 // the Menu drop-up: the four subsites, which are separate WordPress installs
 // and leave the app entirely. The site's own pages live in the header drawer
@@ -63,6 +65,11 @@ export default function MobileTabBar() {
   const [openedOn, setOpenedOn] = useState<string | null>(null);
   const menuOpen = openedOn === pathname;
 
+  // slides down out of the way while the reader scrolls into the page and comes
+  // back the moment they scroll up, in step with the header (same store). An
+  // open drop-up holds it in place — the panel is anchored to the bar
+  const hidden = !useChromeVisible() && !menuOpen;
+
   /* Android back should close the panel, not leave the site, so opening pushes a
      throwaway history entry. Everything that closes the panel unwinds that entry
      first — navigating on top of it would leave a duplicate the user has to back
@@ -98,17 +105,23 @@ export default function MobileTabBar() {
   return (
     <nav
       aria-label="Bottom navigation"
-      className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 border-t border-purple-900 bg-purple-950 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_12px_rgba(0,0,0,0.25)] md:hidden print:hidden"
+      className={`fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 border-t border-purple-900 bg-purple-950 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_12px_rgba(0,0,0,0.25)] transition-transform duration-300 will-change-transform motion-reduce:transition-none md:hidden print:hidden ${
+        hidden ? "translate-y-full" : "translate-y-0"
+      }`}
     >
-      {/* tap-anywhere-else dismissal. First child so it paints under the panel and
-          the tabs; it stops at the bar so the bar itself stays un-dimmed. */}
-      {menuOpen && (
-        <div
-          aria-hidden
-          onClick={() => close()}
-          className="fixed inset-x-0 top-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] bg-black/40"
-        />
-      )}
+      {/* tap-anywhere-else dismissal; it stops at the bar so the bar itself stays
+          un-dimmed. Portalled to the body because the bar now carries a transform
+          to slide out of view, and that makes it the containing block for any
+          position:fixed descendant — the backdrop would cover only the bar. */}
+      {menuOpen &&
+        createPortal(
+          <div
+            aria-hidden
+            onClick={() => close()}
+            className="fixed inset-x-0 top-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-40 bg-black/40"
+          />,
+          document.body
+        )}
       {/* drop-up menu panel, sits on top of the bar */}
       {menuOpen && (
         <div

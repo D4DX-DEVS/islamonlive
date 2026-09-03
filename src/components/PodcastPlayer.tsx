@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import Image from "next/image";
 import { Episode } from "@/lib/podcast";
 
@@ -104,6 +105,10 @@ export default function PodcastPlayer({ episodes, listHeight = 480, perPage = 20
     }
   }, [playing]);
 
+  // the homepage player is the only one with a scroll box; /listen pins its
+  // header and lets the list run down the page instead
+  const boxed = !fill && !stickyHeader;
+
   if (!ep) return null;
 
   return (
@@ -130,9 +135,9 @@ export default function PodcastPlayer({ episodes, listHeight = 480, perPage = 20
       {/* gradient header: artwork + now playing */}
       {/* bg-[#121212] under the gradient: its middle stop is 80% opaque, and while
           pinned the track rows showed straight through it */}
-      <div className={`shrink-0 bg-[#121212] bg-gradient-to-b from-purple-800 via-purple-950/80 to-[#121212] p-5 sm:p-6 ${stickyHeader ? "sticky top-0 z-10 rounded-t-2xl md:top-[46px]" : ""}`}>
-        <div className="flex items-end gap-4 sm:gap-5">
-          <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-zinc-800 shadow-2xl sm:h-36 sm:w-36">
+      <div className={`shrink-0 bg-[#121212] bg-gradient-to-b from-purple-800 via-purple-950/80 to-[#121212] p-4 sm:p-6 ${stickyHeader ? "sticky top-0 z-10 rounded-t-2xl md:top-[46px]" : ""}`}>
+        <div className="flex items-end gap-3 sm:gap-5">
+          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-zinc-800 shadow-2xl sm:h-36 sm:w-36">
             {ep.image ? (
               <Image src={ep.image} alt="" fill sizes="144px" className="object-cover" unoptimized />
             ) : (
@@ -142,13 +147,13 @@ export default function PodcastPlayer({ episodes, listHeight = 480, perPage = 20
           </div>
           <div className="min-w-0 flex-1">
             <p className="pill text-[10px] font-semibold uppercase tracking-widest text-purple-200">Podcast · Episode {idx + 1}</p>
-            <h3 className="mt-1 line-clamp-3 text-lg font-extrabold leading-snug sm:text-2xl">{ep.topic}</h3>
+            <h3 className="mt-1 line-clamp-2 text-base font-extrabold leading-snug sm:line-clamp-3 sm:text-2xl">{ep.topic}</h3>
             <p className="mt-1 truncate text-xs text-purple-200/80">{ep.speaker ? `${ep.speaker} · ` : ""}Islam Onlive · {episodes.length} episodes</p>
           </div>
         </div>
 
         {/* progress */}
-        <div className="mt-5 flex items-center gap-3 text-[11px] text-zinc-300">
+        <div className="mt-3 flex items-center gap-3 text-[11px] text-zinc-300 sm:mt-5">
           <span className="w-10">{fmt(time)}</span>
           <input
             type="range" min={0} max={duration || 0} step={1} value={time}
@@ -160,16 +165,16 @@ export default function PodcastPlayer({ episodes, listHeight = 480, perPage = 20
         </div>
 
         {/* transport — rate/Spotify pinned to the edges so the play cluster stays dead centre */}
-        <div className="relative mt-3 flex items-center justify-center gap-4 sm:gap-5">
+        <div className="relative mt-2 flex items-center justify-center gap-3 sm:mt-3 sm:gap-5">
           <button aria-label="Playback speed" onClick={cycleRate} className="absolute left-0 w-10 rounded-full border border-zinc-600 px-2 py-1 text-xs text-zinc-300 hover:border-white hover:text-white">{rate}x</button>
           <button aria-label="Previous" onClick={() => idx > 0 && play(idx - 1)} className="text-xl text-zinc-300 hover:text-white">⏮</button>
           <button aria-label="Back 10s" onClick={() => skip(-10)} className="text-xs text-zinc-300 hover:text-white">-10s</button>
           <button
             aria-label={playing ? "Pause" : "Play"}
             onClick={() => play(idx)}
-            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#1db954] text-black shadow-lg transition hover:scale-105"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#1db954] text-black shadow-lg transition hover:scale-105 sm:h-14 sm:w-14"
           >
-            <PlayPauseIcon paused={!playing} className="h-6 w-6" />
+            <PlayPauseIcon paused={!playing} className="h-5 w-5 sm:h-6 sm:w-6" />
           </button>
           <button aria-label="Forward 30s" onClick={() => skip(30)} className="text-xs text-zinc-300 hover:text-white">+30s</button>
           <button aria-label="Next" onClick={() => idx < episodes.length - 1 && play(idx + 1)} className="text-xl text-zinc-300 hover:text-white">⏭</button>
@@ -185,20 +190,20 @@ export default function PodcastPlayer({ episodes, listHeight = 480, perPage = 20
       </div>
 
       {/* search + track list */}
-      <div className={`p-4 sm:p-5 ${fill ? "lg:flex lg:min-h-0 lg:flex-1 lg:flex-col" : ""}`}>
+      <div className={`p-3 sm:p-5 ${fill ? "lg:flex lg:min-h-0 lg:flex-1 lg:flex-col" : ""}`}>
         <input
           type="search" value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} placeholder="Search episodes"
-          className="w-full shrink-0 rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#1db954]"
+          className="w-full shrink-0 rounded-full border border-zinc-700 bg-zinc-900 px-4 py-1.5 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#1db954] sm:py-2"
         />
         <div
-          className={`mt-2 ${stickyHeader ? "" : "overflow-y-auto"} ${fill ? "max-h-[320px] lg:max-h-none lg:min-h-0 lg:flex-1" : ""}`}
-          style={fill || stickyHeader ? undefined : { maxHeight: listHeight }}
+          className={`mt-2 ${stickyHeader ? "" : "overflow-y-auto"} ${fill ? "max-h-[320px] lg:max-h-none lg:min-h-0 lg:flex-1" : ""} ${boxed ? "max-h-[264px] sm:max-h-[var(--list-h)]" : ""}`}
+          style={boxed ? ({ "--list-h": `${listHeight}px` } as CSSProperties) : undefined}
         >
           {filtered.slice(page * perPage, (page + 1) * perPage).map(({ e, i }, n) => (
             <button
               key={e.audioUrl}
               onClick={() => play(i)}
-              className={`group flex w-full items-center gap-3 rounded-md px-2 py-2.5 text-left text-sm hover:bg-white/10 ${i === idx ? "text-[#1db954]" : "text-zinc-200"}`}
+              className={`group flex w-full items-center gap-3 rounded-md px-2 py-2 text-left text-sm hover:bg-white/10 sm:py-2.5 ${i === idx ? "text-[#1db954]" : "text-zinc-200"}`}
             >
               <span className="w-7 shrink-0 text-center text-xs text-zinc-500">
                 <span className="group-hover:hidden">{i === idx && playing ? "▮▮" : page * perPage + n + 1}</span>

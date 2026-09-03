@@ -41,7 +41,10 @@ export default async function PostPage({ params }: { params: Params }) {
     // width — the artwork already carries the title, and a half-width column
     // rendered the infographic text too small to read
     return (
-      <div className="mx-auto grid max-w-[1300px] grid-cols-1 items-start gap-4 sm:grid-cols-2 sm:gap-6 lg:gap-8">
+      // max-sm:-my-4 trims the layout's 20px page padding to 4px on phones: the
+      // artwork is the whole article there, and a wide band above it just pushed
+      // the infographic down the screen
+      <div className="mx-auto grid max-w-[1300px] grid-cols-1 items-start gap-4 max-sm:-mt-4 max-sm:-mb-4 sm:grid-cols-2 sm:gap-6 lg:gap-8">
         {/* min-w-0: WP figures carry inline width:750px — without it the grid track
             grows to fit and the whole page overflows the phone viewport */}
         <div className="sticky top-2 hidden min-w-0 sm:block lg:top-24">
@@ -63,7 +66,16 @@ export default async function PostPage({ params }: { params: Params }) {
         </div>
         {/* right: scrolling content */}
         <div
-          className="prose prose-zinc min-w-0 max-w-none text-sm leading-relaxed prose-a:text-purple-800 prose-img:rounded-lg break-words sm:text-base [&_*]:max-w-full [&_img]:h-auto [&_iframe]:aspect-video [&_iframe]:h-auto [&_iframe]:w-full [&_table]:block [&_table]:overflow-x-auto"
+          /* phones: the picture sat in 16px side gaps but 48px vertical ones —
+             prose gives an image a 2em margin on top of the page padding. The
+             max-sm rules even the four gaps out at 8px and hand the 16px they
+             free up to the artwork: image blocks bleed 8px past the column,
+             their own margins drop to 4px, and the paragraph wrapper WP puts
+             around an image contributes nothing. max-w-none goes with the
+             negative margin: [&_*]:max-w-full above pins every descendant to the
+             column's width, so without it the block only shifted left instead of
+             growing. Text keeps the wider gutter. */
+          className="prose prose-zinc min-w-0 max-w-none text-sm leading-relaxed prose-a:text-purple-800 prose-img:rounded-lg break-words sm:text-base [&_*]:max-w-full [&_img]:h-auto [&_iframe]:aspect-video [&_iframe]:h-auto [&_iframe]:w-full [&_table]:block [&_table]:overflow-x-auto max-sm:[&_figure]:-mx-2 max-sm:[&_figure]:my-0 max-sm:[&_figure]:max-w-none max-sm:[&_img]:my-1 max-sm:[&_p:has(img)]:-mx-2 max-sm:[&_p:has(img)]:my-0 max-sm:[&_p:has(img)]:max-w-none"
           dangerouslySetInnerHTML={{ __html: post.content.rendered }}
         />
       </div>

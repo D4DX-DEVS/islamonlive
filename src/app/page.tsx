@@ -271,11 +271,10 @@ export default async function Home() {
       {/* 6. Infographics — portrait tiles, caption below (live-site style) */}
       {infographics.length > 0 && (
         <section>
-          {/* phones: the tiles carry their own titles in the artwork, so the
-              heading and the captions under them are desktop-only */}
-          <div className="hidden sm:block">
-            <SectionHead title="Infographics" href="/category/infographics" />
-          </div>
+          {/* the tiles carry their own titles in the artwork, so the captions
+              under them stay desktop-only — but the section still needs its
+              heading on a phone, or the row reads as a stray strip of images */}
+          <SectionHead title="Infographics" href="/category/infographics" />
           {/* phones: horizontal slider; ≥sm: grid (5-wide desktop row drops the 6th) */}
           <div className="scrollbar-none flex gap-4 overflow-x-auto sm:grid sm:grid-cols-3 lg:grid-cols-5 lg:[&>*:nth-child(6)]:hidden">
             {infographics.map((p) => {

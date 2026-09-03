@@ -90,6 +90,65 @@ button,
   100% { transform: translateX(400%); }
 }
 
+/* phone menu sheet (Header.tsx). Open and close are keyframes rather than
+   transitions: the sheet is mounted only while it is on screen, and a node that
+   has just entered the DOM has no previous value to transition *from*. */
+@keyframes sheet-in {
+  from { opacity: 0; transform: translateY(-12px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes sheet-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(-8px) scale(0.985); }
+}
+@keyframes drawer-item-in {
+  from { opacity: 0; transform: translateY(-9px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes menu-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes menu-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.sheet-in {
+  /* the overshoot-free ease-out phones use for sheets */
+  animation: sheet-in 0.26s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: top center;
+}
+.sheet-out {
+  animation: sheet-out 0.2s ease-in both;
+  transform-origin: top center;
+}
+/* rows cascade in behind the sheet; on the way out they ride it instead of
+   staggering a second time */
+.drawer-item {
+  animation: drawer-item-in 0.34s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.sheet-out .drawer-item {
+  animation: none;
+}
+.fade-in {
+  animation: menu-fade-in 0.2s ease-out both;
+}
+.fade-out {
+  animation: menu-fade-out 0.2s ease-in both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-in,
+  .sheet-out,
+  .drawer-item,
+  .fade-in,
+  .fade-out {
+    animation-duration: 0.01ms;
+    animation-delay: 0ms;
+  }
+}
+
 /* hide the scrollbar on swipeable pill rows */
 .scrollbar-none {
   scrollbar-width: none;
