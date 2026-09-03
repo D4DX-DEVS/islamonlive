@@ -15,6 +15,14 @@ h4,
   font-family: var(--font-anek-ml), var(--font-noto-ml), system-ui, sans-serif;
 }
 
+/* double-tap-to-zoom off: iOS Safari ignores user-scalable=no, and a mistimed
+   double tap on a card was zooming the page instead of opening the post.
+   `manipulation` keeps scrolling and pinch behaviour on the elements that need
+   them (the sliders keep their own touch handling). */
+body {
+  touch-action: manipulation;
+}
+
 /* Tailwind v4 preflight sets cursor:default on buttons — restore hand cursor
    for everything clickable */
 a,

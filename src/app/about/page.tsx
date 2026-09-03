@@ -23,7 +23,7 @@ export default async function AboutPage() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <nav className="mb-3 text-xs text-zinc-500">
+      <nav className="mb-3 hidden text-xs text-zinc-500 sm:block">
         <Link href="/" className="hover:text-purple-800">Home</Link>
         <span className="px-1.5">/</span>
         <span className="text-zinc-700">About Us</span>

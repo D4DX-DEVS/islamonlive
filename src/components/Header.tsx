@@ -16,8 +16,7 @@ export interface NavPreviewItem {
 
 type NavItem = { label: string; href: string; external?: boolean; children?: { label: string; href: string }[] };
 
-// mirrors the live site's menu (islamonlive.in) exactly: Home, Read (mega),
-// Infographics (mega), Watch, Listen — Infographics sits second, not last
+// Home, Read (mega), Watch, Listen, Infographics — Infographics sits last
 const NAV: NavItem[] = [
   { label: "Home", href: "/" },
   {
@@ -28,9 +27,19 @@ const NAV: NavItem[] = [
       { label: "Columns", href: "/category/columns" },
     ],
   },
-  { label: "Infographics", href: "/category/infographics" },
   { label: "Watch", href: "/watch-videos" },
   { label: "Listen", href: "/listen" },
+  { label: "Infographics", href: "/category/infographics" },
+];
+
+// the phone drawer behind the hamburger. The sections are one tap away in the
+// bottom tab bar, so the drawer carries the site's own pages instead
+const DRAWER: NavItem[] = [
+  { label: "About Us", href: "/about" },
+  { label: "Contact Us", href: "/contact" },
+  { label: "Privacy Policy", href: "/privacy-policy" },
+  { label: "Terms of Use", href: "/terms-of-use" },
+  { label: "Support Us", href: "https://rzp.io/rzp/5bOM6U7A", external: true },
 ];
 
 /* post previews shown while hovering a nav item — the live site's mega menu */
@@ -111,7 +120,6 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
   const pathname = usePathname();
   // phones: the live site's slide-down drawer behind the hamburger
   const [menuOpen, setMenuOpen] = useState(false);
-  const [openGroup, setOpenGroup] = useState<string | null>(null);
 
   // navigating away must close the drawer — the header itself never unmounts.
   // adjusted during render, not in an effect, so the drawer never paints open on
@@ -120,7 +128,6 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
   if (lastPath !== pathname) {
     setLastPath(pathname);
     setMenuOpen(false);
-    setOpenGroup(null);
   }
 
   // the purple bar pins to the top of the viewport once the white masthead row
@@ -160,10 +167,10 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
     // only the purple bar below pins to the top (see `pinned`).
     // pt-safe: in the installed PWA (viewport-fit=cover) the page draws under the
     // status bar — without it the logo capsule sits under the clock.
-    <header className="relative z-40 bg-white pt-[env(safe-area-inset-top)] print:hidden">
+    <header className="relative z-40 bg-white md:pt-[env(safe-area-inset-top)] print:hidden">
       {/* top row: date left, actions right — the middle is left empty for the
           logo capsule, which is positioned absolutely so it can straddle the bar */}
-      <div className="mx-auto grid max-w-[1600px] grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 py-2.5 sm:px-5 md:py-4">
+      <div className="mx-auto hidden max-w-[1600px] grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 sm:px-5 md:grid md:py-4">
         {/* min-h holds the row steady while the client fills the date in */}
         <div className="hidden min-h-[1.5rem] items-center md:flex">
           {/* nowrap: at ~768 the date wrapped to two lines and grew the whole row */}
@@ -198,7 +205,7 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
           Pins to the top once scrolled past, in a shorter form with the logo inline. */}
       <div
         ref={barRef}
-        className={`bg-[#31094C] ${pinned ? "fixed inset-x-0 top-0 z-50 pt-[env(safe-area-inset-top)] shadow-lg shadow-black/25" : "relative"}`}
+        className={`bg-[#31094C] pt-[env(safe-area-inset-top)] md:pt-0 ${pinned ? "fixed inset-x-0 top-0 z-50 shadow-lg shadow-black/25 md:pt-[env(safe-area-inset-top)]" : "relative"}`}
       >
         {/* overlay row: the pinned bar's logo and actions. Absolute so the nav
             stays centred on the bar, and kept out of the nav's own element so it
@@ -207,10 +214,11 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
           <Link
             href="/"
             aria-label="islamonlive"
-            className={`pointer-events-auto my-2 rounded-full bg-white px-3 py-1 transition-opacity duration-200 ${pinned ? "opacity-100" : "pointer-events-none opacity-0"}`}
+            className={`pointer-events-auto my-2 transition-opacity duration-200 ${pinned ? "opacity-100" : "pointer-events-none opacity-0"}`}
           >
+            {/* the footer's white wordmark — it reads on the purple bar unaided, so no capsule */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="" className="h-6 w-auto" />
+            <img src="/logo-white.png" alt="" className="h-7 w-auto" />
           </Link>
           <div className={`flex items-center gap-3 transition-opacity duration-200 ${pinned ? "pointer-events-auto opacity-100" : "opacity-0"}`}>
             <Link href="/search" prefetch aria-label="Search" className="text-white/90 hover:text-white">
@@ -271,15 +279,11 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
               {menuOpen ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M3 6h18M3 12h18M3 18h18" />}
             </svg>
           </button>
-          {/* phones lose the capsule with the white row — the pinned bar keeps a
-              small logo between the two controls */}
-          <Link
-            href="/"
-            aria-label="islamonlive"
-            className={`rounded-full bg-white px-2.5 py-1 transition-opacity duration-200 ${pinned ? "opacity-100" : "pointer-events-none opacity-0"}`}
-          >
+          {/* phones have no white row at all — this bar is the header, so the
+              wordmark sits between the two controls at every scroll position */}
+          <Link href="/" aria-label="islamonlive">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="" className="h-6 w-auto" />
+            <img src="/logo-white.png" alt="" className="h-7 w-auto" />
           </Link>
           <Link href="/search" prefetch aria-label="Search" className="-mr-1 flex h-11 w-11 touch-manipulation items-center justify-center text-white">
             <SearchIcon className="h-6 w-6" />
@@ -290,52 +294,26 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
             rendered outside it, it would open back at the page's top */}
         {menuOpen && (
           <div className="max-h-[calc(100vh-8rem)] overflow-y-auto border-b border-zinc-200 bg-white shadow-lg md:hidden">
-            {NAV.map((item) => (
+            {DRAWER.map((item) => (
               <div key={item.label} className="border-b border-zinc-100 last:border-0">
-                <div className="flex items-center">
-                  <Link href={item.href} className="flex-1 px-4 py-3 text-sm font-semibold text-zinc-800">
+                {item.external ? (
+                  <a href={item.href} target="_blank" rel="noopener noreferrer" className="block px-4 py-2 text-[13px] font-semibold text-zinc-800">
+                    {item.label}
+                  </a>
+                ) : (
+                  <Link href={item.href} className="block px-4 py-2 text-[13px] font-semibold text-zinc-800">
                     {item.label}
                   </Link>
-                  {item.children && (
-                    <button
-                      type="button"
-                      aria-label={`Toggle ${item.label}`}
-                      aria-expanded={openGroup === item.label}
-                      onClick={() => setOpenGroup((g) => (g === item.label ? null : item.label))}
-                      className="px-4 py-3 text-zinc-500"
-                    >
-                      <span className="text-xs">{openGroup === item.label ? "▴" : "▾"}</span>
-                    </button>
-                  )}
-                </div>
-                {item.children && openGroup === item.label && (
-                  <div className="bg-zinc-50 pb-1">
-                    {item.children.map((c) => (
-                      <Link key={c.href} href={c.href} className="block px-7 py-2 text-sm text-zinc-700">
-                        {c.label}
-                      </Link>
-                    ))}
-                  </div>
                 )}
               </div>
             ))}
-            {/* the live drawer carries the actions the top row hides on phones */}
-            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-              <div className="flex flex-wrap items-center gap-0.5 text-zinc-600">
-                {SOCIAL.map((s) => (
-                  <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label} className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-purple-50 hover:text-[#31094C]">
-                    <SocialIcon path={s.path} />
-                  </a>
-                ))}
-              </div>
-              <a
-                href="https://rzp.io/rzp/5bOM6U7A"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="pill inline-flex min-h-11 items-center whitespace-nowrap rounded-full bg-[#693FE2] px-4 py-2 text-xs font-semibold text-white"
-              >
-                Support Us
-              </a>
+            {/* the live drawer carries the social row the bar has no space for */}
+            <div className="flex flex-wrap items-center gap-0.5 px-3 py-1 text-zinc-600">
+              {SOCIAL.map((s) => (
+                <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label} className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-purple-50 hover:text-[#31094C]">
+                  <SocialIcon path={s.path} />
+                </a>
+              ))}
             </div>
           </div>
         )}
@@ -348,10 +326,10 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
           bar exactly as on the live site; z-10 keeps it above the bar */}
       <Link
         href="/"
-        className="absolute left-1/2 top-[calc(env(safe-area-inset-top)+0.25rem)] z-10 -translate-x-1/2 rounded-[30px] bg-white px-6 py-1.5 md:top-[calc(env(safe-area-inset-top)+0.5rem)] md:px-10 md:py-2"
+        className="absolute left-1/2 top-[calc(env(safe-area-inset-top)+0.5rem)] z-10 hidden -translate-x-1/2 rounded-[30px] bg-white px-10 py-2 md:block"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.png" alt="islamonlive" className="h-11 w-auto md:h-[68px]" />
+        <img src="/logo.png" alt="islamonlive" className="h-[68px] w-auto" />
       </Link>
     </header>
   );

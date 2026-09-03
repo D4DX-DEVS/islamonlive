@@ -28,11 +28,10 @@ export default function Footer() {
         <div className="hidden md:block">
           <h3 className="font-semibold text-white">Subsite</h3>
           <ul className="mt-2 space-y-1 text-sm">
-            <li><a href="https://hajj.islamonlive.in/" target="_blank" rel="noopener noreferrer" className="hover:text-white">Hajj &amp; Umrah</a></li>
-            <li><Link href="/category/news" className="hover:text-white">News</Link></li>
-            <li><Link href="/category/shariah" className="hover:text-white">Shari&apos;ah</Link></li>
-            <li><Link href="/category/shariah/quran" className="hover:text-white">Quran</Link></li>
-            <li><Link href="/category/columns" className="hover:text-white">Columns</Link></li>
+            <li><a href="https://hajj.islamonlive.in/" target="_blank" rel="noopener noreferrer" className="hover:text-white">Hajj &amp; Umra</a></li>
+            <li><a href="https://mohammednabi.islamonlive.in/" target="_blank" rel="noopener noreferrer" className="hover:text-white">Muhammed Nabi</a></li>
+            <li><a href="https://fatwa.islamonlive.in/" target="_blank" rel="noopener noreferrer" className="hover:text-white">Fatwa</a></li>
+            <li><a href="https://ramadan.islamonlive.in/" target="_blank" rel="noopener noreferrer" className="hover:text-white">Ramadan</a></li>
           </ul>
         </div>
         <div className="col-span-2 hidden md:col-span-1 md:block">

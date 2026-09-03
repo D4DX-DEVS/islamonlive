@@ -45,7 +45,7 @@ export default function HeroSlider({ slides }: { slides: Slide[] }) {
         ))}
         {/* dots sit centred in the strip of image the card leaves uncovered */}
         {slides.length > 1 && (
-          <span className="absolute inset-x-0 bottom-14 flex justify-center gap-2 sm:bottom-[34%]">
+          <span className="absolute inset-x-0 bottom-24 flex justify-center gap-2 sm:bottom-[34%]">
             {slides.map((_, n) => (
               <button
                 key={n}
@@ -61,7 +61,7 @@ export default function HeroSlider({ slides }: { slides: Slide[] }) {
 
       {/* the card: 81% of the image's width, inset 9.6% from its left edge, and
           overlapping its bottom 31% — the live proportions */}
-      <div className="relative z-10 mx-4 -mt-10 bg-white p-5 shadow-[0_0_10px_rgba(0,0,0,0.35)] sm:mx-0 sm:-mt-[14%] sm:ml-[9.6%] sm:w-[81%] sm:p-7 lg:p-[30px]">
+      <div className="relative z-10 mx-4 -mt-20 bg-white p-5 shadow-[0_0_10px_rgba(0,0,0,0.35)] sm:mx-0 sm:-mt-[14%] sm:ml-[9.6%] sm:w-[81%] sm:p-7 lg:p-[30px]">
         {s.category && (
           <span className="pill inline-flex items-center justify-center bg-[#693FE2] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white">
             {s.category}

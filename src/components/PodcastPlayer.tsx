@@ -24,7 +24,7 @@ function fmt(sec: number): string {
 
 /* Spotify-style dark player: gradient header with big artwork, green play
    button, numbered track list. Same audio logic as before. */
-export default function PodcastPlayer({ episodes, listHeight = 480, fill = false, spotifyUrl }: { episodes: Episode[]; listHeight?: number; /** stretch to the container instead of a fixed list height — the homepage column uses it to absorb the sidebar's extra height */ fill?: boolean; spotifyUrl?: string }) {
+export default function PodcastPlayer({ episodes, listHeight = 480, perPage = 20, fill = false, spotifyUrl }: { episodes: Episode[]; listHeight?: number; /** track rows per page — the homepage keeps a short list, /listen shows a full page */ perPage?: number; /** stretch to the container instead of a fixed list height — the homepage column uses it to absorb the sidebar's extra height */ fill?: boolean; spotifyUrl?: string }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [idx, setIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -33,7 +33,6 @@ export default function PodcastPlayer({ episodes, listHeight = 480, fill = false
   const [duration, setDuration] = useState(0);
   const [q, setQ] = useState("");
   const [page, setPage] = useState(0);
-  const PER_PAGE = 20;
 
   const ep = episodes[idx];
   const filtered = useMemo(
@@ -190,14 +189,14 @@ export default function PodcastPlayer({ episodes, listHeight = 480, fill = false
           className="w-full shrink-0 rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#1db954]"
         />
         <div className={`mt-2 overflow-y-auto ${fill ? "max-h-[320px] lg:max-h-none lg:min-h-0 lg:flex-1" : ""}`} style={fill ? undefined : { maxHeight: listHeight }}>
-          {filtered.slice(page * PER_PAGE, (page + 1) * PER_PAGE).map(({ e, i }, n) => (
+          {filtered.slice(page * perPage, (page + 1) * perPage).map(({ e, i }, n) => (
             <button
               key={e.audioUrl}
               onClick={() => play(i)}
               className={`group flex w-full items-center gap-3 rounded-md px-2 py-2.5 text-left text-sm hover:bg-white/10 ${i === idx ? "text-[#1db954]" : "text-zinc-200"}`}
             >
               <span className="w-7 shrink-0 text-center text-xs text-zinc-500">
-                <span className="group-hover:hidden">{i === idx && playing ? "▮▮" : page * PER_PAGE + n + 1}</span>
+                <span className="group-hover:hidden">{i === idx && playing ? "▮▮" : page * perPage + n + 1}</span>
                 <span className="hidden group-hover:inline">
                   <PlayPauseIcon paused={!(i === idx && playing)} className="mx-auto h-3.5 w-3.5" />
                 </span>
@@ -211,7 +210,7 @@ export default function PodcastPlayer({ episodes, listHeight = 480, fill = false
             </button>
           ))}
         </div>
-        {filtered.length > PER_PAGE && (
+        {filtered.length > perPage && (
           <div className="mt-3 flex items-center justify-center gap-4 text-sm text-zinc-300">
             <button
               onClick={() => setPage(page - 1)}
@@ -221,11 +220,11 @@ export default function PodcastPlayer({ episodes, listHeight = 480, fill = false
               ← Prev
             </button>
             <span className="text-xs text-zinc-500">
-              {page + 1} / {Math.ceil(filtered.length / PER_PAGE)} · {filtered.length} episodes
+              {page + 1} / {Math.ceil(filtered.length / perPage)} · {filtered.length} episodes
             </span>
             <button
               onClick={() => setPage(page + 1)}
-              disabled={(page + 1) * PER_PAGE >= filtered.length}
+              disabled={(page + 1) * perPage >= filtered.length}
               className="rounded-full border border-zinc-700 px-4 py-1.5 font-semibold hover:border-white hover:text-white disabled:opacity-30 disabled:hover:border-zinc-700"
             >
               Next →

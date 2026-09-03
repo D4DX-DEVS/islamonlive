@@ -4,40 +4,52 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
-// links the tab bar doesn't carry — shown in the Menu drop-up
-const MENU = [
-  { label: "Infographics", href: "/category/infographics" },
-  { label: "About Us", href: "/about" },
-  { label: "Contact Us", href: "/contact" },
-  { label: "Privacy Policy", href: "/privacy-policy" },
-  { label: "Terms of Use", href: "/terms-of-use" },
+// the Menu drop-up: the four subsites, which are separate WordPress installs
+// and leave the app entirely. The site's own pages live in the header drawer
+const MENU: { label: string; href: string; external?: boolean }[] = [
+  { label: "Hajj & Umra", href: "https://hajj.islamonlive.in/", external: true },
+  { label: "Muhammed Nabi", href: "https://mohammednabi.islamonlive.in/", external: true },
+  { label: "Fatwa", href: "https://fatwa.islamonlive.in/", external: true },
+  { label: "Ramadan", href: "https://ramadan.islamonlive.in/", external: true },
 ];
 
 const TABS = [
   {
     label: "Home",
     href: "/",
-    icon: <path d="M3 10.5 12 3l9 7.5M5 9.5V21h5v-6h4v6h5V9.5" />,
+    icon: (
+      <>
+        <path d="M3 10a2 2 0 0 1 .7-1.5l7-6a2 2 0 0 1 2.6 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+        <path d="M9.5 21v-6.5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1V21" />
+      </>
+    ),
   },
   {
     label: "Read",
     href: "/category/opinion",
-    icon: <path d="M4 6a2 2 0 0 1 2-2h5v16H6a2 2 0 0 0-2 2V6Zm16 0a2 2 0 0 0-2-2h-5v16h5a2 2 0 0 1 2 2V6Z" />,
+    icon: (
+      <>
+        <path d="M12 7v14" />
+        <path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" />
+      </>
+    ),
   },
   {
     label: "Watch",
     href: "/watch-videos",
     icon: (
       <>
-        <rect x="2.5" y="5" width="19" height="14" rx="3" />
-        <path d="M10.5 9.5v5l4.5-2.5z" />
+        <circle cx="12" cy="12" r="9.5" />
+        <path d="m10 8.5 6 3.5-6 3.5z" />
       </>
     ),
   },
   {
     label: "Listen",
     href: "/listen",
-    icon: <path d="M4 13a8 8 0 0 1 16 0M4 13v4a2 2 0 0 0 2 2h1v-6H6m14 0v4a2 2 0 0 1-2 2h-1v-6h1" />,
+    icon: (
+      <path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3" />
+    ),
   },
 ];
 
@@ -100,20 +112,33 @@ export default function MobileTabBar() {
       {/* drop-up menu panel, sits on top of the bar */}
       {menuOpen && (
         <div
-          className="absolute inset-x-0 bottom-full border-t border-purple-900 bg-purple-950 px-4 py-1 shadow-[0_-4px_12px_rgba(0,0,0,0.25)]"
+          className="absolute inset-x-0 bottom-full max-h-[70vh] overflow-y-auto border-t border-purple-900 bg-purple-950 px-4 py-1 shadow-[0_-4px_12px_rgba(0,0,0,0.25)]"
         >
           {MENU.map((m) => (
-            <Link
-              key={m.href}
-              href={m.href}
-              onClick={(e) => {
-                e.preventDefault();
-                close(m.href);
-              }}
-              className="block touch-manipulation border-b border-purple-900/60 py-3 text-sm font-medium text-purple-100 transition-colors last:border-0 active:bg-purple-900 active:text-white"
-            >
-              {m.label}
-            </Link>
+            m.external ? (
+              <a
+                key={m.href}
+                href={m.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => close()}
+                className="block touch-manipulation border-b border-purple-900/60 py-3 text-sm font-medium text-purple-100 transition-colors last:border-0 active:bg-purple-900 active:text-white"
+              >
+                {m.label}
+              </a>
+            ) : (
+              <Link
+                key={m.href}
+                href={m.href}
+                onClick={(e) => {
+                  e.preventDefault();
+                  close(m.href);
+                }}
+                className="block touch-manipulation border-b border-purple-900/60 py-3 text-sm font-medium text-purple-100 transition-colors last:border-0 active:bg-purple-900 active:text-white"
+              >
+                {m.label}
+              </Link>
+            )
           ))}
         </div>
       )}
@@ -144,7 +169,7 @@ export default function MobileTabBar() {
       >
         {menuOpen && <span aria-hidden className="absolute top-0 h-0.5 w-8 rounded-full bg-purple-400" />}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="h-5 w-5">
-          <path d="M4 7h16M4 12h16M4 17h16" />
+          <path d="M4 6h16M4 12h16M4 18h16" />
         </svg>
         <span className="pill">Menu</span>
       </button>

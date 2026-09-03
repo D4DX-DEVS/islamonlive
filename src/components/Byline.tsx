@@ -14,7 +14,9 @@ interface BylineProps {
    renders as a half-formed cluster and reads as a glitch. */
 export default function Byline({ name, avatar, date, light = false, className = "" }: BylineProps) {
   return (
-    <p className={`flex items-center gap-1.5 text-xs ${light ? "text-zinc-300" : "text-zinc-500"} ${className}`}>
+    // wraps rather than truncates: a clipped Malayalam name loses whole
+    // syllables, and on a phone-width card the old `truncate` cut most of them
+    <p className={`flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs ${light ? "text-zinc-300" : "text-zinc-500"} ${className}`}>
       {name && (
         <>
           {avatar ? (
@@ -33,11 +35,15 @@ export default function Byline({ name, avatar, date, light = false, className = 
               </svg>
             </span>
           )}
-          <span className={`truncate font-medium ${light ? "text-white" : "text-zinc-700"}`}>{name}</span>
-          <span aria-hidden>·</span>
+          <span className={`min-w-0 font-medium [overflow-wrap:anywhere] ${light ? "text-white" : "text-zinc-700"}`}>{name}</span>
+          {/* the separator travels with the date, so a wrapped name never
+              leaves a dangling middot at the end of its line */}
+          <span className="shrink-0 whitespace-nowrap">
+            <span aria-hidden>·</span> {date}
+          </span>
         </>
       )}
-      <span className="shrink-0">{date}</span>
+      {!name && <span className="shrink-0">{date}</span>}
     </p>
   );
 }

@@ -31,7 +31,7 @@ export default function TabbedSection({ title, tabs }: { title: string; tabs: Ta
       <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2 [&>*]:min-w-0">
         {featured && <OverlayCard item={featured} className="aspect-[16/11] sm:aspect-auto sm:h-full sm:min-h-[280px]" />}
         {featured && (
-          <div className="rounded-xl border border-zinc-200/80 bg-white p-4 shadow-sm">
+          <div className="hidden rounded-xl border border-zinc-200/80 bg-white p-4 shadow-sm sm:block">
             <Byline name={featured.author} avatar={featured.authorAvatar} date={featured.date} />
             <Link href={featured.href} className="group">
               <h3

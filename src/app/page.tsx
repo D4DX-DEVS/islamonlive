@@ -84,7 +84,12 @@ function SideList({ title, href, posts, featured = false }: { title: string; hre
         <>
           <OverlayCard item={toItem(first)} className="mb-3 aspect-[16/10]" />
           <div className="space-y-3">
-            {rest.map((p) => <ListRow key={p.id} item={toItem(p, true)} />)}
+            {/* phones: 2 rows under the card, the rest from sm up */}
+            {rest.map((p, i) => (
+              <div key={p.id} className={i >= 2 ? "hidden sm:block" : undefined}>
+                <ListRow item={toItem(p, true)} />
+              </div>
+            ))}
           </div>
         </>
       ) : (
@@ -99,7 +104,7 @@ function SideList({ title, href, posts, featured = false }: { title: string; hre
 export default async function Home() {
   // kicked off first so it runs alongside the batch below, not after it
   const cultureSubsP = Promise.all(
-    CULTURE_SUBS.map((c) => getPosts({ perPage: 16, categories: [c.id] }).catch(() => [] as WPPost[]))
+    CULTURE_SUBS.map((c) => getPosts({ perPage: 5, categories: [c.id] }).catch(() => [] as WPPost[]))
   );
   const opinionSubsP = Promise.all(
     OPINION_SUBS.map((c) => getPosts({ perPage: 5, categories: [c.id] }).catch(() => [] as WPPost[]))
@@ -113,15 +118,15 @@ export default async function Home() {
     // each fetches HERO_TAKE extra: the first 3 go into the hero, the rest feed
     // the section further down, so no post shows up twice on the page
     getPosts({ perPage: 5 + HERO_TAKE, categories: CAT.opinion }),
-    getPosts({ perPage: 7 + HERO_TAKE, categories: CAT.columns }),
+    getPosts({ perPage: 5 + HERO_TAKE, categories: CAT.columns }),
     // Shari'ah now leads the main column, so it needs a section's worth of posts
     getPosts({ perPage: 5 + HERO_TAKE, categories: CAT.shariah }),
-    getPosts({ perPage: 16 + HERO_TAKE, categories: CAT.culture }).catch(() => []),
+    getPosts({ perPage: 5 + HERO_TAKE, categories: CAT.culture }).catch(() => []),
     getPosts({ perPage: 6, categories: CAT.infographics }).catch(() => []),
     getVideos(5).catch(() => []),
     getReels(8).catch(() => []),
     getShorts(8).catch(() => []),
-    // the player's list stretches to the column now — 15 left it half empty
+    // the player pages through them 8 at a time
     getEpisodes(40).catch(() => []),
     getHomeBanners().catch(() => []),
   ]);
@@ -184,9 +189,9 @@ export default async function Home() {
           their height from the row (lg:aspect-auto), so both columns end level. */}
       <section className="grid gap-4 sm:gap-5 lg:grid-cols-[1.77fr_1fr] lg:gap-9">
         <HeroSlider slides={slides} />
-        {/* phones: full-width cards stacked under the hero, as on the live site —
-            two-up here squeezes the title against the advance disc */}
-        <div className="grid min-w-0 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-1 lg:grid-rows-2">
+        {/* phones show the slider alone — the two cards repeat Columns and Culture,
+            which both have their own sections further down the page */}
+        <div className="hidden min-w-0 gap-4 sm:grid sm:grid-cols-2 sm:gap-5 lg:grid-cols-1 lg:grid-rows-2">
           {sideSlides.map((set, n) => (
             <SideSlider key={n} slides={set} interval={7000 + n * 2500} className="aspect-[16/10] sm:aspect-[2/1] lg:aspect-auto" />
           ))}
@@ -238,37 +243,39 @@ export default async function Home() {
         <div className="flex min-w-0 flex-col gap-8 sm:gap-10 lg:col-span-2">
           <TabbedSection title="Shari'ah" tabs={shariahTabs} />
 
-          {/* sits between Shari'ah and Opinion, and still takes the column's slack:
-              the sidebar runs longer than the main column at wide widths, and a
-              fixed-height player left a block of empty page under it. flex-1 works
-              mid-column just as it did last — the episode list flexes, the sections
-              around it keep their natural height, so nothing overflows. */}
-          <section className="lg:flex lg:h-0 lg:min-h-[320px] lg:flex-1 lg:flex-col">
+          {/* sits between Shari'ah and Opinion. The player used to flex to fill the
+              sidebar's extra height; with the sidebar trimmed to 5 rows a section
+              there is no slack left to absorb, and stretching an 8-track list only
+              re-opened the dead space. Natural height, fixed list. */}
+          <section>
             <SectionHead title="Listen" href="/listen" />
-            <PodcastPlayer episodes={episodes} fill spotifyUrl="https://podcasters.spotify.com/pod/show/islamonlive" />
+            <PodcastPlayer episodes={episodes} perPage={8} spotifyUrl="https://podcasters.spotify.com/pod/show/islamonlive" />
           </section>
 
           <TabbedSection title="Opinion" tabs={opinionTabs} />
         </div>
 
-        {/* the sidebar carries whatever is left over after the player has flexed —
-            a few dozen px spread over two gaps, so both columns end on the same line */}
-        <div className="flex min-w-0 flex-col gap-8 sm:gap-10 lg:justify-between">
+        {/* fixed gaps, like the main column: neither column flexes now, so whichever
+            one is shorter simply ends earlier rather than spreading its sections */}
+        <div className="flex min-w-0 flex-col gap-8 sm:gap-10">
           {/* phones get the slider version after Watch instead */}
           <div className="hidden lg:block">
             <SideList title="Editor's Picks" href="/category/news" posts={latest.slice(11, 16)} />
           </div>
           <SideList title="Columns" href="/category/columns" posts={columnsRest} featured />
           {/* Culture took Shari'ah's old sidebar slot — its topics move into the "…" menu */}
-          {/* a long list on purpose: the sidebar should stay the taller column so the Listen player
-              below absorbs the difference instead of the page showing dead space */}
-          <SideListTabs title="Culture" tabs={cultureTabs} rows={9} />
+          {/* 5 = the featured card plus 4 rows, matching Columns above it */}
+          <SideListTabs title="Culture" tabs={cultureTabs} rows={5} />
         </div>
       </div>
       {/* 6. Infographics — portrait tiles, caption below (live-site style) */}
       {infographics.length > 0 && (
         <section>
-          <SectionHead title="Infographics" href="/category/infographics" />
+          {/* phones: the tiles carry their own titles in the artwork, so the
+              heading and the captions under them are desktop-only */}
+          <div className="hidden sm:block">
+            <SectionHead title="Infographics" href="/category/infographics" />
+          </div>
           {/* phones: horizontal slider; ≥sm: grid (5-wide desktop row drops the 6th) */}
           <div className="scrollbar-none flex gap-4 overflow-x-auto sm:grid sm:grid-cols-3 lg:grid-cols-5 lg:[&>*:nth-child(6)]:hidden">
             {infographics.map((p) => {
@@ -279,8 +286,8 @@ export default async function Home() {
                   <div className="relative aspect-[4/5] w-full overflow-hidden rounded-lg bg-zinc-100 shadow-sm ring-1 ring-inset ring-zinc-900/10 transition group-hover:shadow-md group-hover:ring-purple-300">
                     {img && <Image src={img.url} alt="" fill sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw" className="object-cover transition group-hover:scale-105" />}
                   </div>
-                  <h3 className="mt-2 line-clamp-2 text-sm font-bold leading-snug group-hover:text-purple-800" dangerouslySetInnerHTML={{ __html: p.title.rendered }} />
-                  <time className="mt-1 block text-xs text-zinc-500">{formatDate(p.date)}</time>
+                  <h3 className="mt-2 line-clamp-2 hidden text-sm font-bold leading-snug group-hover:text-purple-800 sm:block" dangerouslySetInnerHTML={{ __html: p.title.rendered }} />
+                  <time className="mt-1 hidden text-xs text-zinc-500 sm:block">{formatDate(p.date)}</time>
                 </Link>
               );
             })}

@@ -52,6 +52,10 @@ export const viewport: Viewport = {
   themeColor: "#31094C",
   width: "device-width",
   initialScale: 1,
+  // the site is responsive down to 320px, so zoom only ever fires by accident —
+  // a stray pinch or a double tap on a card left readers on a half-panned page
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: "cover",
 };
 

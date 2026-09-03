@@ -62,7 +62,12 @@ export default function SideListTabs({ title, tabs, rows = 4 }: { title: string;
       </div>
       {first && <OverlayCard item={first} className="mb-3 aspect-[16/10]" />}
       <div className="space-y-3">
-        {rest.map((p) => <ListRow key={p.href} item={p} />)}
+        {/* phones: 2 rows under the card, the rest from sm up */}
+        {rest.map((p, i) => (
+          <div key={p.href} className={i >= 2 ? "hidden sm:block" : undefined}>
+            <ListRow item={p} />
+          </div>
+        ))}
       </div>
     </aside>
   );
