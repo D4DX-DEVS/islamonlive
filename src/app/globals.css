@@ -98,6 +98,18 @@ button,
   display: none;
 }
 
+/* no visible scrollbars anywhere, at any width. On the home and Listen screens
+   the page track and the podcast list's own track sat side by side and read as a
+   rendering glitch. Scrolling itself is untouched — wheel, touch, keyboard and
+   the scroll-to-top button all still work. */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}
+
 /* WP article HTML carries the old theme's own scroll-to-top widget — we already
    render <BackToTop/>, so kill any in-content duplicate. */
 .prose [id*="scroll" i][id*="top" i],

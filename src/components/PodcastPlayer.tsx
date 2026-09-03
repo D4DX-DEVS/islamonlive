@@ -24,7 +24,7 @@ function fmt(sec: number): string {
 
 /* Spotify-style dark player: gradient header with big artwork, green play
    button, numbered track list. Same audio logic as before. */
-export default function PodcastPlayer({ episodes, listHeight = 480, perPage = 20, fill = false, spotifyUrl }: { episodes: Episode[]; listHeight?: number; /** track rows per page — the homepage keeps a short list, /listen shows a full page */ perPage?: number; /** stretch to the container instead of a fixed list height — the homepage column uses it to absorb the sidebar's extra height */ fill?: boolean; spotifyUrl?: string }) {
+export default function PodcastPlayer({ episodes, listHeight = 480, perPage = 20, fill = false, stickyHeader = false, spotifyUrl }: { episodes: Episode[]; listHeight?: number; /** track rows per page — the homepage keeps a short list, /listen shows a full page */ perPage?: number; /** stretch to the container instead of a fixed list height — the homepage column uses it to absorb the sidebar's extra height */ fill?: boolean; /** /listen: pin the artwork + transport and let the track list run down the page, so the pager sits at the end of the page instead of inside a scroll box */ stickyHeader?: boolean; spotifyUrl?: string }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [idx, setIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -107,7 +107,7 @@ export default function PodcastPlayer({ episodes, listHeight = 480, perPage = 20
   if (!ep) return null;
 
   return (
-    <div className={`overflow-hidden rounded-2xl bg-[#121212] text-white shadow-xl ${fill ? "lg:flex lg:h-full lg:min-h-0 lg:flex-col" : ""}`}>
+    <div className={`rounded-2xl bg-[#121212] text-white shadow-xl ${stickyHeader ? "" : "overflow-hidden"} ${fill ? "lg:flex lg:h-full lg:min-h-0 lg:flex-col" : ""}`}>
       <audio
         ref={audioRef}
         src={ep.audioUrl}
@@ -128,7 +128,9 @@ export default function PodcastPlayer({ episodes, listHeight = 480, perPage = 20
       />
 
       {/* gradient header: artwork + now playing */}
-      <div className="shrink-0 bg-gradient-to-b from-purple-800 via-purple-950/80 to-[#121212] p-5 sm:p-6">
+      {/* bg-[#121212] under the gradient: its middle stop is 80% opaque, and while
+          pinned the track rows showed straight through it */}
+      <div className={`shrink-0 bg-[#121212] bg-gradient-to-b from-purple-800 via-purple-950/80 to-[#121212] p-5 sm:p-6 ${stickyHeader ? "sticky top-0 z-10 rounded-t-2xl md:top-[46px]" : ""}`}>
         <div className="flex items-end gap-4 sm:gap-5">
           <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-zinc-800 shadow-2xl sm:h-36 sm:w-36">
             {ep.image ? (
@@ -188,7 +190,10 @@ export default function PodcastPlayer({ episodes, listHeight = 480, perPage = 20
           type="search" value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} placeholder="Search episodes"
           className="w-full shrink-0 rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-[#1db954]"
         />
-        <div className={`mt-2 overflow-y-auto ${fill ? "max-h-[320px] lg:max-h-none lg:min-h-0 lg:flex-1" : ""}`} style={fill ? undefined : { maxHeight: listHeight }}>
+        <div
+          className={`mt-2 ${stickyHeader ? "" : "overflow-y-auto"} ${fill ? "max-h-[320px] lg:max-h-none lg:min-h-0 lg:flex-1" : ""}`}
+          style={fill || stickyHeader ? undefined : { maxHeight: listHeight }}
+        >
           {filtered.slice(page * perPage, (page + 1) * perPage).map(({ e, i }, n) => (
             <button
               key={e.audioUrl}

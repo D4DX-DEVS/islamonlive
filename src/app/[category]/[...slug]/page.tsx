@@ -36,13 +36,15 @@ export default async function PostPage({ params }: { params: Params }) {
   const isInfographic = post._embedded?.["wp:term"]?.flat().some((t) => t.taxonomy === "category" && t.slug === "infographics") ?? false;
 
   if (isInfographic) {
-    // side-by-side at every width: left = sticky title/meta + featured image,
-    // right = scrolling infographic content
+    // side-by-side from sm up: left = sticky title/meta + featured image,
+    // right = scrolling infographic content. Phones get the content alone at full
+    // width — the artwork already carries the title, and a half-width column
+    // rendered the infographic text too small to read
     return (
-      <div className="mx-auto grid max-w-[1300px] grid-cols-2 items-start gap-4 sm:gap-6 lg:gap-8">
+      <div className="mx-auto grid max-w-[1300px] grid-cols-1 items-start gap-4 sm:grid-cols-2 sm:gap-6 lg:gap-8">
         {/* min-w-0: WP figures carry inline width:750px — without it the grid track
             grows to fit and the whole page overflows the phone viewport */}
-        <div className="sticky top-2 min-w-0 lg:top-24">
+        <div className="sticky top-2 hidden min-w-0 sm:block lg:top-24">
           {cat && <span className="mb-3 pill inline-flex items-center justify-center rounded bg-purple-800 px-2 py-1 text-[10px] font-semibold text-white sm:mb-4 sm:px-3 sm:py-1.5 sm:text-xs">{cat.name}</span>}
           <h1 className="border-b-2 border-purple-800 pb-3 text-base font-extrabold leading-snug sm:pb-4 sm:text-2xl lg:text-3xl" dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-zinc-600 sm:mt-4 sm:gap-3 sm:text-sm">

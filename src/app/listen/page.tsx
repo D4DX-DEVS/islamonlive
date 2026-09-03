@@ -13,7 +13,7 @@ export default async function ListenPage() {
       {episodes.length === 0 ? (
         <p className="text-zinc-500">Episodes unavailable right now.</p>
       ) : (
-        <div className="mx-auto max-w-4xl"><PodcastPlayer episodes={episodes} listHeight={600} spotifyUrl="https://podcasters.spotify.com/pod/show/islamonlive" /></div>
+        <div className="mx-auto max-w-4xl"><PodcastPlayer episodes={episodes} stickyHeader spotifyUrl="https://podcasters.spotify.com/pod/show/islamonlive" /></div>
       )}
     </div>
   );

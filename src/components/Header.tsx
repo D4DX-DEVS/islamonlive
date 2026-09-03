@@ -167,7 +167,7 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
     // only the purple bar below pins to the top (see `pinned`).
     // pt-safe: in the installed PWA (viewport-fit=cover) the page draws under the
     // status bar — without it the logo capsule sits under the clock.
-    <header className="relative z-40 bg-white md:pt-[env(safe-area-inset-top)] print:hidden">
+    <header className={`relative z-40 bg-white md:block md:pt-[env(safe-area-inset-top)] print:hidden ${pathname === "/" ? "" : "hidden"}`}>
       {/* top row: date left, actions right — the middle is left empty for the
           logo capsule, which is positioned absolutely so it can straddle the bar */}
       <div className="mx-auto hidden max-w-[1600px] grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 sm:px-5 md:grid md:py-4">
@@ -267,7 +267,7 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
           ))}
         </nav>
 
-        <div className="flex items-center justify-between px-4 py-3 md:hidden">
+        <div className="relative z-10 flex items-center justify-between px-4 py-3 md:hidden">
           <button
             type="button"
             aria-label="Menu"
@@ -293,7 +293,16 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
         {/* drawer lives inside the bar so it follows it when the bar pins —
             rendered outside it, it would open back at the page's top */}
         {menuOpen && (
-          <div className="max-h-[calc(100vh-8rem)] overflow-y-auto border-b border-zinc-200 bg-white shadow-lg md:hidden">
+          <button
+            type="button"
+            aria-hidden
+            tabIndex={-1}
+            onClick={() => setMenuOpen(false)}
+            className="fixed inset-0 cursor-default bg-black/40 md:hidden"
+          />
+        )}
+        {menuOpen && (
+          <div className="relative z-10 max-h-[calc(100vh-8rem)] overflow-y-auto border-b border-zinc-200 bg-white shadow-lg md:hidden">
             {DRAWER.map((item) => (
               <div key={item.label} className="border-b border-zinc-100 last:border-0">
                 {item.external ? (
