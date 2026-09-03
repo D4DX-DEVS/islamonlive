@@ -68,26 +68,6 @@ export default async function ContactPage() {
             <div className="mt-6 border-t border-zinc-100 pt-5">
               <ContactForm />
             </div>
-            <div className="mt-5 flex flex-wrap gap-3">
-              <a
-                href={`mailto:${EMAIL}?subject=${encodeURIComponent("Article submission — Islamonlive")}`}
-                className="pill inline-flex min-h-11 items-center gap-2 rounded-full bg-purple-800 px-4 py-2 text-xs font-semibold text-white hover:bg-purple-700"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden className="h-3.5 w-3.5">
-                  <rect x="3" y="5" width="18" height="14" rx="2" />
-                  <path d="m3 7 9 6 9-6" />
-                </svg>
-                Mail the editor
-              </a>
-              <a
-                href={WHATSAPP}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="pill inline-flex min-h-11 items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold text-purple-800 ring-1 ring-purple-300 hover:bg-purple-50"
-              >
-                WhatsApp us
-              </a>
-            </div>
           </Card>
         </div>
 

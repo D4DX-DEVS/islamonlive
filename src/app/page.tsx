@@ -227,7 +227,7 @@ export default async function Home() {
         </section>
       )}
 
-      {/* 5. Two-column flow: left Shari'ah/Opinion/Listen, right Editor's Picks/Columns/Culture.
+      {/* 5. Two-column flow: left Shari'ah/Listen/Opinion, right Editor's Picks/Columns/Culture.
           One grid so columns stack independently — no whitespace gaps between rows */}
       {/* fixed section gaps, not justify-between: the columns hold different amounts
           of content, and spreading the slack to line the bottoms up left canyons
@@ -238,15 +238,17 @@ export default async function Home() {
         <div className="flex min-w-0 flex-col gap-8 sm:gap-10 lg:col-span-2">
           <TabbedSection title="Shari'ah" tabs={shariahTabs} />
 
-          <TabbedSection title="Opinion" tabs={opinionTabs} />
-
-          {/* last section in the column, so it takes the slack: the sidebar runs
-              longer than the main column at wide widths, and a fixed-height player
-              left a block of empty page under it. The episode list flexes instead. */}
+          {/* sits between Shari'ah and Opinion, and still takes the column's slack:
+              the sidebar runs longer than the main column at wide widths, and a
+              fixed-height player left a block of empty page under it. flex-1 works
+              mid-column just as it did last — the episode list flexes, the sections
+              around it keep their natural height, so nothing overflows. */}
           <section className="lg:flex lg:h-0 lg:min-h-[320px] lg:flex-1 lg:flex-col">
             <SectionHead title="Listen" href="/listen" />
             <PodcastPlayer episodes={episodes} fill spotifyUrl="https://podcasters.spotify.com/pod/show/islamonlive" />
           </section>
+
+          <TabbedSection title="Opinion" tabs={opinionTabs} />
         </div>
 
         {/* the sidebar carries whatever is left over after the player has flexed —

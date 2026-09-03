@@ -116,10 +116,6 @@ export default function ContactForm() {
           {copied ? "Copied" : "Copy instead"}
         </button>
       </div>
-      {/* say plainly where the message goes — no silent no-op submit */}
-      <p className="text-xs leading-relaxed text-zinc-500">
-        Send opens your own mail app with the message ready for <span className="font-medium text-zinc-700">{EMAIL}</span>. Attach files there before sending.
-      </p>
     </form>
   );
 }

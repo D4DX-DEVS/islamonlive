@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -123,8 +123,41 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
     setOpenGroup(null);
   }
 
+  // the purple bar pins to the top of the viewport once the white masthead row
+  // has scrolled past; the compact bar carries a small logo + the actions the
+  // white row used to hold. Both numbers are measured rather than hard-coded —
+  // the row's height changes with the breakpoint and the PWA safe-area inset.
+  const barRef = useRef<HTMLDivElement | null>(null);
+  const [pinned, setPinned] = useState(false);
+  const [bar, setBar] = useState({ top: 0, height: 0 });
+
+  useEffect(() => {
+    const measure = () => {
+      const el = barRef.current;
+      // while pinned the bar is out of flow (rect.top is 0) — the last in-flow
+      // measurement still stands, and the spacer holds its place in the page
+      if (!el || pinned) return;
+      const r = el.getBoundingClientRect();
+      setBar({ top: r.top + window.scrollY, height: r.height });
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [pinned]);
+
+  useEffect(() => {
+    if (!bar.height) return;
+    // no hysteresis needed: the spacer keeps the flow height identical either
+    // way, so the threshold can't oscillate under the bar's own state change
+    const onScroll = () => setPinned(window.scrollY > bar.top);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [bar.top, bar.height]);
+
   return (
-    // static, like the live site's masthead — it scrolls away with the page.
+    // the white masthead row scrolls away with the page, like the live site's;
+    // only the purple bar below pins to the top (see `pinned`).
     // pt-safe: in the installed PWA (viewport-fit=cover) the page draws under the
     // status bar — without it the logo capsule sits under the clock.
     <header className="relative z-40 bg-white pt-[env(safe-area-inset-top)] print:hidden">
@@ -161,18 +194,52 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
         </div>
       </div>
 
-      {/* purple bar — desktop nav; phones get hamburger + search, as on the live site */}
-      <div className="relative bg-[#31094C]">
-        <nav className="mx-auto hidden max-w-[1600px] justify-center gap-1 px-3 sm:px-5 md:flex">
+      {/* purple bar — desktop nav; phones get hamburger + search, as on the live site.
+          Pins to the top once scrolled past, in a shorter form with the logo inline. */}
+      <div
+        ref={barRef}
+        className={`bg-[#31094C] ${pinned ? "fixed inset-x-0 top-0 z-50 pt-[env(safe-area-inset-top)] shadow-lg shadow-black/25" : "relative"}`}
+      >
+        {/* overlay row: the pinned bar's logo and actions. Absolute so the nav
+            stays centred on the bar, and kept out of the nav's own element so it
+            doesn't become the mega panel's containing block */}
+        <div className="pointer-events-none absolute inset-y-0 left-1/2 hidden w-full max-w-[1600px] -translate-x-1/2 items-center justify-between px-3 sm:px-5 md:flex">
+          <Link
+            href="/"
+            aria-label="islamonlive"
+            className={`pointer-events-auto my-2 rounded-full bg-white px-3 py-1 transition-opacity duration-200 ${pinned ? "opacity-100" : "pointer-events-none opacity-0"}`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="" className="h-6 w-auto" />
+          </Link>
+          <div className={`flex items-center gap-3 transition-opacity duration-200 ${pinned ? "pointer-events-auto opacity-100" : "opacity-0"}`}>
+            <Link href="/search" prefetch aria-label="Search" className="text-white/90 hover:text-white">
+              <SearchIcon className="h-5 w-5" />
+            </Link>
+            {/* lg only: at 768 the pill would run into the centred nav */}
+            <a
+              href="https://rzp.io/rzp/5bOM6U7A"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="pill hidden whitespace-nowrap rounded-full bg-[#693FE2] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#5a34c7] lg:inline-block"
+            >
+              Support Us
+            </a>
+          </div>
+        </div>
+
+        {/* pt-2 unpinned: the logo capsule hangs ~12px into this bar, and without
+            it the capsule's bottom edge sat 2px off the nav labels */}
+        <nav className={`mx-auto hidden max-w-[1600px] justify-center gap-1 px-3 sm:px-5 md:flex ${pinned ? "" : "pt-3"}`}>
           {NAV.map((item) => (
             // `static`, not `relative` — the mega panel spans the whole nav width
             <div key={item.label} className={previews[item.label]?.length ? "group static" : "group relative"}>
               {item.external ? (
-                <a href={item.href} target="_blank" rel="noopener noreferrer" className="flex items-center whitespace-nowrap px-4 py-3.5 text-[15px] font-medium text-white/90 hover:text-white">
+                <a href={item.href} target="_blank" rel="noopener noreferrer" className={`flex items-center whitespace-nowrap px-4 text-[15px] font-medium text-white/90 hover:text-white ${pinned ? "py-3" : "py-4"}`}>
                   {item.label}
                 </a>
               ) : (
-                <Link href={item.href} className="flex items-center gap-1 whitespace-nowrap px-4 py-3.5 text-[15px] font-medium text-white/90 hover:text-white">
+                <Link href={item.href} className={`flex items-center gap-1 whitespace-nowrap px-4 text-[15px] font-medium text-white/90 hover:text-white ${pinned ? "py-3" : "py-4"}`}>
                   {item.label}
                   {(item.children || previews[item.label]?.length) && <span className="text-[10px]">▾</span>}
                 </Link>
@@ -204,11 +271,78 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
               {menuOpen ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M3 6h18M3 12h18M3 18h18" />}
             </svg>
           </button>
+          {/* phones lose the capsule with the white row — the pinned bar keeps a
+              small logo between the two controls */}
+          <Link
+            href="/"
+            aria-label="islamonlive"
+            className={`rounded-full bg-white px-2.5 py-1 transition-opacity duration-200 ${pinned ? "opacity-100" : "pointer-events-none opacity-0"}`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="" className="h-6 w-auto" />
+          </Link>
           <Link href="/search" prefetch aria-label="Search" className="-mr-1 flex h-11 w-11 touch-manipulation items-center justify-center text-white">
             <SearchIcon className="h-6 w-6" />
           </Link>
         </div>
+
+        {/* drawer lives inside the bar so it follows it when the bar pins —
+            rendered outside it, it would open back at the page's top */}
+        {menuOpen && (
+          <div className="max-h-[calc(100vh-8rem)] overflow-y-auto border-b border-zinc-200 bg-white shadow-lg md:hidden">
+            {NAV.map((item) => (
+              <div key={item.label} className="border-b border-zinc-100 last:border-0">
+                <div className="flex items-center">
+                  <Link href={item.href} className="flex-1 px-4 py-3 text-sm font-semibold text-zinc-800">
+                    {item.label}
+                  </Link>
+                  {item.children && (
+                    <button
+                      type="button"
+                      aria-label={`Toggle ${item.label}`}
+                      aria-expanded={openGroup === item.label}
+                      onClick={() => setOpenGroup((g) => (g === item.label ? null : item.label))}
+                      className="px-4 py-3 text-zinc-500"
+                    >
+                      <span className="text-xs">{openGroup === item.label ? "▴" : "▾"}</span>
+                    </button>
+                  )}
+                </div>
+                {item.children && openGroup === item.label && (
+                  <div className="bg-zinc-50 pb-1">
+                    {item.children.map((c) => (
+                      <Link key={c.href} href={c.href} className="block px-7 py-2 text-sm text-zinc-700">
+                        {c.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+            {/* the live drawer carries the actions the top row hides on phones */}
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+              <div className="flex flex-wrap items-center gap-0.5 text-zinc-600">
+                {SOCIAL.map((s) => (
+                  <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label} className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-purple-50 hover:text-[#31094C]">
+                    <SocialIcon path={s.path} />
+                  </a>
+                ))}
+              </div>
+              <a
+                href="https://rzp.io/rzp/5bOM6U7A"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="pill inline-flex min-h-11 items-center whitespace-nowrap rounded-full bg-[#693FE2] px-4 py-2 text-xs font-semibold text-white"
+              >
+                Support Us
+              </a>
+            </div>
+          </div>
+        )}
       </div>
+      {/* stands in for the bar's flow height while it is pinned, so the page
+          below doesn't jump up at the moment it detaches */}
+      {pinned && <div aria-hidden style={{ height: bar.height }} />}
 
       {/* logo capsule — white, 30px radius, straddling the white row and the purple
           bar exactly as on the live site; z-10 keeps it above the bar */}
@@ -219,59 +353,6 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo.png" alt="islamonlive" className="h-11 w-auto md:h-[68px]" />
       </Link>
-
-      {/* phones: drawer under the purple bar */}
-      {menuOpen && (
-        <div className="border-b border-zinc-200 bg-white shadow-lg md:hidden">
-          {NAV.map((item) => (
-            <div key={item.label} className="border-b border-zinc-100 last:border-0">
-              <div className="flex items-center">
-                <Link href={item.href} className="flex-1 px-4 py-3 text-sm font-semibold text-zinc-800">
-                  {item.label}
-                </Link>
-                {item.children && (
-                  <button
-                    type="button"
-                    aria-label={`Toggle ${item.label}`}
-                    aria-expanded={openGroup === item.label}
-                    onClick={() => setOpenGroup((g) => (g === item.label ? null : item.label))}
-                    className="px-4 py-3 text-zinc-500"
-                  >
-                    <span className="text-xs">{openGroup === item.label ? "▴" : "▾"}</span>
-                  </button>
-                )}
-              </div>
-              {item.children && openGroup === item.label && (
-                <div className="bg-zinc-50 pb-1">
-                  {item.children.map((c) => (
-                    <Link key={c.href} href={c.href} className="block px-7 py-2 text-sm text-zinc-700">
-                      {c.label}
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-          {/* the live drawer carries the actions the top row hides on phones */}
-          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-            <div className="flex flex-wrap items-center gap-0.5 text-zinc-600">
-              {SOCIAL.map((s) => (
-                <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label} className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-purple-50 hover:text-[#31094C]">
-                  <SocialIcon path={s.path} />
-                </a>
-              ))}
-            </div>
-            <a
-              href="https://rzp.io/rzp/5bOM6U7A"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="pill inline-flex min-h-11 items-center whitespace-nowrap rounded-full bg-[#693FE2] px-4 py-2 text-xs font-semibold text-white"
-            >
-              Support Us
-            </a>
-          </div>
-        </div>
-      )}
     </header>
   );
 }
