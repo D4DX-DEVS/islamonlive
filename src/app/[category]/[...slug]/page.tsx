@@ -4,6 +4,9 @@ import Link from "next/link";
 import { getPostBySlug, getPosts, featuredImage, author, authorName, primaryCategory, formatDate, stripHtml, postPath, WPPost } from "@/lib/wordpress";
 import PostCard from "@/components/PostCard";
 import ShareRow from "@/components/ShareRow";
+import ShareCard from "@/components/ShareCard";
+import SaveButton from "@/components/SaveButton";
+import ReadTracker from "@/components/ReadTracker";
 
 export const revalidate = 60;
 
@@ -32,8 +35,21 @@ export default async function PostPage({ params }: { params: Params }) {
   // share this site's own URL, not the WP backend permalink
   const shareUrl = new URL(postPath(post), "https://islamonlive.in").href;
 
+  // one record for the bookmark button, the reader history and the share card —
+  // everything they need is already on the post, so none of them costs a fetch
+  const record = {
+    id: post.id,
+    href: postPath(post),
+    title: stripHtml(post.title.rendered),
+    img: img?.url ?? null,
+    category: cat?.name ?? "",
+    date: formatDate(post.date),
+  };
+
   // infographics get the live-site split layout: content column + sticky banner
   const isInfographic = post._embedded?.["wp:term"]?.flat().some((t) => t.taxonomy === "category" && t.slug === "infographics") ?? false;
+
+  const tracker = <ReadTracker item={record} />;
 
   if (isInfographic) {
     // side-by-side from sm up: left = sticky title/meta + featured image,
@@ -45,6 +61,7 @@ export default async function PostPage({ params }: { params: Params }) {
       // artwork is the whole article there, and a wide band above it just pushed
       // the infographic down the screen
       <div className="mx-auto grid max-w-[1300px] grid-cols-1 items-start gap-4 max-sm:-mt-4 max-sm:-mb-4 sm:grid-cols-2 sm:gap-6 lg:gap-8">
+        {tracker}
         {/* min-w-0: WP figures carry inline width:750px — without it the grid track
             grows to fit and the whole page overflows the phone viewport */}
         <div className="sticky top-2 hidden min-w-0 sm:block lg:top-24">
@@ -53,8 +70,10 @@ export default async function PostPage({ params }: { params: Params }) {
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-zinc-600 sm:mt-4 sm:gap-3 sm:text-sm">
             {authorName(post) && <span className="font-medium">{authorName(post)}</span>}
             <time className="border-l border-zinc-300 pl-3">{formatDate(post.date)}</time>
-            <span className="ml-auto">
-              <ShareRow url={shareUrl} title={stripHtml(post.title.rendered)} />
+            <span className="ml-auto flex items-center gap-2">
+              <SaveButton item={record} />
+              <ShareCard title={record.title} author={authorName(post)} date={record.date} category={record.category} url={shareUrl} />
+              <ShareRow url={shareUrl} title={record.title} />
             </span>
           </div>
           {img && (
@@ -75,7 +94,7 @@ export default async function PostPage({ params }: { params: Params }) {
              negative margin: [&_*]:max-w-full above pins every descendant to the
              column's width, so without it the block only shifted left instead of
              growing. Text keeps the wider gutter. */
-          className="prose prose-zinc min-w-0 max-w-none text-sm leading-relaxed prose-a:text-purple-800 prose-img:rounded-lg break-words sm:text-base [&_*]:max-w-full [&_img]:h-auto [&_iframe]:aspect-video [&_iframe]:h-auto [&_iframe]:w-full [&_table]:block [&_table]:overflow-x-auto max-sm:[&_figure]:-mx-2 max-sm:[&_figure]:my-0 max-sm:[&_figure]:max-w-none max-sm:[&_img]:my-1 max-sm:[&_p:has(img)]:-mx-2 max-sm:[&_p:has(img)]:my-0 max-sm:[&_p:has(img)]:max-w-none"
+          className="reader-body prose prose-zinc min-w-0 max-w-none leading-relaxed prose-a:text-purple-800 prose-img:rounded-lg break-words sm:text-base [&_*]:max-w-full [&_img]:h-auto [&_iframe]:aspect-video [&_iframe]:h-auto [&_iframe]:w-full [&_table]:block [&_table]:overflow-x-auto max-sm:[&_figure]:-mx-2 max-sm:[&_figure]:my-0 max-sm:[&_figure]:max-w-none max-sm:[&_img]:my-1 max-sm:[&_p:has(img)]:-mx-2 max-sm:[&_p:has(img)]:my-0 max-sm:[&_p:has(img)]:max-w-none"
           dangerouslySetInnerHTML={{ __html: post.content.rendered }}
         />
       </div>
@@ -93,6 +112,7 @@ export default async function PostPage({ params }: { params: Params }) {
   return (
     <div className="mx-auto max-w-[1100px]">
     <article className="rounded-2xl bg-white p-5 shadow-[0_4px_24px_rgba(0,0,0,0.08)] sm:p-8 lg:p-10">
+      {tracker}
       {cat && <span className="mb-3 pill inline-flex items-center justify-center rounded bg-purple-800 px-3 py-1.5 text-xs font-semibold text-white">{cat.name}</span>}
       <h1 className="text-[22px] font-extrabold leading-snug sm:text-3xl" dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
       {/* phones: author · date on one line, share row on its own line below */}
@@ -106,8 +126,10 @@ export default async function PostPage({ params }: { params: Params }) {
           )}
           <time className="shrink-0">{formatDate(post.date)}</time>
         </span>
-        <span className="sm:ml-auto">
-          <ShareRow url={shareUrl} title={stripHtml(post.title.rendered)} />
+        <span className="flex items-center gap-2 sm:ml-auto">
+          <SaveButton item={record} />
+          <ShareCard title={record.title} author={authorName(post)} date={record.date} category={record.category} url={shareUrl} />
+          <ShareRow url={shareUrl} title={record.title} />
         </span>
       </div>
       {img && (
@@ -116,7 +138,7 @@ export default async function PostPage({ params }: { params: Params }) {
         </div>
       )}
       <div
-        className="prose prose-zinc mt-6 max-w-none leading-relaxed sm:text-justify sm:hyphens-auto prose-headings:text-left prose-headings:leading-snug prose-p:leading-relaxed prose-a:text-purple-800 prose-img:mx-auto prose-img:rounded-lg [&_iframe]:aspect-video [&_iframe]:h-auto [&_iframe]:w-full break-words [&_*]:max-w-full [&_img]:h-auto [&_table]:block [&_table]:overflow-x-auto"
+        className="reader-body prose prose-zinc mt-6 max-w-none leading-relaxed sm:text-justify sm:hyphens-auto prose-headings:text-left prose-headings:leading-snug prose-p:leading-relaxed prose-a:text-purple-800 prose-img:mx-auto prose-img:rounded-lg [&_iframe]:aspect-video [&_iframe]:h-auto [&_iframe]:w-full break-words [&_*]:max-w-full [&_img]:h-auto [&_table]:block [&_table]:overflow-x-auto"
         dangerouslySetInnerHTML={{ __html: post.content.rendered }}
       />
 

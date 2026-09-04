@@ -1,5 +1,6 @@
 import Link from "next/link";
 import ReelsLightbox from "@/components/ReelsLightbox";
+import WatchSwitch from "@/components/WatchSwitch";
 import { getReels } from "@/lib/instagram";
 import { getShorts } from "@/lib/youtube";
 
@@ -21,7 +22,10 @@ export default async function ReelsPage({ searchParams }: { searchParams: Promis
 
   return (
     <div>
-      <h1 className="mb-6 border-l-4 border-purple-800 pl-3 text-2xl font-extrabold">Reels</h1>
+      <div className="mb-6 flex flex-wrap items-center justify-center gap-3 md:justify-between">
+        <h1 className="sr-only border-l-4 border-purple-800 pl-3 text-2xl font-extrabold md:not-sr-only">Reels</h1>
+        <WatchSwitch />
+      </div>
       {items.length === 0 ? (
         <p className="text-zinc-500">{page > 1 ? "No more reels." : "Reels unavailable right now."}</p>
       ) : (

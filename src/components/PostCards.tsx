@@ -34,20 +34,27 @@ export function OverlayCard({ item, className = "" }: { item: PostItem; classNam
 }
 
 /* compact card: optional thumb + title + byline */
-export function ListRow({ item, thumb = true }: { item: PostItem; thumb?: boolean }) {
+/* `compact` is the sidebar's size: the right column is half the width of a main
+   cell, so the same row there costs a lot more vertical space per headline. A
+   smaller thumb and a step down in title size buy back ~15px a row, which is what
+   lets a sidebar list end level with the section beside it. */
+export function ListRow({ item, thumb = true, compact = false }: { item: PostItem; thumb?: boolean; compact?: boolean }) {
   return (
     <Link
       href={item.href}
-      className="group flex gap-3 rounded-xl border border-zinc-200/80 bg-white p-3 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-md"
+      className={`group flex gap-3 rounded-xl border border-zinc-200/80 bg-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-md ${compact ? "p-2.5" : "p-3"}`}
     >
       {thumb && item.img && (
-        <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-lg bg-zinc-100">
-          <Image src={item.img} alt="" fill sizes="96px" className="object-cover transition duration-500 group-hover:scale-105" />
+        <div className={`relative shrink-0 overflow-hidden rounded-lg bg-zinc-100 ${compact ? "h-14 w-20" : "h-16 w-24"}`}>
+          <Image src={item.img} alt="" fill sizes={compact ? "80px" : "96px"} className="object-cover transition duration-500 group-hover:scale-105" />
         </div>
       )}
       <div className="min-w-0">
         {/* phones: 3 lines so long Malayalam titles fit; desktop rows stay 2 */}
-        <h3 className="line-clamp-3 min-h-[2.75em] [overflow-wrap:anywhere] text-[15px] font-bold leading-snug group-hover:text-purple-800 sm:line-clamp-2" dangerouslySetInnerHTML={{ __html: item.title }} />
+        <h3
+          className={`line-clamp-3 min-h-[2.75em] [overflow-wrap:anywhere] font-bold leading-snug group-hover:text-purple-800 sm:line-clamp-2 ${compact ? "text-sm" : "text-[15px]"}`}
+          dangerouslySetInnerHTML={{ __html: item.title }}
+        />
         <Byline className="mt-1.5" name={item.author} avatar={item.authorAvatar} date={item.date} />
       </div>
     </Link>

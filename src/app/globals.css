@@ -251,3 +251,20 @@ button,
 @media (prefers-reduced-motion: reduce) {
   .skel::after { animation: none; }
 }
+
+/* The article body honours the reader's own text size and face, set on /settings
+   and published onto <html> by components/ReadingPrefsSetup.tsx. Defaults keep a
+   reader who never opens Settings exactly where they were. */
+.reader-body {
+  font-size: var(--read-size, 1.15rem);
+  font-family: var(--read-font, var(--font-noto-ml)), system-ui, sans-serif;
+}
+/* headings inside the body scale with it rather than staying at a fixed rem */
+.reader-body :is(h2, h3, h4) {
+  font-size: 1.25em;
+}
+/* the prose plugin sets its own font-size on children; keep them relative so the
+   slider still moves them */
+.reader-body :is(p, li, blockquote) {
+  font-size: inherit;
+}

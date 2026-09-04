@@ -78,23 +78,29 @@ function toItem(p: WPPost, thumb = false): PostItem {
 function SideList({ title, href, posts, featured = false }: { title: string; href: string; posts: WPPost[]; featured?: boolean }) {
   const [first, ...rest] = posts;
   return (
-    <aside>
+    // h-full + flex: the cell is stretched to its grid row (lg:self-stretch below),
+    // and the card takes whatever the fixed-height list leaves over, so the column
+    // ends level with the section beside it at every width instead of at the one
+    // the row counts were hand-tuned for
+    <aside className="flex h-full flex-col">
       <SectionHead title={title} href={href} />
       {featured && first ? (
         <>
-          <OverlayCard item={toItem(first)} className="mb-3 aspect-[16/10]" />
+          {/* phones have no row to fill, so the card keeps a ratio there and only
+              becomes the flexible one from lg up */}
+          <OverlayCard item={toItem(first)} className="mb-3 aspect-video lg:aspect-auto lg:min-h-[180px] lg:flex-1" />
           <div className="space-y-3">
             {/* phones: 2 rows under the card, the rest from sm up */}
             {rest.map((p, i) => (
               <div key={p.id} className={i >= 2 ? "hidden sm:block" : undefined}>
-                <ListRow item={toItem(p, true)} />
+                <ListRow item={toItem(p, true)} compact />
               </div>
             ))}
           </div>
         </>
       ) : (
         <div className="space-y-3">
-          {posts.map((p) => <ListRow key={p.id} item={toItem(p, true)} />)}
+          {posts.map((p) => <ListRow key={p.id} item={toItem(p, true)} compact />)}
         </div>
       )}
     </aside>
@@ -118,7 +124,13 @@ export default async function Home() {
     // each fetches HERO_TAKE extra: the first 3 go into the hero, the rest feed
     // the section further down, so no post shows up twice on the page
     getPosts({ perPage: 5 + HERO_TAKE, categories: CAT.opinion }),
-    getPosts({ perPage: 5 + HERO_TAKE, categories: CAT.columns }),
+    // Columns is the sidebar's height driver: its block has to span Watch + Listen
+    // in the main column so that "Culture" below it lands level with "Opinion".
+    // Featured card + 10 rows — see the column-alignment note on the grid below.
+    // 12 + the hero's 3: Columns is paired with the tall Watch + Listen cell, and
+    // its rows are what keep the featured card in shape — too few and the card
+    // stretches into a billboard, too many and it flattens to its min height
+    getPosts({ perPage: 12 + HERO_TAKE, categories: CAT.columns }),
     // Shari'ah now leads the main column, so it needs a section's worth of posts
     getPosts({ perPage: 5 + HERO_TAKE, categories: CAT.shariah }),
     getPosts({ perPage: 5 + HERO_TAKE, categories: CAT.culture }).catch(() => []),
@@ -198,19 +210,22 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* 2. Watch — dark band, player + sidebar list */}
-      {videos.length > 0 && (
-        <section className="rounded-2xl bg-zinc-900 p-4 sm:rounded-xl sm:p-6">
-          <SectionHead title="Watch" href="/watch-videos" light />
-          <WatchPanel videos={videos} />
+      {/* 2. Reels — Instagram (fallback: YouTube shorts). Straight after the hero:
+          it is the fastest-moving shelf on the page, and the YouTube band that used
+          to sit here now runs inside the left column further down. */}
+      {reelItems.length > 0 && (
+        <section className="rounded-2xl bg-zinc-100 p-4 sm:rounded-xl sm:p-6">
+          <SectionHead title="Reels" href="/reels" />
+          {/* 6 latest, one full row — plays in-page in a lightbox */}
+          <ReelsLightbox items={reelItems.slice(0, 6)} />
         </section>
       )}
 
-      {/* Editor's Picks — phones only: thumbnail slider right after Watch (desktop keeps the sidebar list) */}
+      {/* Editor's Picks — phones only: thumbnail slider right after Reels (desktop keeps the sidebar list) */}
       <section className="lg:hidden">
         <SectionHead title="Editor's Picks" href="/category/news" />
         <div className="scrollbar-none flex gap-4 overflow-x-auto">
-          {latest.slice(11, 16).map((p) => (
+          {latest.slice(10, 15).map((p) => (
             <OverlayCard key={p.id} item={toItem(p)} className="aspect-[16/10] w-64 flex-none" />
           ))}
         </div>
@@ -223,49 +238,72 @@ export default async function Home() {
         </a>
       ))}
 
-      {/* 3. Reels — Instagram (fallback: YouTube shorts) */}
-      {reelItems.length > 0 && (
-        <section className="rounded-2xl bg-zinc-100 p-4 sm:rounded-xl sm:p-6">
-          <SectionHead title="Reels" href="/reels" />
-          {/* 6 latest, one full row — plays in-page in a lightbox */}
-          <ReelsLightbox items={reelItems.slice(0, 6)} />
-        </section>
-      )}
+      {/* 5. Two-column flow: left Shari'ah / Watch+Listen / Opinion, right
+          Editor's Picks / Columns / Culture.
 
-      {/* 5. Two-column flow: left Shari'ah/Listen/Opinion, right Editor's Picks/Columns/Culture.
-          One grid so columns stack independently — no whitespace gaps between rows */}
-      {/* fixed section gaps, not justify-between: the columns hold different amounts
-          of content, and spreading the slack to line the bottoms up left canyons
-          between the shorter column's sections. The shorter column just ends earlier. */}
-      <div className="grid gap-8 lg:grid-cols-3 lg:gap-10">
+          Real grid ROWS, not two independent flex columns. The columns used to
+          stack on their own and were hand-tuned (row counts, PodcastPlayer's
+          perPage) so the headings happened to land level — but the tuning only
+          held at one viewport: Malayalam titles wrap differently as the track
+          widens, so at 1920 the Culture heading sat 82px below Opinion and
+          Columns 60px below Watch. Pairing the sections into grid rows makes
+          each pair start on the same line at every width, for free.
+
+          items-start, not the default stretch: the Watch cell paints a dark
+          panel, and stretching it to the row height would just move the dead
+          space inside the band. Any slack in a row sits below the shorter cell.
+
+          order-*: phones render one column, and the row pairing would interleave
+          the sidebar lists into the main flow. The order utilities keep the phone
+          sequence as it was (main column first, sidebar after); lg:order-none
+          hands the DOM order back to the grid. */}
+      <div className="grid gap-8 sm:gap-10 lg:grid-cols-3 lg:items-start lg:gap-x-10">
         {/* min-w-0: grid items default to min-width:auto, and long unbroken Malayalam
             titles would otherwise force the track wider than the phone viewport */}
-        <div className="flex min-w-0 flex-col gap-8 sm:gap-10 lg:col-span-2">
+        <div className="order-1 min-w-0 lg:order-none lg:col-span-2">
           <TabbedSection title="Shari'ah" tabs={shariahTabs} />
-
-          {/* sits between Shari'ah and Opinion. The player used to flex to fill the
-              sidebar's extra height; with the sidebar trimmed to 5 rows a section
-              there is no slack left to absorb, and stretching an 8-track list only
-              re-opened the dead space. Natural height, fixed list. */}
-          <section>
-            <SectionHead title="Listen" href="/listen" />
-            <PodcastPlayer episodes={episodes} perPage={8} spotifyUrl="https://podcasters.spotify.com/pod/show/islamonlive" />
-          </section>
-
-          <TabbedSection title="Opinion" tabs={opinionTabs} />
+        </div>
+        {/* phones get the slider version after Reels instead */}
+        <div className="order-4 hidden min-w-0 lg:order-none lg:block lg:self-stretch">
+          <SideList title="Editor's Picks" href="/category/news" posts={latest.slice(10, 14)} featured />
         </div>
 
-        {/* fixed gaps, like the main column: neither column flexes now, so whichever
-            one is shorter simply ends earlier rather than spreading its sections */}
-        <div className="flex min-w-0 flex-col gap-8 sm:gap-10">
-          {/* phones get the slider version after Watch instead */}
-          <div className="hidden lg:block">
-            <SideList title="Editor's Picks" href="/category/news" posts={latest.slice(11, 16)} />
-          </div>
+        <div className="order-2 flex min-w-0 flex-col gap-8 sm:gap-10 lg:order-none lg:col-span-2">
+          {/* Watch — dark band, player + sidebar list. It reads as a break between
+              the two text-heavy sections rather than as a second hero, which is why
+              it sits here instead of at the top of the page */}
+          {videos.length > 0 && (
+            <section className="rounded-2xl bg-zinc-900 p-4 sm:rounded-xl sm:p-6">
+              <SectionHead title="Watch" href="/watch-videos" light />
+              <WatchPanel videos={videos} />
+            </section>
+          )}
+
+          {/* sits between Watch and Opinion. The player used to flex to fill the
+              sidebar's extra height; stretching an 8-track list only moved the dead
+              space inside the black panel. Natural height, fixed list. */}
+          <section>
+            <SectionHead title="Listen" href="/listen" />
+            <PodcastPlayer episodes={episodes} perPage={6} spotifyUrl="https://podcasters.spotify.com/pod/show/islamonlive" />
+          </section>
+        </div>
+        {/* no top padding to match the Watch panel's inner p-6: the row reads off the
+            dark panel's top edge, so Columns starts on that edge and its heading sits
+            24px above the Watch heading inside the panel */}
+        <div className="order-5 min-w-0 lg:order-none lg:self-stretch">
           <SideList title="Columns" href="/category/columns" posts={columnsRest} featured />
-          {/* Culture took Shari'ah's old sidebar slot — its topics move into the "…" menu */}
-          {/* 5 = the featured card plus 4 rows, matching Columns above it */}
-          <SideListTabs title="Culture" tabs={cultureTabs} rows={5} />
+        </div>
+
+        <div className="order-3 min-w-0 lg:order-none lg:col-span-2">
+          <TabbedSection title="Opinion" tabs={opinionTabs} />
+        </div>
+        {/* Culture took Shari'ah's old sidebar slot — its topics move into the "…" menu */}
+        {/* 4 = the featured card plus 3 rows — measured against Opinion across
+            1280/1440/1920 as the count whose worst-case end-of-row mismatch is
+            smallest, so the full-width Infographics band below never opens a
+            canyon under either cell */}
+        <div className="order-6 min-w-0 lg:order-none lg:self-stretch">
+          <SideListTabs title="Culture" tabs={cultureTabs} rows={4} />
         </div>
       </div>
       {/* 6. Infographics — portrait tiles, caption below (live-site style) */}

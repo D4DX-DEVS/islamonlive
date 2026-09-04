@@ -18,7 +18,10 @@ export default function SectionTabs({
 }) {
   return (
     <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-l-4 border-purple-800 pl-3 pr-2 sm:mb-4">
-      <h2 className="text-xl font-extrabold text-zinc-900">{title}</h2>
+      {/* self-start, not the row's items-center: once the pills wrap to a second
+         line the row is twice as tall and a centred title drops ~18px, off the
+         line its sidebar neighbour starts on */}
+      <h2 className="self-start text-xl font-extrabold text-zinc-900">{title}</h2>
       {/* pushed right of the title, like the live site's section menus */}
       {/* phones: pills hidden — title + "See all" only */}
       <div className="scrollbar-none hidden flex-1 flex-wrap items-center justify-center gap-2 sm:flex">

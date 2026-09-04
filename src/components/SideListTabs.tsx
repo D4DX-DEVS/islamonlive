@@ -16,7 +16,9 @@ export default function SideListTabs({ title, tabs, rows = 4 }: { title: string;
   const [first, ...rest] = tab.items.slice(0, rows);
 
   return (
-    <aside>
+    // stretched to the grid row by the page; the card absorbs the slack so the
+    // column ends level with the section beside it — see SideList
+    <aside className="flex h-full flex-col">
       <div className="mb-3 flex items-center justify-between gap-2 border-l-4 border-purple-800 pl-3 pr-2 sm:mb-4">
         <h2 className="flex min-w-0 items-baseline gap-2 text-xl font-extrabold text-zinc-900">
           <span className="shrink-0">{title}</span>
@@ -31,7 +33,9 @@ export default function SideListTabs({ title, tabs, rows = 4 }: { title: string;
               aria-label={`Choose a ${title} topic`}
               aria-expanded={open}
               onClick={() => setOpen((o) => !o)}
-              className={`flex h-11 w-11 items-center justify-center rounded-full transition sm:h-8 sm:w-8 ${open ? "bg-purple-100 text-purple-800" : "text-zinc-500 hover:bg-purple-50 hover:text-purple-800"}`}
+              // sm:h-7 matches the h2's own line box, so the button does not make the header
+              // row taller than the heading and push the title off its neighbour's line
+              className={`flex h-11 w-11 items-center justify-center rounded-full transition sm:h-7 sm:w-7 ${open ? "bg-purple-100 text-purple-800" : "text-zinc-500 hover:bg-purple-50 hover:text-purple-800"}`}
             >
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="h-4 w-4">
                 <circle cx="5" cy="12" r="1.8" />
@@ -60,12 +64,12 @@ export default function SideListTabs({ title, tabs, rows = 4 }: { title: string;
           </div>
         </div>
       </div>
-      {first && <OverlayCard item={first} className="mb-3 aspect-[16/10]" />}
+      {first && <OverlayCard item={first} className="mb-3 aspect-video lg:aspect-auto lg:min-h-[180px] lg:flex-1" />}
       <div className="space-y-3">
         {/* phones: 2 rows under the card, the rest from sm up */}
         {rest.map((p, i) => (
           <div key={p.href} className={i >= 2 ? "hidden sm:block" : undefined}>
-            <ListRow item={p} />
+            <ListRow item={p} compact />
           </div>
         ))}
       </div>

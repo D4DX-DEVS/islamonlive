@@ -21,6 +21,7 @@ export default function manifest(): MetadataRoute.Manifest {
       { name: "Read", url: "/category/opinion", icons: [{ src: "/icon-192.png", sizes: "192x192" }] },
       { name: "Watch", url: "/watch-videos", icons: [{ src: "/icon-192.png", sizes: "192x192" }] },
       { name: "Listen", url: "/listen", icons: [{ src: "/icon-192.png", sizes: "192x192" }] },
+      { name: "Saved", url: "/saved", icons: [{ src: "/icon-192.png", sizes: "192x192" }] },
     ],
   };
 }

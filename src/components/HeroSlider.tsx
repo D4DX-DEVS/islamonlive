@@ -61,14 +61,17 @@ export default function HeroSlider({ slides }: { slides: Slide[] }) {
 
       {/* the card: 81% of the image's width, inset 9.6% from its left edge, and
           overlapping its bottom 31% — the live proportions.
-          Every slide's card is mounted into the same grid cell, so the block is
-          always as tall as the tallest of them. Sizing it to whichever slide is
-          showing resized the hero on each advance — and with it the grid row and
-          the side column, which takes its height from that row: a 1-line
-          headline followed by a 3-line one jumped the whole section.
+          Every slide's card is mounted into the same grid cell, so the *row* is
+          always as tall as the tallest of them and the hero never resizes on an
+          advance — the side column takes its height from this row, and a 1-line
+          headline followed by a 3-line one used to jump the whole section.
+          `items-end` is what keeps that stable row from stretching each card to
+          fill it: every card keeps its own content height and hangs from the
+          row's bottom edge, so a short headline gets a short plate instead of a
+          tall one with a canyon of white between the headline and the byline.
           The waiting cards use `invisible`, not `opacity-0`: visibility:hidden
           still reserves the height but drops them from the a11y tree. */}
-      <div className="relative z-10 mx-4 -mt-20 grid sm:mx-0 sm:-mt-[14%] sm:ml-[9.6%] sm:w-[81%]">
+      <div className="relative z-10 mx-4 -mt-20 grid items-end sm:mx-0 sm:-mt-[14%] sm:ml-[9.6%] sm:w-[81%]">
         {slides.map((s, n) => {
           const live = n === i;
           // only the slide on screen is the page's h1; the four waiting behind it
@@ -98,10 +101,10 @@ export default function HeroSlider({ slides }: { slides: Slide[] }) {
                   dangerouslySetInnerHTML={{ __html: s.title }}
                 />
               </Link>
-              {/* mt-auto pins the byline to the bottom of the plate: on a slide
-                  whose headline is shorter than the tallest one, the slack sits
-                  above the byline rather than dangling under it */}
-              <div className="mt-auto flex items-end justify-between gap-4 pt-4">
+              {/* no mt-auto: with `items-end` on the stack each plate is exactly as
+                  tall as its own content, so there is no slack left to push the
+                  byline down — it sits directly under the headline */}
+              <div className="flex items-end justify-between gap-4 pt-4">
                 {/* min-w-0 so the author name can truncate instead of pushing the row wide */}
                 <Byline className="min-w-0" name={s.author} avatar={s.authorAvatar} date={s.date} />
                 {slides.length > 1 && (

@@ -1,11 +1,12 @@
 import type { Metadata, Viewport } from "next";
-import { Noto_Sans_Malayalam, Anek_Malayalam } from "next/font/google";
+import { Noto_Sans_Malayalam, Anek_Malayalam, Noto_Serif_Malayalam, Manjari } from "next/font/google";
 import "./globals.css";
 import Header, { NavPreviewItem } from "@/components/Header";
 import Footer from "@/components/Footer";
 import BackToTop from "@/components/BackToTop";
 import MobileTabBar from "@/components/MobileTabBar";
 import PwaSetup from "@/components/PwaSetup";
+import ReadingPrefsSetup from "@/components/ReadingPrefsSetup";
 import { getPosts, featuredImage, postPath, primaryCategory, formatDate } from "@/lib/wordpress";
 
 // which categories feed each nav item's hover preview
@@ -36,6 +37,10 @@ async function navPreviews(): Promise<Record<string, NavPreviewItem[]>> {
 const notoMalayalam = Noto_Sans_Malayalam({ subsets: ["malayalam", "latin"], variable: "--font-noto-ml", display: "swap" });
 // headings/titles
 const anekMalayalam = Anek_Malayalam({ subsets: ["malayalam", "latin"], variable: "--font-anek-ml", display: "swap" });
+// the two extra faces /settings offers for the article body. They are only ever
+// applied through --read-font, so nothing outside a post can pull them in
+const serifMalayalam = Noto_Serif_Malayalam({ subsets: ["malayalam", "latin"], variable: "--font-serif-ml", display: "swap" });
+const manjari = Manjari({ subsets: ["malayalam", "latin"], weight: ["400", "700"], variable: "--font-manjari", display: "swap" });
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://islamonlive.in"),
@@ -63,7 +68,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const previews = await navPreviews();
   return (
     <html lang="ml">
-      <body className={`${notoMalayalam.variable} ${anekMalayalam.variable} bg-zinc-50 font-sans text-zinc-900 antialiased flex min-h-dvh flex-col`}>
+      <body className={`${notoMalayalam.variable} ${anekMalayalam.variable} ${serifMalayalam.variable} ${manjari.variable} bg-zinc-50 font-sans text-zinc-900 antialiased flex min-h-dvh flex-col`}>
         <Header previews={previews} />
         {/* paper masthead — the on-screen <header> is display:none when printing */}
         <div className="hidden print:block print:border-b print:border-zinc-400 print:pb-3 print:text-center">
@@ -78,6 +83,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <MobileTabBar />
         <BackToTop />
         <PwaSetup />
+        <ReadingPrefsSetup />
       </body>
     </html>
   );

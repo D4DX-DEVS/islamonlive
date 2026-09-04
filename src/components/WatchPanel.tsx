@@ -15,8 +15,10 @@ export default function WatchPanel({ videos }: { videos: YTVideo[] }) {
   const rest = videos.map((v, i) => ({ v, i })).filter(({ i }) => i !== active).slice(0, 4);
 
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
-      <div className="lg:col-span-2">
+    // player beside the list only from xl: the panel sits in the homepage's 2/3
+    // column now, and below xl that left a 200px-wide list of clipped thumbnails
+    <div className="grid gap-4 xl:grid-cols-3">
+      <div className="xl:col-span-2">
         <div className="relative aspect-video w-full overflow-hidden rounded-xl">
           <iframe
             src={`https://www.youtube-nocookie.com/embed/${main.id}${picked ? "?autoplay=1" : ""}`}
@@ -26,7 +28,7 @@ export default function WatchPanel({ videos }: { videos: YTVideo[] }) {
             className="absolute inset-0 h-full w-full"
           />
         </div>
-        <h3 className="mt-3 line-clamp-2 text-sm font-bold text-white lg:text-base">{main.title}</h3>
+        <h3 className="mt-3 line-clamp-2 text-sm font-bold text-white xl:text-base">{main.title}</h3>
       </div>
       {/* ponytail: flex-1 rows stretch to match the player height — no bottom gap */}
       <div className="flex h-full flex-col gap-3">
@@ -38,8 +40,8 @@ export default function WatchPanel({ videos }: { videos: YTVideo[] }) {
             key={v.id}
             type="button"
             onClick={() => { setActive(i); setPicked(true); }}
-            // phones show only the first 2 suggestions
-            className={`group min-h-0 flex-1 items-center gap-3 rounded-lg p-2 text-left transition hover:bg-purple-900/50 ${n >= 2 ? "hidden lg:flex" : "flex"}`}
+            // stacked layouts show only the first 2 suggestions
+            className={`group min-h-0 flex-1 items-center gap-3 rounded-lg p-2 text-left transition hover:bg-purple-900/50 ${n >= 2 ? "hidden xl:flex" : "flex"}`}
           >
             <div className="relative aspect-video w-32 shrink-0 self-stretch overflow-hidden rounded-lg bg-zinc-800 sm:w-36">
               <Image src={v.thumbnail} alt="" fill sizes="144px" className="object-cover transition duration-500 group-hover:scale-105" />

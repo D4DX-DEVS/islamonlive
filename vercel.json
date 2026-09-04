@@ -1,7 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "regions": ["bom1"],
+  "regions": [
+    "bom1"
+  ],
   "env": {
     "NEXT_PUBLIC_WORDPRESS_URL": "https://islamonlive.in",
     "NEXT_PUBLIC_ONESIGNAL_APP_ID": "130497ac-7891-4ccb-8b8b-702a90604b98"
@@ -10,6 +12,10 @@
     {
       "path": "/api/notify",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/reminder",
+      "schedule": "0 1 * * *"
     }
   ]
 }

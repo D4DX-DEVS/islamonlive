@@ -7,6 +7,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { SOCIAL, SocialIcon } from "@/components/social";
 import { showChrome, useChromeVisible, usePageScrolled } from "@/lib/appChrome";
+import { useSavedCount } from "@/lib/reader";
 
 export interface NavPreviewItem {
   href: string;
@@ -16,9 +17,10 @@ export interface NavPreviewItem {
   date: string;
 }
 
-type NavItem = { label: string; href: string; external?: boolean; children?: { label: string; href: string }[] };
+type NavChild = { label: string; href: string; hint?: string; icon?: ReactNode };
+type NavItem = { label: string; href: string; external?: boolean; children?: NavChild[] };
 
-// Home, Read (mega), Watch, Listen, Infographics — Infographics sits last
+// Home, Read (mega), Watch (YouTube/Reels), Listen, Infographics — Infographics sits last
 const NAV: NavItem[] = [
   { label: "Home", href: "/" },
   {
@@ -29,7 +31,30 @@ const NAV: NavItem[] = [
       { label: "Columns", href: "/category/columns" },
     ],
   },
-  { label: "Watch", href: "/watch-videos" },
+  // the two video sources live on separate pages — the dropdown is the only place
+  // a reader can tell them apart before committing to a tap
+  {
+    label: "Watch", href: "/watch-videos", children: [
+      {
+        label: "YouTube", href: "/watch-videos", hint: "Full episodes and talks",
+        icon: (
+          <>
+            <rect x="2.5" y="5.5" width="19" height="13" rx="4" />
+            <path d="m10 9.5 5.5 3-5.5 3z" fill="currentColor" stroke="none" />
+          </>
+        ),
+      },
+      {
+        label: "Reels", href: "/reels", hint: "Short vertical clips",
+        icon: (
+          <>
+            <rect x="4" y="2.5" width="16" height="19" rx="4" />
+            <path d="m10.5 9.5 4.5 2.5-4.5 2.5z" fill="currentColor" stroke="none" />
+          </>
+        ),
+      },
+    ],
+  },
   { label: "Listen", href: "/listen" },
   { label: "Infographics", href: "/category/infographics" },
 ];
@@ -39,6 +64,21 @@ const NAV: NavItem[] = [
 // Each row leads with an icon so the sheet scans as a list of *places* rather
 // than a stack of legal text — Support Us is pulled out below as the one action.
 const DRAWER: (NavItem & { icon: ReactNode })[] = [
+  {
+    label: "Saved articles",
+    href: "/saved",
+    icon: <path d="M6 4.5h12a1 1 0 0 1 1 1v14.2a.5.5 0 0 1-.77.42L12 16.3l-6.23 3.82A.5.5 0 0 1 5 19.7V5.5a1 1 0 0 1 1-1Z" />,
+  },
+  {
+    label: "Settings",
+    href: "/settings",
+    icon: (
+      <>
+        <circle cx="12" cy="12" r="3.2" />
+        <path d="M19.4 14a1.6 1.6 0 0 0 .32 1.77l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.6 1.6 0 0 0-1.77-.32 1.6 1.6 0 0 0-1 1.46V20a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1.05-1.46 1.6 1.6 0 0 0-1.77.32l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.6 1.6 0 0 0 .32-1.77 1.6 1.6 0 0 0-1.46-1H4a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.46-1.05 1.6 1.6 0 0 0-.32-1.77l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.6 1.6 0 0 0 1.77.32H10a1.6 1.6 0 0 0 1-1.46V4a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.46 1.6 1.6 0 0 0 1.77-.32l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.6 1.6 0 0 0-.32 1.77V10a1.6 1.6 0 0 0 1.46 1H20a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.46 1Z" />
+      </>
+    ),
+  },
   {
     label: "About Us",
     href: "/about",
@@ -164,6 +204,31 @@ function ChevronIcon({ className }: { className?: string }) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className={className}>
       <path d="m9 5 7 7-7 7" />
     </svg>
+  );
+}
+
+function BookmarkIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden className={className}>
+      <path d="M6 4.5h12a1 1 0 0 1 1 1v14.2a.5.5 0 0 1-.77.42L12 16.3l-6.23 3.82A.5.5 0 0 1 5 19.7V5.5a1 1 0 0 1 1-1Z" />
+    </svg>
+  );
+}
+
+/* the header's link into the reader's own lists. The badge only renders once
+   there is something to count: useSavedCount's server snapshot is 0, and drawing
+   a "0" on the server that the client immediately removes is a hydration diff */
+function SavedLink({ className, badgeClass }: { className: string; badgeClass: string }) {
+  const count = useSavedCount();
+  return (
+    <Link href="/saved" prefetch aria-label={count ? `Saved articles (${count})` : "Saved articles"} className={`relative ${className}`}>
+      <BookmarkIcon className="h-5 w-5" />
+      {count > 0 && (
+        <span className={`pill absolute -right-2 -top-1.5 min-w-4 rounded-full px-1 text-center text-[10px] font-bold leading-4 ${badgeClass}`}>
+          {count > 99 ? "99+" : count}
+        </span>
+      )}
+    </Link>
   );
 }
 
@@ -355,6 +420,7 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
               </a>
             ))}
           </div>
+          <SavedLink className="hidden text-zinc-700 hover:text-[#31094C] md:block" badgeClass="bg-[#693FE2] text-white" />
           {/* icon only, straight to the search page — the live header has no inline field */}
           <Link href="/search" prefetch aria-label="Search" className="hidden text-zinc-700 hover:text-[#31094C] md:block">
             <SearchIcon className="h-5 w-5" />
@@ -397,6 +463,7 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
             <img src="/logo-white.png" alt="" className="h-7 w-auto" />
           </Link>
           <div className={`flex items-center gap-3 transition-opacity duration-200 ${pinned ? "pointer-events-auto opacity-100" : "opacity-0"}`}>
+            <SavedLink className="text-white/90 hover:text-white" badgeClass="bg-white text-[#31094C]" />
             <Link href="/search" prefetch aria-label="Search" className="text-white/90 hover:text-white">
               <SearchIcon className="h-5 w-5" />
             </Link>
@@ -431,12 +498,38 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
               {previews[item.label]?.length ? (
                 <MegaPanel item={item} posts={previews[item.label]} />
               ) : item.children ? (
-                <div className="invisible absolute left-0 top-full z-50 min-w-48 rounded-b-lg bg-white opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100">
-                  {item.children.map((c) => (
-                    <Link key={c.href} href={c.href} className="block px-4 py-2 text-sm text-zinc-700 hover:bg-purple-50 hover:text-purple-900">
-                      {c.label}
-                    </Link>
-                  ))}
+                // pt-2 is the hover bridge: the gap between the nav row and the card
+                // is inside the hoverable wrapper, so the pointer can cross it
+                <div className="invisible absolute left-1/2 top-full z-50 -translate-x-1/2 translate-y-1 pt-2 opacity-0 transition duration-200 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
+                  {/* no arrow nub: a rotated square poking out of a ringed card reads as
+                      a stray notch against the purple bar. The 8px hover bridge above
+                      already ties the card to its label. */}
+                  <div className="min-w-[17rem] rounded-2xl bg-white p-1.5 shadow-[0_24px_48px_-16px_rgba(49,9,76,0.45)] ring-1 ring-black/5">
+                    <div className="flex flex-col">
+                      {item.children.map((c) => (
+                        <Link
+                          key={c.href}
+                          href={c.href}
+                          className="group/row flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-purple-50"
+                        >
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-[#693FE2] transition-colors group-hover/row:bg-[#693FE2] group-hover/row:text-white">
+                            {c.icon ? (
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="h-[18px] w-[18px]">
+                                {c.icon}
+                              </svg>
+                            ) : (
+                              <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                            )}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-semibold text-zinc-900 group-hover/row:text-[#31094C]">{c.label}</span>
+                            {c.hint && <span className="block text-xs text-zinc-500">{c.hint}</span>}
+                          </span>
+                          <ChevronIcon className="h-4 w-4 shrink-0 text-zinc-300 transition group-hover/row:translate-x-0.5 group-hover/row:text-[#693FE2]" />
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               ) : null}
             </div>

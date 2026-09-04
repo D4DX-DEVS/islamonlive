@@ -5,15 +5,17 @@ export default function Footer() {
   return (
     <footer className="mt-4 bg-purple-950 text-purple-200">
       {/* phones: whole top block hidden — mobile footer is just the tiny credit bar below */}
-      {/* ≥xl the brand track is max-content: the tagline keeps its full sentence on one
-          line and the three link columns start after it. A quarter of the grid is far
-          too narrow for that sentence, so md/lg stack it under the logo instead —
-          forcing the inline row there squeezed the text to one letter per line. */}
-      <div className="mx-auto hidden max-w-[1600px] grid-cols-2 gap-x-6 gap-y-8 px-4 py-6 md:grid md:grid-cols-4 md:gap-x-10 md:py-10 xl:grid-cols-[max-content_repeat(3,minmax(0,1fr))] xl:gap-x-14">
-        <div className="col-span-2 md:col-span-1 xl:flex xl:items-center xl:gap-4">
+      {/* from xl the brand track is a fixed 27rem — wide enough that the tagline sits
+          inline on one line (it measures ~413px) and the contact address does too, in
+          its own 19.5rem track, with the two link columns splitting what's left. It's a
+          sized track rather than max-content: max-content sized the row to its content
+          and dragged the whole lockup off the page's left edge. Below xl the four
+          columns stay even and the tagline wraps — no track fits 413px down there. */}
+      <div className="mx-auto hidden max-w-[1600px] grid-cols-2 gap-x-6 gap-y-8 px-4 py-6 md:grid md:grid-cols-4 md:gap-x-10 xl:grid-cols-[27rem_1fr_1fr_19.5rem] md:py-10">
+        <div className="col-span-2 md:col-span-1">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-white.png" alt="islamonlive" className="h-10 w-auto shrink-0" />
-          <p className="mt-2 min-w-0 text-sm leading-snug xl:mt-0 xl:whitespace-nowrap xl:border-l xl:border-purple-800 xl:pl-4">The one and only Comprehensive Islamic portal in Malayalam.</p>
+          <p className="mt-3 min-w-0 text-sm leading-snug">The one and only Comprehensive Islamic portal in Malayalam.</p>
         </div>
         <div className="hidden md:block">
           <h3 className="font-semibold text-white">IslamOnlive</h3>

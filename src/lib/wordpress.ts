@@ -1,3 +1,4 @@
+import { TTL, wpTag } from "@/lib/cache";
 const WP_URL = process.env.NEXT_PUBLIC_WORDPRESS_URL ?? "https://islamonlive.in";
 const API = `${WP_URL}/wp-json/wp/v2`;
 
@@ -29,9 +30,12 @@ export interface WPCategory {
 }
 
 // ponytail: one retry — origin 5xx/522 (Cloudflare timeout) is transient. Add backoff if it turns flakier.
-async function wpFetch<T>(path: string, revalidate = 60): Promise<T> {
+// Every response is tagged ("wp" + the endpoint) so app/api/revalidate can drop it
+// the moment WordPress publishes, instead of waiting the TTL out.
+async function wpFetch<T>(path: string, revalidate: number = TTL.posts): Promise<T> {
+  const tags = ["wp", wpTag(path)];
   for (let attempt = 0; ; attempt++) {
-    const res = await fetch(`${API}${path}`, { next: { revalidate } });
+    const res = await fetch(`${API}${path}`, { next: { revalidate, tags } });
     if (res.ok) return res.json();
     if (res.status < 500 || attempt > 0) throw new Error(`WP API ${res.status}: ${path}`);
   }
@@ -40,7 +44,7 @@ async function wpFetch<T>(path: string, revalidate = 60): Promise<T> {
 // WP REST `categories=` matches assigned terms only, not descendants — callers
 // append these to show a parent category's full tree like the live site does
 export async function getChildCategoryIds(parent: number): Promise<number[]> {
-  const kids = await wpFetch<{ id: number }[]>(`/categories?parent=${parent}&per_page=50&_fields=id`, 3600);
+  const kids = await wpFetch<{ id: number }[]>(`/categories?parent=${parent}&per_page=50&_fields=id`, TTL.taxonomy);
   return kids.map((k) => k.id);
 }
 
@@ -68,7 +72,7 @@ export interface WPPage {
 }
 
 export async function getPageBySlug(slug: string): Promise<WPPage | null> {
-  const pages = await wpFetch<WPPage[]>(`/pages?slug=${encodeURIComponent(slug)}`, 3600);
+  const pages = await wpFetch<WPPage[]>(`/pages?slug=${encodeURIComponent(slug)}`, TTL.page);
   return pages[0] ?? null;
 }
 
@@ -81,30 +85,30 @@ export interface WPUser {
 }
 
 export async function getUserBySlug(slug: string): Promise<WPUser | null> {
-  const users = await wpFetch<WPUser[]>(`/users?slug=${encodeURIComponent(slug)}`, 3600);
+  const users = await wpFetch<WPUser[]>(`/users?slug=${encodeURIComponent(slug)}`, TTL.taxonomy);
   return users[0] ?? null;
 }
 
 export function searchUsers(q: string): Promise<WPUser[]> {
-  return wpFetch<WPUser[]>(`/users?search=${encodeURIComponent(q)}&_fields=id,name,slug`, 3600);
+  return wpFetch<WPUser[]>(`/users?search=${encodeURIComponent(q)}&_fields=id,name,slug`, TTL.taxonomy);
 }
 
 export async function getTagBySlug(slug: string): Promise<WPCategory | null> {
-  const tags = await wpFetch<WPCategory[]>(`/tags?slug=${encodeURIComponent(slug)}&_fields=id,name,slug,count`, 3600);
+  const tags = await wpFetch<WPCategory[]>(`/tags?slug=${encodeURIComponent(slug)}&_fields=id,name,slug,count`, TTL.taxonomy);
   return tags[0] ?? null;
 }
 
 export async function getPostBySlug(slug: string): Promise<WPPost | null> {
-  const posts = await wpFetch<WPPost[]>(`/posts?slug=${encodeURIComponent(slug)}&_embed=1`, 60);
+  const posts = await wpFetch<WPPost[]>(`/posts?slug=${encodeURIComponent(slug)}&_embed=1`, TTL.posts);
   return posts[0] ?? null;
 }
 
 export function getCategories(perPage = 50) {
-  return wpFetch<WPCategory[]>(`/categories?per_page=${perPage}&orderby=count&order=desc&_fields=id,name,slug,count`, 3600);
+  return wpFetch<WPCategory[]>(`/categories?per_page=${perPage}&orderby=count&order=desc&_fields=id,name,slug,count`, TTL.taxonomy);
 }
 
 export async function getCategoryBySlug(slug: string): Promise<WPCategory | null> {
-  const cats = await wpFetch<WPCategory[]>(`/categories?slug=${encodeURIComponent(slug)}&_fields=id,name,slug,count`, 3600);
+  const cats = await wpFetch<WPCategory[]>(`/categories?slug=${encodeURIComponent(slug)}&_fields=id,name,slug,count`, TTL.taxonomy);
   return cats[0] ?? null;
 }
 
