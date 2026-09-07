@@ -7,18 +7,11 @@ export interface ReelItem {
   id: string;
   url: string;
   thumbnail: string;
-  /** raw mp4 when the feed exposes one — plays with native controls */
+  /** signed CDN mp4 — plays inline */
   video?: string;
   title?: string;
 }
 
-/* Which player a slide gets:
-   - Instagram items ship a signed CDN mp4 scraped off the WordPress homepage.
-     That URL is bound to the session that fetched it, so it plays on the WP
-     server and 403s for everyone else. Try it (it may be reachable from some
-     networks), and the moment it errors swap to Instagram's own embed player,
-     which works for anyone.
-   - YouTube shorts (the fallback feed) always go through the YouTube embed. */
 function isInstagram(r: ReelItem): boolean {
   return r.url.includes("instagram.com");
 }
@@ -39,6 +32,9 @@ function YouTubeFrame({ id, title }: { id: string; title: string }) {
   );
 }
 
+/* Last resort only. Instagram's own embed always plays, but it is a white card
+   with its own header, caption and Like button — nothing like a reel — so the
+   player reaches for it only after asking the server for a fresh link. */
 function InstagramFrame({ id, title }: { id: string; title: string }) {
   return (
     <iframe
@@ -53,24 +49,143 @@ function InstagramFrame({ id, title }: { id: string; title: string }) {
   );
 }
 
+function PlayGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="h-9 w-9 drop-shadow-lg">
+      <path d="M7 4.5v15l12-7.5z" />
+    </svg>
+  );
+}
+
+/* The reel player: one video filling the screen, tap to pause, a hairline of
+   progress at the bottom and a sound toggle — the shape Instagram's own reels
+   have. Native controls are deliberately off; a scrubber and a filename bar
+   across a vertical video is what made this feel like an embedded file. */
+function ReelVideo({
+  item,
+  onDead,
+  muted,
+  onToggleMute,
+}: {
+  item: ReelItem;
+  /** every source for this reel failed — show the embed instead */
+  onDead: () => void;
+  muted: boolean;
+  onToggleMute: () => void;
+}) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [src, setSrc] = useState(item.video ?? "");
+  const [paused, setPaused] = useState(false);
+  const [progress, setProgress] = useState(0);
+  // a stale CDN signature is worth exactly one round trip to /api/reel
+  const refreshed = useRef(false);
+
+  const fail = useCallback(async () => {
+    if (refreshed.current) {
+      onDead();
+      return;
+    }
+    refreshed.current = true;
+    try {
+      const res = await fetch(`/api/reel?id=${encodeURIComponent(item.id)}`);
+      const { video } = (await res.json()) as { video?: string | null };
+      if (video) setSrc(video);
+      else onDead();
+    } catch {
+      onDead();
+    }
+  }, [item.id, onDead]);
+
+  // no source at all (the feed never carried one) — go straight for a fresh link
+  useEffect(() => {
+    if (!src && !refreshed.current) void fail();
+  }, [src, fail]);
+
+  const toggle = () => {
+    const v = ref.current;
+    if (!v) return;
+    if (v.paused) void v.play().catch(() => {});
+    else v.pause();
+  };
+
+  if (!src) {
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <Image src={item.thumbnail} alt="" fill sizes="100vw" className="object-cover opacity-40 sm:rounded-xl" unoptimized />
+        <span className="relative h-8 w-8 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative h-full w-full" onClick={toggle}>
+      <video
+        key={src}
+        ref={ref}
+        src={src}
+        poster={item.thumbnail}
+        autoPlay
+        loop
+        playsInline
+        muted={muted}
+        preload="auto"
+        onError={() => void fail()}
+        onPlay={() => setPaused(false)}
+        onPause={() => setPaused(true)}
+        onTimeUpdate={(e) => {
+          const v = e.currentTarget;
+          if (v.duration) setProgress(v.currentTime / v.duration);
+        }}
+        className="h-full w-full object-cover sm:rounded-xl"
+      />
+
+      {/* the pause glyph, the way Reels shows it: only while paused */}
+      {paused && (
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-white/90">
+          <PlayGlyph />
+        </span>
+      )}
+
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onToggleMute(); }}
+        aria-label={muted ? "Unmute" : "Mute"}
+        className="absolute right-3 top-14 z-10 flex h-9 w-9 touch-manipulation items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm transition active:scale-90"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="h-[18px] w-[18px]">
+          <path d="M11 5 6.5 9H3v6h3.5L11 19z" />
+          {muted ? <path d="m16 9.5 4 5M20 9.5l-4 5" /> : <path d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12" />}
+        </svg>
+      </button>
+
+      {/* progress hairline, bottom edge */}
+      <span className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 bg-white/20 sm:rounded-b-xl">
+        <span className="block h-full bg-white/90" style={{ width: `${Math.round(progress * 100)}%` }} />
+      </span>
+    </div>
+  );
+}
+
 /* Instagram-Reels-style viewer: tapping a tile opens a full-screen vertical
    snap feed — swipe up/down for next/previous. Only the on-screen slide
    mounts its player; the rest show thumbnails. */
 export default function ReelsLightbox({ items, grid = false }: { items: ReelItem[]; grid?: boolean }) {
   const [open, setOpen] = useState<number | null>(null);
   const [active, setActive] = useState(0);
-  // ids whose direct mp4 failed — they render the embed from then on
-  const [broken, setBroken] = useState<Set<string>>(() => new Set());
+  // reels whose video is unrecoverable — they fall back to Instagram's embed
+  const [dead, setDead] = useState<Set<string>>(() => new Set());
+  // one sound setting for the session, like a real reels feed. Starts muted:
+  // a browser blocks an unmuted autoplay and the reel would just sit there
+  const [muted, setMuted] = useState(true);
   const feedRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
 
   const jump = useCallback((n: number) => {
     const i = Math.max(0, Math.min(items.length - 1, n));
     feedRef.current?.children[i]?.scrollIntoView({ behavior: "smooth" });
   }, [items.length]);
 
-  const markBroken = useCallback((id: string) => {
-    setBroken((prev) => {
+  const markDead = useCallback((id: string) => {
+    setDead((prev) => {
       if (prev.has(id)) return prev;
       const next = new Set(prev);
       next.add(id);
@@ -109,54 +224,13 @@ export default function ReelsLightbox({ items, grid = false }: { items: ReelItem
     return () => io.disconnect();
   }, [open]);
 
-  /* Screen-off playback: the OS only keeps media alive for a tab that owns a
-     media session, so publish one for the on-screen mp4 (Instagram feed items).
-     Embedded players (YouTube, Instagram) run in an iframe and block background
-     playback there — nothing this side can change that. */
-  useEffect(() => {
-    const ms = typeof navigator !== "undefined" ? navigator.mediaSession : undefined;
-    const item = open === null ? null : items[active];
-    if (!ms || !item?.video || broken.has(item.id)) return;
-    ms.metadata = new MediaMetadata({
-      title: item.title || "Reel",
-      artist: "Islam Onlive",
-      artwork: [{ src: item.thumbnail, sizes: "512x512" }],
-    });
-    const handlers: [MediaSessionAction, MediaSessionActionHandler][] = [
-      ["play", () => videoRef.current?.play().catch(() => {})],
-      ["pause", () => videoRef.current?.pause()],
-      ["previoustrack", () => jump(active - 1)],
-      ["nexttrack", () => jump(active + 1)],
-    ];
-    for (const [a, h] of handlers) { try { ms.setActionHandler(a, h); } catch {} }
-    return () => { for (const [a] of handlers) { try { ms.setActionHandler(a, null); } catch {} } };
-  }, [open, active, items, jump, broken]);
-
   const player = (r: ReelItem) => {
     const title = r.title ?? "Reel";
     if (!isInstagram(r)) return <YouTubeFrame id={r.id} title={title} />;
-    if (!r.video || broken.has(r.id)) return <InstagramFrame id={r.id} title={title} />;
-    return (
-      <video
-        key={r.id}
-        ref={videoRef}
-        src={r.video}
-        poster={r.thumbnail}
-        controls
-        autoPlay
-        loop
-        playsInline
-        preload="auto"
-        onError={() => markBroken(r.id)}
-        // a source that never reaches "can play" within a few seconds is the
-        // 403 case too — Chrome reports that as a stall, not an error
-        onLoadedMetadata={(e) => {
-          const v = e.currentTarget;
-          void v.play().catch(() => {});
-        }}
-        className="h-full w-full object-contain"
-      />
-    );
+    if (dead.has(r.id)) return <InstagramFrame id={r.id} title={title} />;
+    // keyed on the reel: a fresh player per reel, so no state (its link, its
+    // progress, whether it already retried) can leak from the previous one
+    return <ReelVideo key={r.id} item={r} onDead={() => markDead(r.id)} muted={muted} onToggleMute={() => setMuted((m) => !m)} />;
   };
 
   return (
@@ -201,9 +275,9 @@ export default function ReelsLightbox({ items, grid = false }: { items: ReelItem
             type="button"
             aria-label="Close"
             onClick={() => setOpen(null)}
-            className="absolute right-3 top-3 z-10 rounded-full bg-white/10 px-3 py-1 text-xl text-white backdrop-blur-sm hover:bg-white/25"
+            className="absolute right-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-xl text-white backdrop-blur-sm transition active:scale-90"
           >✕</button>
-          <span className="pill absolute left-3 top-4 z-10 text-xs font-semibold text-white/80">{active + 1} / {items.length}</span>
+          <span className="pill absolute left-4 top-5 z-20 text-xs font-semibold text-white/80">{active + 1} / {items.length}</span>
 
           <div ref={feedRef} className="h-full snap-y snap-mandatory overflow-y-auto overscroll-contain">
             {items.map((r, n) => (
@@ -215,25 +289,28 @@ export default function ReelsLightbox({ items, grid = false }: { items: ReelItem
                     player(r)
                   )}
                 </div>
-                {/* the Instagram embed paints its own caption and buttons across
-                    its bottom edge — our overlay would sit on top of them */}
-                <div className={`pointer-events-none absolute bottom-6 left-4 right-16 ${n === active && isInstagram(r) && (!r.video || broken.has(r.id)) ? "hidden" : ""}`}>
-                  {r.title && <p className="line-clamp-2 text-sm font-semibold text-white drop-shadow">{r.title}</p>}
-                  <a
-                    href={r.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="pointer-events-auto mt-1 inline-block text-xs font-semibold text-purple-300 hover:text-white"
-                  >
-                    {isInstagram(r) ? "Open on Instagram" : "Open on YouTube"} →
-                  </a>
-                </div>
+                {/* the caption sits over our own player; the Instagram embed
+                    paints its own and would be covered by ours */}
+                {!(isInstagram(r) && dead.has(r.id)) && (
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-4 pb-6 pt-10">
+                    {r.title && <p className="line-clamp-2 pr-14 text-sm font-semibold text-white drop-shadow">{r.title}</p>}
+                    <a
+                      href={r.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="pointer-events-auto mt-1 inline-block text-xs font-semibold text-white/70 hover:text-white"
+                    >
+                      {isInstagram(r) ? "Open on Instagram" : "Open on YouTube"} →
+                    </a>
+                  </div>
+                )}
               </div>
             ))}
           </div>
 
           {/* desktop convenience arrows; phones swipe */}
-          <div className="absolute bottom-4 right-3 z-10 hidden flex-col gap-2 sm:flex">
+          <div className="absolute bottom-4 right-3 z-20 hidden flex-col gap-2 sm:flex">
             <button type="button" aria-label="Previous reel" onClick={() => jump(active - 1)}
               className="rounded-full bg-white/10 p-2 text-white backdrop-blur-sm hover:bg-white/25">▲</button>
             <button type="button" aria-label="Next reel" onClick={() => jump(active + 1)}
