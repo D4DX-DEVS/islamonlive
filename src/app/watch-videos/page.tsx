@@ -3,7 +3,7 @@ import WatchReels from "@/components/WatchReels";
 import WatchSwitch from "@/components/WatchSwitch";
 
 export const revalidate = 3600;
-export const metadata = { title: "Watch" };
+export const metadata = { title: "Videos" };
 
 export default async function WatchPage({ searchParams }: { searchParams: Promise<{ v?: string }> }) {
   const videos = await getVideos(30);
@@ -15,15 +15,17 @@ export default async function WatchPage({ searchParams }: { searchParams: Promis
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-center gap-3 md:justify-between">
-        <h1 className="sr-only border-l-4 border-purple-800 pl-3 text-2xl font-extrabold md:not-sr-only">Watch</h1>
+        <h1 className="sr-only border-l-4 border-purple-800 pl-3 text-2xl font-extrabold md:not-sr-only">Videos</h1>
         <WatchSwitch />
       </div>
       <div className="relative mb-3 aspect-video w-full overflow-hidden rounded-xl">
         <iframe
           key={main.id}
-          src={`https://www.youtube-nocookie.com/embed/${main.id}`}
+          src={`https://www.youtube.com/embed/${main.id}?playsinline=1&rel=0`}
           title={main.title}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          // YouTube "error 153": embeds without a Referer are refused
+          referrerPolicy="strict-origin-when-cross-origin"
           allowFullScreen
           className="absolute inset-0 h-full w-full"
         />

@@ -12,12 +12,55 @@ export interface ReelItem {
   title?: string;
 }
 
+/* Which player a slide gets:
+   - Instagram items ship a signed CDN mp4 scraped off the WordPress homepage.
+     That URL is bound to the session that fetched it, so it plays on the WP
+     server and 403s for everyone else. Try it (it may be reachable from some
+     networks), and the moment it errors swap to Instagram's own embed player,
+     which works for anyone.
+   - YouTube shorts (the fallback feed) always go through the YouTube embed. */
+function isInstagram(r: ReelItem): boolean {
+  return r.url.includes("instagram.com");
+}
+
+/* the YouTube embed needs a Referer to accept the request — a missing one is
+   YouTube's "error 153" — and installed PWAs / in-app browsers sometimes drop
+   it, so the policy is spelled out on the iframe rather than left to defaults */
+function YouTubeFrame({ id, title }: { id: string; title: string }) {
+  return (
+    <iframe
+      src={`https://www.youtube.com/embed/${id}?autoplay=1&playsinline=1&rel=0&modestbranding=1`}
+      title={title}
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+      referrerPolicy="strict-origin-when-cross-origin"
+      allowFullScreen
+      className="h-full w-full border-0 sm:rounded-xl"
+    />
+  );
+}
+
+function InstagramFrame({ id, title }: { id: string; title: string }) {
+  return (
+    <iframe
+      src={`https://www.instagram.com/reel/${id}/embed/`}
+      title={title}
+      allow="autoplay; encrypted-media; picture-in-picture; web-share"
+      referrerPolicy="strict-origin-when-cross-origin"
+      allowFullScreen
+      scrolling="no"
+      className="h-full w-full border-0 bg-white sm:rounded-xl"
+    />
+  );
+}
+
 /* Instagram-Reels-style viewer: tapping a tile opens a full-screen vertical
    snap feed — swipe up/down for next/previous. Only the on-screen slide
    mounts its player; the rest show thumbnails. */
 export default function ReelsLightbox({ items, grid = false }: { items: ReelItem[]; grid?: boolean }) {
   const [open, setOpen] = useState<number | null>(null);
   const [active, setActive] = useState(0);
+  // ids whose direct mp4 failed — they render the embed from then on
+  const [broken, setBroken] = useState<Set<string>>(() => new Set());
   const feedRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -25,6 +68,15 @@ export default function ReelsLightbox({ items, grid = false }: { items: ReelItem
     const i = Math.max(0, Math.min(items.length - 1, n));
     feedRef.current?.children[i]?.scrollIntoView({ behavior: "smooth" });
   }, [items.length]);
+
+  const markBroken = useCallback((id: string) => {
+    setBroken((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }, []);
 
   // lock page scroll + Esc to close while the feed is open
   useEffect(() => {
@@ -42,7 +94,6 @@ export default function ReelsLightbox({ items, grid = false }: { items: ReelItem
   // jump to the tapped slide, then track which slide is on screen
   useEffect(() => {
     if (open === null) return;
-    setActive(open);
     const feed = feedRef.current;
     if (!feed) return;
     feed.children[open]?.scrollIntoView();
@@ -60,12 +111,12 @@ export default function ReelsLightbox({ items, grid = false }: { items: ReelItem
 
   /* Screen-off playback: the OS only keeps media alive for a tab that owns a
      media session, so publish one for the on-screen mp4 (Instagram feed items).
-     YouTube-hosted reels play in an iframe and YouTube blocks background
+     Embedded players (YouTube, Instagram) run in an iframe and block background
      playback there — nothing this side can change that. */
   useEffect(() => {
     const ms = typeof navigator !== "undefined" ? navigator.mediaSession : undefined;
     const item = open === null ? null : items[active];
-    if (!ms || !item?.video) return;
+    if (!ms || !item?.video || broken.has(item.id)) return;
     ms.metadata = new MediaMetadata({
       title: item.title || "Reel",
       artist: "Islam Onlive",
@@ -79,7 +130,34 @@ export default function ReelsLightbox({ items, grid = false }: { items: ReelItem
     ];
     for (const [a, h] of handlers) { try { ms.setActionHandler(a, h); } catch {} }
     return () => { for (const [a] of handlers) { try { ms.setActionHandler(a, null); } catch {} } };
-  }, [open, active, items, jump]);
+  }, [open, active, items, jump, broken]);
+
+  const player = (r: ReelItem) => {
+    const title = r.title ?? "Reel";
+    if (!isInstagram(r)) return <YouTubeFrame id={r.id} title={title} />;
+    if (!r.video || broken.has(r.id)) return <InstagramFrame id={r.id} title={title} />;
+    return (
+      <video
+        key={r.id}
+        ref={videoRef}
+        src={r.video}
+        poster={r.thumbnail}
+        controls
+        autoPlay
+        loop
+        playsInline
+        preload="auto"
+        onError={() => markBroken(r.id)}
+        // a source that never reaches "can play" within a few seconds is the
+        // 403 case too — Chrome reports that as a stall, not an error
+        onLoadedMetadata={(e) => {
+          const v = e.currentTarget;
+          void v.play().catch(() => {});
+        }}
+        className="h-full w-full object-contain"
+      />
+    );
+  };
 
   return (
     <>
@@ -91,7 +169,7 @@ export default function ReelsLightbox({ items, grid = false }: { items: ReelItem
           <button
             key={r.id}
             type="button"
-            onClick={() => setOpen(n)}
+            onClick={() => { setActive(n); setOpen(n); }}
             aria-label={r.title ?? "Play reel"}
             className={`group relative block overflow-hidden rounded-xl bg-zinc-200 shadow-sm transition hover:shadow-md ${grid ? "w-auto" : "w-40 shrink-0 snap-start sm:w-auto sm:shrink"}`}
           >
@@ -133,31 +211,13 @@ export default function ReelsLightbox({ items, grid = false }: { items: ReelItem
                 <div className="relative aspect-[9/16] max-h-full w-full max-w-[440px] bg-black sm:max-h-[92vh] sm:rounded-xl">
                   {n !== active ? (
                     <Image src={r.thumbnail} alt="" fill sizes="100vw" className="object-cover opacity-60 sm:rounded-xl" unoptimized />
-                  ) : r.video ? (
-                    <video
-                      key={r.id}
-                      ref={videoRef}
-                      src={r.video}
-                      poster={r.thumbnail}
-                      controls
-                      autoPlay
-                      loop
-                      playsInline
-                      preload="auto"
-                      className="h-full w-full object-contain"
-                    />
                   ) : (
-                    <iframe
-                      key={r.id}
-                      src={`https://www.youtube-nocookie.com/embed/${r.id}?autoplay=1&playsinline=1&rel=0`}
-                      title={r.title ?? "Reel"}
-                      allow="autoplay; encrypted-media; picture-in-picture"
-                      allowFullScreen
-                      className="h-full w-full border-0 sm:rounded-xl"
-                    />
+                    player(r)
                   )}
                 </div>
-                <div className="pointer-events-none absolute bottom-6 left-4 right-16">
+                {/* the Instagram embed paints its own caption and buttons across
+                    its bottom edge — our overlay would sit on top of them */}
+                <div className={`pointer-events-none absolute bottom-6 left-4 right-16 ${n === active && isInstagram(r) && (!r.video || broken.has(r.id)) ? "hidden" : ""}`}>
                   {r.title && <p className="line-clamp-2 text-sm font-semibold text-white drop-shadow">{r.title}</p>}
                   <a
                     href={r.url}
@@ -165,7 +225,7 @@ export default function ReelsLightbox({ items, grid = false }: { items: ReelItem
                     rel="noopener noreferrer"
                     className="pointer-events-auto mt-1 inline-block text-xs font-semibold text-purple-300 hover:text-white"
                   >
-                    {r.url.includes("instagram.com") ? "Instagram" : "YouTube"} →
+                    {isInstagram(r) ? "Open on Instagram" : "Open on YouTube"} →
                   </a>
                 </div>
               </div>

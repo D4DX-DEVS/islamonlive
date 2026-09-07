@@ -8,15 +8,23 @@ export const dynamic = "force-dynamic";
 
    Scheduling model: the reader tags their OneSignal subscription with
    `reminder_time` (lib/push.ts), and this route runs ONCE a day and queues one
-   notification per slot, each filtered to that tag and marked
+   notification per quarter-hour slot, each filtered to that tag and marked
    `delayed_option: "timezone"`. OneSignal then delivers it at that local time in
-   every subscriber's own timezone. That is what lets five different delivery
-   times run off a single daily cron — a Vercel Hobby project only gets one.
+   every subscriber's own timezone. That is what lets any delivery time run off
+   a single daily cron — a Vercel Hobby project only gets one.
+
+   The time is free-form on the settings page (a preset or a typed one) and
+   snapped to a 15-minute grid there, so walking all 96 slots covers every
+   reader. Slots nobody picked come back from OneSignal as "no subscribers" and
+   are skipped — see the `empty` count in the response.
 
    Idempotent per day and slot, so a manual re-run can't double-send. */
 
-// must stay in sync with REMINDER_SLOTS in lib/reader.ts
-const SLOTS = ["06:00", "09:00", "13:00", "18:00", "21:00"];
+const STEP = 15;
+const SLOTS: string[] = [];
+for (let t = 0; t < 24 * 60; t += STEP) {
+  SLOTS.push(`${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`);
+}
 
 /** OneSignal wants "9:00AM", not "09:00" */
 function toClock(slot: string): string {
@@ -42,20 +50,26 @@ export async function GET(req: NextRequest) {
     image: featuredImage(latest)?.url,
   };
 
-  const results = await Promise.all(
-    SLOTS.map(async (slot) => {
-      const out = await postToOneSignal({
-        ...baseBody({ ...body, externalId: `reminder-${day}-${slot}` }),
-        filters: [{ field: "tag", key: "reminder_time", relation: "=", value: slot }],
-        delayed_option: "timezone",
-        delivery_time_of_day: toClock(slot),
-      });
-      return { slot, ...out };
-    })
-  );
+  // 96 calls, 8 at a time — OneSignal rate-limits bursts
+  const results: ({ slot: string } & Awaited<ReturnType<typeof postToOneSignal>>)[] = [];
+  for (let i = 0; i < SLOTS.length; i += 8) {
+    const batch = await Promise.all(
+      SLOTS.slice(i, i + 8).map(async (slot) => {
+        const out = await postToOneSignal({
+          ...baseBody({ ...body, externalId: `reminder-${day}-${slot}` }),
+          filters: [{ field: "tag", key: "reminder_time", relation: "=", value: slot }],
+          delayed_option: "timezone",
+          delivery_time_of_day: toClock(slot),
+        });
+        return { slot, ...out };
+      })
+    );
+    results.push(...batch);
+  }
 
   // a slot with nobody tagged comes back as an "All included players are not
   // subscribed" error — that is a normal empty audience, not a failure
-  const ok = results.some((r) => r.ok);
-  return NextResponse.json({ ok, day, post: latest.id, results }, { status: ok ? 200 : 502 });
+  const sent = results.filter((r) => r.ok);
+  const empty = results.length - sent.length;
+  return NextResponse.json({ ok: true, day, post: latest.id, sent: sent.map((r) => r.slot), empty });
 }

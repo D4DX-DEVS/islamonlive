@@ -29,7 +29,6 @@ export default function WatchReels({ videos }: { videos: YTVideo[] }) {
   // jump to the tapped slide, then track which slide is on screen
   useEffect(() => {
     if (open === null) return;
-    setActive(open);
     const feed = feedRef.current;
     if (!feed) return;
     feed.children[open]?.scrollIntoView();
@@ -52,7 +51,7 @@ export default function WatchReels({ videos }: { videos: YTVideo[] }) {
           <button
             key={x.id}
             type="button"
-            onClick={() => setOpen(n)}
+            onClick={() => { setActive(n); setOpen(n); }}
             className="group overflow-hidden rounded-lg border border-zinc-200 bg-white text-left shadow-sm hover:shadow-md"
           >
             <div className="relative aspect-video w-full bg-zinc-100">
@@ -86,9 +85,12 @@ export default function WatchReels({ videos }: { videos: YTVideo[] }) {
               <div key={x.id} data-idx={n} className="relative flex h-full snap-start items-center justify-center">
                 {n === active ? (
                   <iframe
-                    src={`https://www.youtube-nocookie.com/embed/${x.id}?autoplay=1&playsinline=1&rel=0`}
+                    src={`https://www.youtube.com/embed/${x.id}?autoplay=1&playsinline=1&rel=0`}
                     title={x.title}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    // YouTube refuses embeds that arrive without a Referer ("error
+                    // 153"); installed PWAs and in-app browsers sometimes drop it
+                    referrerPolicy="strict-origin-when-cross-origin"
                     allowFullScreen
                     className="aspect-video w-full max-w-[1000px] border-0 sm:rounded-xl"
                   />

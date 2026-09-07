@@ -42,9 +42,19 @@ export function notificationPermission(): NotificationPermission | "unsupported"
   return Notification.permission;
 }
 
+/* the deferred queue only drains once the SDK script has run — if it never
+   loads (blocked, offline, an ad blocker) the promise would hang and the
+   settings switch with it. Cap the wait: the local preference is already
+   saved; the tag catches up next time the SDK is up. */
+const SDK_WAIT_MS = 4000;
+
+function settle(p: Promise<void>): Promise<void> {
+  return Promise.race([p, new Promise<void>((r) => setTimeout(r, SDK_WAIT_MS))]);
+}
+
 /** ask for permission, then tag the subscription with the slot they chose */
 export function enableReminder(time: string): Promise<void> {
-  return new Promise((resolve) => {
+  return settle(new Promise((resolve) => {
     queue(async (os) => {
       try {
         if (!os.Notifications.permission) await os.Notifications.requestPermission();
@@ -55,11 +65,11 @@ export function enableReminder(time: string): Promise<void> {
         resolve();
       }
     });
-  });
+  }));
 }
 
 export function disableReminder(): Promise<void> {
-  return new Promise((resolve) => {
+  return settle(new Promise((resolve) => {
     queue((os) => {
       try {
         os.User.removeTag(REMINDER_TAG);
@@ -69,5 +79,5 @@ export function disableReminder(): Promise<void> {
         resolve();
       }
     });
-  });
+  }));
 }

@@ -8,7 +8,7 @@ import PodcastPlayer from "@/components/PodcastPlayer";
 import TabbedSection from "@/components/TabbedSection";
 import SideListTabs from "@/components/SideListTabs";
 import { OverlayCard, ListRow, PostItem } from "@/components/PostCards";
-import { getPosts, featuredImage, postPath, primaryCategory, formatDate, stripHtml, authorName, authorAvatar, WPPost } from "@/lib/wordpress";
+import { getPosts, featuredImage, postPath, primaryCategory, formatDate, stripHtml, authorName, authorAvatar, authorSlug, WPPost } from "@/lib/wordpress";
 import { getVideos, getShorts } from "@/lib/youtube";
 import { getReels } from "@/lib/instagram";
 import { getEpisodes } from "@/lib/podcast";
@@ -71,6 +71,7 @@ function toItem(p: WPPost, thumb = false): PostItem {
     category: primaryCategory(p)?.name ?? "",
     author: authorName(p),
     authorAvatar: authorAvatar(p),
+    authorHref: authorSlug(p) ? `/author/${authorSlug(p)}` : null,
     date: formatDate(p.date),
   };
 }

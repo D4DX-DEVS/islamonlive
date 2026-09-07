@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   // lets a prod build/start run beside the dev server (unset = normal .next)
   distDir: process.env.NEXT_DIST_DIR || ".next",
   // allow opening the dev server from other devices on the LAN
-  allowedDevOrigins: ["192.168.1.23", "localhost"],
+  allowedDevOrigins: ["192.168.1.23", "192.168.1.13", "localhost"],
   // client router cache: `dynamic` defaults to 0s since Next 15, so navigating back
   // re-rendered the page from scratch. 5 min matches the WP fetch revalidate.
   experimental: { staleTimes: { dynamic: 300, static: 300 } },

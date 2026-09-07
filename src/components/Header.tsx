@@ -17,8 +17,33 @@ export interface NavPreviewItem {
   date: string;
 }
 
-type NavChild = { label: string; href: string; hint?: string; icon?: ReactNode };
+type NavChild = { label: string; href: string; hint?: string; icon?: ReactNode; external?: boolean };
 type NavItem = { label: string; href: string; external?: boolean; children?: NavChild[] };
+
+// the four sister sites — separate WordPress installs, so every link leaves the app
+const SUBSITES: NavChild[] = [
+  {
+    label: "Hajj & Umra", href: "https://hajj.islamonlive.in/", external: true, hint: "Pilgrimage guide",
+    icon: <path d="M12 3 4 9v11h5v-6h6v6h5V9z" />,
+  },
+  {
+    label: "Muhammed Nabi", href: "https://mohammednabi.islamonlive.in/", external: true, hint: "Life of the Prophet ﷺ",
+    icon: <path d="M12 3v18M5 8l7-5 7 5M7 21h10" />,
+  },
+  {
+    label: "Fatwa", href: "https://fatwa.islamonlive.in/", external: true, hint: "Questions & rulings",
+    icon: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .8-1 1.5V14M12 17h.01" />
+      </>
+    ),
+  },
+  {
+    label: "Ramadan", href: "https://ramadan.islamonlive.in/", external: true, hint: "The month of fasting",
+    icon: <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" />,
+  },
+];
 
 // Home, Read (mega), Watch (YouTube/Reels), Listen, Infographics — Infographics sits last
 const NAV: NavItem[] = [
@@ -32,11 +57,12 @@ const NAV: NavItem[] = [
     ],
   },
   // the two video sources live on separate pages — the dropdown is the only place
-  // a reader can tell them apart before committing to a tap
+  // a reader can tell them apart before committing to a tap, so the label itself
+  // opens the dropdown and goes nowhere
   {
-    label: "Watch", href: "/watch-videos", children: [
+    label: "Watch", href: "#", children: [
       {
-        label: "YouTube", href: "/watch-videos", hint: "Full episodes and talks",
+        label: "Video", href: "/watch-videos", hint: "Full episodes and talks",
         icon: (
           <>
             <rect x="2.5" y="5.5" width="19" height="13" rx="4" />
@@ -57,6 +83,8 @@ const NAV: NavItem[] = [
   },
   { label: "Listen", href: "/listen" },
   { label: "Infographics", href: "/category/infographics" },
+  // hover dropdown of the sister sites; the label itself goes nowhere
+  { label: "Subsite", href: "#", children: SUBSITES },
 ];
 
 // the phone drawer behind the hamburger. The sections are one tap away in the
@@ -65,17 +93,24 @@ const NAV: NavItem[] = [
 // than a stack of legal text — Support Us is pulled out below as the one action.
 const DRAWER: (NavItem & { icon: ReactNode })[] = [
   {
-    label: "Saved articles",
+    // bookmarks and continue-reading are two tabs of one page — one row
+    label: "My Library",
     href: "/saved",
-    icon: <path d="M6 4.5h12a1 1 0 0 1 1 1v14.2a.5.5 0 0 1-.77.42L12 16.3l-6.23 3.82A.5.5 0 0 1 5 19.7V5.5a1 1 0 0 1 1-1Z" />,
-  },
-  {
-    label: "Settings",
-    href: "/settings",
     icon: (
       <>
-        <circle cx="12" cy="12" r="3.2" />
-        <path d="M19.4 14a1.6 1.6 0 0 0 .32 1.77l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.6 1.6 0 0 0-1.77-.32 1.6 1.6 0 0 0-1 1.46V20a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1.05-1.46 1.6 1.6 0 0 0-1.77.32l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.6 1.6 0 0 0 .32-1.77 1.6 1.6 0 0 0-1.46-1H4a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.46-1.05 1.6 1.6 0 0 0-.32-1.77l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.6 1.6 0 0 0 1.77.32H10a1.6 1.6 0 0 0 1-1.46V4a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.46 1.6 1.6 0 0 0 1.77-.32l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.6 1.6 0 0 0-.32 1.77V10a1.6 1.6 0 0 0 1.46 1H20a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.46 1Z" />
+        <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h4A2.5 2.5 0 0 1 12 6.5v13A2 2 0 0 0 10 18H5.5A1.5 1.5 0 0 1 4 16.5z" />
+        <path d="M20 5.5A1.5 1.5 0 0 0 18.5 4h-4A2.5 2.5 0 0 0 12 6.5v13a2 2 0 0 1 2-1.5h4.5a1.5 1.5 0 0 0 1.5-1.5z" />
+      </>
+    ),
+  },
+  {
+    label: "Subsite",
+    href: "#",
+    children: SUBSITES,
+    icon: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />
       </>
     ),
   },
@@ -179,7 +214,11 @@ const serverToday = () => null;
 function readToday(): string {
   // cached: useSyncExternalStore re-reads on every render and needs a stable value
   if (!cachedToday) {
-    cachedToday = new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    const d = new Date();
+    const weekday = d.toLocaleDateString("en-US", { weekday: "long" });
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    cachedToday = `${weekday}, ${dd}/${mm}/${d.getFullYear()}`;
   }
   return cachedToday;
 }
@@ -221,7 +260,7 @@ function BookmarkIcon({ className }: { className?: string }) {
 function SavedLink({ className, badgeClass }: { className: string; badgeClass: string }) {
   const count = useSavedCount();
   return (
-    <Link href="/saved" prefetch aria-label={count ? `Saved articles (${count})` : "Saved articles"} className={`relative ${className}`}>
+    <Link href="/saved" prefetch aria-label={count ? `My Library (${count} bookmarks)` : "My Library"} className={`relative ${className}`}>
       <BookmarkIcon className="h-5 w-5" />
       {count > 0 && (
         <span className={`pill absolute -right-2 -top-1.5 min-w-4 rounded-full px-1 text-center text-[10px] font-bold leading-4 ${badgeClass}`}>
@@ -240,8 +279,18 @@ function HeartIcon({ className }: { className?: string }) {
   );
 }
 
+function ExternalIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className={className}>
+      <path d="M7 17 17 7M9 7h8v8" />
+    </svg>
+  );
+}
+
 /* the drawer row itself — one shape for the internal and the external variant so
-   the padding, the icon tile and the press state can never drift apart */
+   the padding, the icon tile and the press state can never drift apart. A row
+   with children is an accordion: the Subsite group folds its four links out
+   under itself instead of sending the reader to a separate page. */
 function DrawerRow({
   item,
   index,
@@ -251,6 +300,7 @@ function DrawerRow({
   index: number;
   onNavigate: () => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const inner = (
     <>
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white transition-colors group-active:bg-[#693FE2]">
@@ -259,7 +309,11 @@ function DrawerRow({
         </svg>
       </span>
       <span className="flex-1 text-[15px] font-semibold text-white">{item.label}</span>
-      <ChevronIcon className="h-4 w-4 text-white/35" />
+      {item.children ? (
+        <ChevronIcon className={`h-4 w-4 text-white/35 transition-transform duration-200 ${expanded ? "rotate-90" : ""}`} />
+      ) : (
+        <ChevronIcon className="h-4 w-4 text-white/35" />
+      )}
     </>
   );
   const className =
@@ -267,6 +321,42 @@ function DrawerRow({
   // 34ms apart: fast enough that the last row still lands inside the sheet's own
   // 280ms open, slow enough to read as a cascade rather than a single flash
   const style = { animationDelay: `${60 + index * 34}ms` };
+
+  if (item.children) {
+    return (
+      <div className="drawer-item" style={style}>
+        <button
+          type="button"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((v) => !v)}
+          className={`w-full text-left ${className}`}
+          style={{ animation: "none" }}
+        >
+          {inner}
+        </button>
+        {expanded && (
+          <div className="mb-1 ml-[3.25rem] mr-1 overflow-hidden rounded-xl bg-white/[0.06]">
+            {item.children.map((c) => (
+              <a
+                key={c.href}
+                href={c.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={onNavigate}
+                className="flex min-h-11 touch-manipulation items-center gap-2 border-b border-white/[0.06] px-3 py-2 last:border-0 active:bg-white/10"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-white">{c.label}</span>
+                  {c.hint && <span className="block text-[11px] text-white/45">{c.hint}</span>}
+                </span>
+                <ExternalIcon className="h-4 w-4 shrink-0 text-white/35" />
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return item.external ? (
     <a href={item.href} target="_blank" rel="noopener noreferrer" onClick={onNavigate} className={className} style={style}>
@@ -489,6 +579,13 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
                 <a href={item.href} target="_blank" rel="noopener noreferrer" className={`flex items-center whitespace-nowrap px-4 text-[15px] font-medium text-white/90 hover:text-white ${pinned ? "py-3" : "py-4"}`}>
                   {item.label}
                 </a>
+              ) : item.href === "#" ? (
+                // a pure dropdown label (Subsite): nothing to navigate to, the
+                // card under it carries the links
+                <span className={`flex cursor-default items-center gap-1 whitespace-nowrap px-4 text-[15px] font-medium text-white/90 hover:text-white ${pinned ? "py-3" : "py-4"}`}>
+                  {item.label}
+                  <span className="text-[10px]">▾</span>
+                </span>
               ) : (
                 <Link href={item.href} className={`flex items-center gap-1 whitespace-nowrap px-4 text-[15px] font-medium text-white/90 hover:text-white ${pinned ? "py-3" : "py-4"}`}>
                   {item.label}
@@ -506,28 +603,40 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
                       already ties the card to its label. */}
                   <div className="min-w-[17rem] rounded-2xl bg-white p-1.5 shadow-[0_24px_48px_-16px_rgba(49,9,76,0.45)] ring-1 ring-black/5">
                     <div className="flex flex-col">
-                      {item.children.map((c) => (
-                        <Link
-                          key={c.href}
-                          href={c.href}
-                          className="group/row flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-purple-50"
-                        >
-                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-[#693FE2] transition-colors group-hover/row:bg-[#693FE2] group-hover/row:text-white">
-                            {c.icon ? (
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="h-[18px] w-[18px]">
-                                {c.icon}
-                              </svg>
+                      {item.children.map((c) => {
+                        const rowInner = (
+                          <>
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-[#693FE2] transition-colors group-hover/row:bg-[#693FE2] group-hover/row:text-white">
+                              {c.icon ? (
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="h-[18px] w-[18px]">
+                                  {c.icon}
+                                </svg>
+                              ) : (
+                                <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                              )}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-sm font-semibold text-zinc-900 group-hover/row:text-[#31094C]">{c.label}</span>
+                              {c.hint && <span className="block text-xs text-zinc-500">{c.hint}</span>}
+                            </span>
+                            {c.external ? (
+                              <ExternalIcon className="h-4 w-4 shrink-0 text-zinc-300 transition group-hover/row:text-[#693FE2]" />
                             ) : (
-                              <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                              <ChevronIcon className="h-4 w-4 shrink-0 text-zinc-300 transition group-hover/row:translate-x-0.5 group-hover/row:text-[#693FE2]" />
                             )}
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-sm font-semibold text-zinc-900 group-hover/row:text-[#31094C]">{c.label}</span>
-                            {c.hint && <span className="block text-xs text-zinc-500">{c.hint}</span>}
-                          </span>
-                          <ChevronIcon className="h-4 w-4 shrink-0 text-zinc-300 transition group-hover/row:translate-x-0.5 group-hover/row:text-[#693FE2]" />
-                        </Link>
-                      ))}
+                          </>
+                        );
+                        const rowClass = "group/row flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-purple-50";
+                        return c.external ? (
+                          <a key={c.href} href={c.href} target="_blank" rel="noopener noreferrer" className={rowClass}>
+                            {rowInner}
+                          </a>
+                        ) : (
+                          <Link key={c.href} href={c.href} className={rowClass}>
+                            {rowInner}
+                          </Link>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>

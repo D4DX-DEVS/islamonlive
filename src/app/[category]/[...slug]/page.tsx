@@ -7,6 +7,7 @@ import ShareRow from "@/components/ShareRow";
 import ShareCard from "@/components/ShareCard";
 import SaveButton from "@/components/SaveButton";
 import ReadTracker from "@/components/ReadTracker";
+import ReadingPrefsButton from "@/components/ReadingPrefsButton";
 
 export const revalidate = 60;
 
@@ -23,6 +24,22 @@ export async function generateMetadata({ params }: { params: Params }) {
     description: stripHtml(post.excerpt.rendered).slice(0, 160),
     openGraph: { images: img ? [img.url] : [] },
   };
+}
+
+/* the writer's name in the meta row — a link to their page when WP embedded a
+   slug, plain text otherwise. Wraps rather than truncates: a clipped Malayalam
+   name loses whole syllables, and at the bigger text sizes it needs the room. */
+function AuthorName({ post, className = "" }: { post: WPPost; className?: string }) {
+  const a = author(post);
+  if (!a) return null;
+  const cls = `min-w-0 font-medium text-zinc-700 [overflow-wrap:anywhere] ${className}`;
+  return a.slug ? (
+    <Link href={`/author/${a.slug}`} className={`${cls} hover:text-[#31094C] hover:underline`}>
+      {a.name}
+    </Link>
+  ) : (
+    <span className={cls}>{a.name}</span>
+  );
 }
 
 export default async function PostPage({ params }: { params: Params }) {
@@ -50,6 +67,14 @@ export default async function PostPage({ params }: { params: Params }) {
   const isInfographic = post._embedded?.["wp:term"]?.flat().some((t) => t.taxonomy === "category" && t.slug === "infographics") ?? false;
 
   const tracker = <ReadTracker item={record} />;
+  const actions = (
+    <>
+      <SaveButton item={record} />
+      <ReadingPrefsButton />
+      <ShareCard title={record.title} author={authorName(post)} img={record.img} url={shareUrl} />
+      <ShareRow url={shareUrl} title={record.title} />
+    </>
+  );
 
   if (isInfographic) {
     // side-by-side from sm up: left = sticky title/meta + featured image,
@@ -68,13 +93,9 @@ export default async function PostPage({ params }: { params: Params }) {
           {cat && <span className="mb-3 pill inline-flex items-center justify-center rounded bg-purple-800 px-2 py-1 text-[10px] font-semibold text-white sm:mb-4 sm:px-3 sm:py-1.5 sm:text-xs">{cat.name}</span>}
           <h1 className="border-b-2 border-purple-800 pb-3 text-base font-extrabold leading-snug sm:pb-4 sm:text-2xl lg:text-3xl" dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-zinc-600 sm:mt-4 sm:gap-3 sm:text-sm">
-            {authorName(post) && <span className="font-medium">{authorName(post)}</span>}
+            <AuthorName post={post} />
             <time className="border-l border-zinc-300 pl-3">{formatDate(post.date)}</time>
-            <span className="ml-auto flex items-center gap-2">
-              <SaveButton item={record} />
-              <ShareCard title={record.title} author={authorName(post)} date={record.date} category={record.category} url={shareUrl} />
-              <ShareRow url={shareUrl} title={record.title} />
-            </span>
+            <span className="ml-auto flex items-center gap-2">{actions}</span>
           </div>
           {img && (
             <div className="mt-4 w-full overflow-hidden rounded-xl bg-zinc-100 ring-1 ring-zinc-200 sm:mt-6 sm:rounded-2xl">
@@ -111,39 +132,39 @@ export default async function PostPage({ params }: { params: Params }) {
 
   return (
     <div className="mx-auto max-w-[1100px]">
-    <article className="rounded-2xl bg-white p-5 shadow-[0_4px_24px_rgba(0,0,0,0.08)] sm:p-8 lg:p-10">
+    {/* phones: no card — the page's own 16px gutter is the only padding, so the
+        text isn't boxed in twice (card padding on top of page padding). The
+        white card with its shadow comes back from sm up. */}
+    <article className="sm:rounded-2xl sm:bg-white sm:p-8 sm:shadow-[0_4px_24px_rgba(0,0,0,0.08)] lg:p-10">
       {tracker}
       {cat && <span className="mb-3 pill inline-flex items-center justify-center rounded bg-purple-800 px-3 py-1.5 text-xs font-semibold text-white">{cat.name}</span>}
-      <h1 className="text-[22px] font-extrabold leading-snug sm:text-3xl" dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
-      {/* phones: author · date on one line, share row on its own line below */}
+      <h1 className="text-[22px] font-extrabold leading-snug [overflow-wrap:anywhere] sm:text-3xl" dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
+      {/* phones: author · date wrap onto as many lines as they need, the action
+          row sits on its own line below; from sm the actions move to the right */}
       <div className="mt-3 flex flex-col gap-3 text-sm text-zinc-500 sm:flex-row sm:flex-wrap sm:items-center">
-        <span className="flex min-w-0 items-center gap-2">
-          {authorName(post) && (
+        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+          {a && (
             <>
-              <span className="truncate font-medium text-zinc-700">{authorName(post)}</span>
+              <AuthorName post={post} />
               <span aria-hidden>·</span>
             </>
           )}
-          <time className="shrink-0">{formatDate(post.date)}</time>
+          <time className="shrink-0 whitespace-nowrap">{formatDate(post.date)}</time>
         </span>
-        <span className="flex items-center gap-2 sm:ml-auto">
-          <SaveButton item={record} />
-          <ShareCard title={record.title} author={authorName(post)} date={record.date} category={record.category} url={shareUrl} />
-          <ShareRow url={shareUrl} title={record.title} />
-        </span>
+        <span className="flex flex-wrap items-center gap-2 sm:ml-auto">{actions}</span>
       </div>
       {img && (
-        <div className="relative mt-6 aspect-[16/9] w-full overflow-hidden rounded-xl bg-zinc-100">
+        <div className="relative mt-5 aspect-[16/9] w-full overflow-hidden rounded-xl bg-zinc-100 sm:mt-6">
           <Image src={img.url} alt={img.alt} fill priority sizes="(max-width: 1100px) 100vw, 1100px" className="object-cover" />
         </div>
       )}
       <div
-        className="reader-body prose prose-zinc mt-6 max-w-none leading-relaxed sm:text-justify sm:hyphens-auto prose-headings:text-left prose-headings:leading-snug prose-p:leading-relaxed prose-a:text-purple-800 prose-img:mx-auto prose-img:rounded-lg [&_iframe]:aspect-video [&_iframe]:h-auto [&_iframe]:w-full break-words [&_*]:max-w-full [&_img]:h-auto [&_table]:block [&_table]:overflow-x-auto"
+        className="reader-body prose prose-zinc mt-5 max-w-none leading-relaxed sm:mt-6 sm:text-justify sm:hyphens-auto prose-headings:text-left prose-headings:leading-snug prose-p:leading-relaxed prose-a:text-purple-800 prose-img:mx-auto prose-img:rounded-lg [&_iframe]:aspect-video [&_iframe]:h-auto [&_iframe]:w-full break-words [overflow-wrap:anywhere] [&_*]:max-w-full [&_img]:h-auto [&_table]:block [&_table]:overflow-x-auto"
         dangerouslySetInnerHTML={{ __html: post.content.rendered }}
       />
 
       {a && (
-        <div className="mt-10 flex items-center gap-4 rounded-xl border border-zinc-200 p-5 print:hidden">
+        <div className="mt-8 flex items-center gap-4 rounded-xl border border-zinc-200 bg-white p-4 sm:mt-10 sm:p-5 print:hidden">
           {a.avatar ? (
             <Image src={a.avatar} alt="" width={72} height={72} unoptimized className="h-16 w-16 shrink-0 rounded-full object-cover ring-1 ring-black/10" />
           ) : (
@@ -153,8 +174,12 @@ export default async function PostPage({ params }: { params: Params }) {
               </svg>
             </span>
           )}
-          <div>
-            <p className="text-lg font-bold text-zinc-800">{a.name}</p>
+          <div className="min-w-0">
+            {a.slug ? (
+              <Link href={`/author/${a.slug}`} className="text-lg font-bold text-zinc-800 [overflow-wrap:anywhere] hover:text-[#31094C] hover:underline">{a.name}</Link>
+            ) : (
+              <p className="text-lg font-bold text-zinc-800 [overflow-wrap:anywhere]">{a.name}</p>
+            )}
             {a.slug && (
               <Link href={`/author/${a.slug}`} className="pill mt-2 inline-block rounded bg-purple-800 px-4 py-2 text-xs font-semibold text-white hover:bg-purple-700">
                 View Other Articles

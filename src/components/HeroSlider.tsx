@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { ElementType } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ElementType, PointerEvent as ReactPointerEvent } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import Byline from "@/components/Byline";
@@ -11,16 +11,53 @@ import type { PostItem } from "@/components/PostCards";
 /** the sliders render the same shape as the cards */
 export type Slide = PostItem;
 
+// a horizontal drag this long is a swipe, anything shorter is a tap on the image
+const SWIPE_PX = 40;
+// after the reader swipes, skip this many autoplay ticks (6s each) — advancing
+// on its own a second later would undo what they just did
+const HOLD_TICKS = 2;
+
 export default function HeroSlider({ slides }: { slides: Slide[] }) {
   const [i, setI] = useState(0);
+  const hold = useRef(0);
+  const drag = useRef<{ x: number; y: number; id: number } | null>(null);
 
   useEffect(() => {
     if (slides.length < 2) return;
-    const t = setInterval(() => setI((v) => (v + 1) % slides.length), 6000);
+    const t = setInterval(() => {
+      if (hold.current > 0) {
+        hold.current -= 1;
+        return;
+      }
+      setI((v) => (v + 1) % slides.length);
+    }, 6000);
     return () => clearInterval(t);
   }, [slides.length]);
 
   if (!slides.length) return null;
+
+  const go = (n: number) => {
+    hold.current = HOLD_TICKS;
+    setI(((n % slides.length) + slides.length) % slides.length);
+  };
+
+  /* phones: swipe left/right on the picture to change slide. Pointer events
+     rather than touch events so a mouse drag works the same on desktop;
+     touch-action: pan-y on the element keeps vertical page scrolling native
+     while the horizontal gesture stays ours. */
+  const onDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    drag.current = { x: e.clientX, y: e.clientY, id: e.pointerId };
+  };
+  const onUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    drag.current = null;
+    if (!d || d.id !== e.pointerId || slides.length < 2) return;
+    const dx = e.clientX - d.x;
+    const dy = e.clientY - d.y;
+    if (Math.abs(dx) < SWIPE_PX || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+    go(dx < 0 ? i + 1 : i - 1);
+  };
 
   return (
     // live-site hero: a 887×400 image with a white caption card offset over its
@@ -28,7 +65,12 @@ export default function HeroSlider({ slides }: { slides: Slide[] }) {
     // min-w-0: the card's headline is in normal flow now, and grid items default
     // to min-width:auto — one long Malayalam word would widen the whole row
     <div className="relative min-w-0">
-      <div className="relative aspect-[16/10] w-full overflow-hidden sm:aspect-[887/400]">
+      <div
+        className="relative aspect-[16/10] w-full overflow-hidden [touch-action:pan-y] select-none sm:aspect-[887/400]"
+        onPointerDown={onDown}
+        onPointerUp={onUp}
+        onPointerCancel={() => { drag.current = null; }}
+      >
         {/* all slides stay mounted; crossfade via opacity — no grey flash while images load */}
         {slides.map((sl, n) => (
           sl.img && (
@@ -38,6 +80,7 @@ export default function HeroSlider({ slides }: { slides: Slide[] }) {
               alt=""
               fill
               priority={n === 0}
+              draggable={false}
               sizes="(max-width: 1024px) 100vw, 62vw"
               className={`object-cover object-top transition-opacity duration-700 ${n === i ? "opacity-100" : "opacity-0"}`}
             />
@@ -51,7 +94,7 @@ export default function HeroSlider({ slides }: { slides: Slide[] }) {
                 key={n}
                 type="button"
                 aria-label={`Slide ${n + 1}`}
-                onClick={() => setI(n)}
+                onClick={() => go(n)}
                 className={`h-2.5 w-2.5 rounded-full transition ${n === i ? "bg-white" : "bg-white/50 hover:bg-white/80"}`}
               />
             ))}
@@ -105,15 +148,15 @@ export default function HeroSlider({ slides }: { slides: Slide[] }) {
                   tall as its own content, so there is no slack left to push the
                   byline down — it sits directly under the headline */}
               <div className="flex items-end justify-between gap-4 pt-4">
-                {/* min-w-0 so the author name can truncate instead of pushing the row wide */}
-                <Byline className="min-w-0" name={s.author} avatar={s.authorAvatar} date={s.date} />
+                {/* min-w-0 so the author name can wrap instead of pushing the row wide */}
+                <Byline className="min-w-0" name={s.author} avatar={s.authorAvatar} href={live ? s.authorHref : null} date={s.date} />
                 {slides.length > 1 && (
                   // the live card's purple disc — it advances the slider
                   <button
                     type="button"
                     aria-label="Next slide"
                     tabIndex={live ? undefined : -1}
-                    onClick={() => setI((i + 1) % slides.length)}
+                    onClick={() => go(i + 1)}
                     className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#693FE2] text-white transition hover:bg-[#5a34c7]"
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="h-4 w-4">

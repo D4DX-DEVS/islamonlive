@@ -82,6 +82,8 @@ export interface WPUser {
   slug: string;
   description: string;
   avatar_urls?: Record<string, string>;
+  /** Metronet Profile Picture sizes, or an {errors} object when the user has none */
+  mpp_avatar?: Record<string, unknown>;
 }
 
 export async function getUserBySlug(slug: string): Promise<WPUser | null> {
@@ -179,6 +181,24 @@ export function stripHtml(html: string): string {
   return decodeEntities(html.replace(/<[^>]*>/g, "")).trim();
 }
 
+/** numeric dd/mm/yyyy everywhere — "01/09/2026", never "1 September 2026" */
 export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" });
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  return `${dd}/${mm}/${d.getFullYear()}`;
+}
+
+/** slug for /author/{slug}; null when the post carries no embedded author */
+export function authorSlug(post: WPPost): string | null {
+  return post._embedded?.author?.[0]?.slug ?? null;
+}
+
+/** the user's own uploaded photo (Metronet plugin) — Gravatar is always the grey placeholder here */
+export function userAvatar(user: WPUser): string | null {
+  const a = user.mpp_avatar;
+  if (!a || typeof a !== "object" || "errors" in a) return null;
+  const m = a as Record<string, string>;
+  return m["full"] ?? m["300"] ?? m["150"] ?? m["96"] ?? null;
 }

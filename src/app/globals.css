@@ -268,3 +268,35 @@ button,
 .reader-body :is(p, li, blockquote) {
   font-size: inherit;
 }
+
+/* Picker.tsx: the option card on wide screens and the bottom sheet on phones.
+   Keyframes, not transitions — the menu is mounted only while open. */
+@keyframes picker-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes picker-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(-4px) scale(0.985); }
+}
+@keyframes sheet-up-in {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+@keyframes sheet-up-out {
+  from { transform: none; }
+  to { transform: translateY(100%); }
+}
+.picker-in { animation: picker-in 0.18s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.picker-out { animation: picker-out 0.16s ease-in both; }
+.sheet-up-in { animation: sheet-up-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.sheet-up-out { animation: sheet-up-out 0.16s ease-in both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .picker-in,
+  .picker-out,
+  .sheet-up-in,
+  .sheet-up-out {
+    animation-duration: 0.01ms;
+  }
+}

@@ -32,7 +32,7 @@ export default function TabbedSection({ title, tabs }: { title: string; tabs: Ta
         {featured && <OverlayCard item={featured} className="aspect-[16/11] sm:aspect-auto sm:h-full sm:min-h-[280px]" />}
         {featured && (
           <div className="hidden rounded-xl border border-zinc-200/80 bg-white p-4 shadow-sm sm:block">
-            <Byline name={featured.author} avatar={featured.authorAvatar} date={featured.date} />
+            <Byline name={featured.author} avatar={featured.authorAvatar} href={featured.authorHref} date={featured.date} />
             <Link href={featured.href} className="group">
               <h3
                 className="mt-2 text-xl font-extrabold leading-snug text-zinc-900 group-hover:text-purple-800"

@@ -5,13 +5,13 @@ import { createPortal } from "react-dom";
 
 const W = 1080;
 const H = 1350;
-const PAD = 88;
+const PAD = 72;
 
 interface ShareCardProps {
   title: string;
   author?: string;
-  date?: string;
-  category?: string;
+  /** featured image — drawn across the top of the card when present */
+  img?: string | null;
   url: string;
   className?: string;
 }
@@ -33,15 +33,38 @@ function wrap(ctx: CanvasRenderingContext2D, text: string, max: number): string[
   return lines;
 }
 
+function loadImage(src: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const im = new Image();
+    im.onload = () => resolve(im);
+    im.onerror = () => resolve(null);
+    im.src = src;
+  });
+}
+
+/** cover-fit `im` into the box, like CSS object-fit: cover; object-position top */
+function drawCover(ctx: CanvasRenderingContext2D, im: HTMLImageElement, x: number, y: number, w: number, h: number) {
+  const s = Math.max(w / im.width, h / im.height);
+  const sw = w / s;
+  const sh = h / s;
+  const sx = (im.width - sw) / 2;
+  const sy = Math.min((im.height - sh) / 2, im.height * 0.08);
+  ctx.drawImage(im, sx, sy, sw, sh, x, y, w, h);
+}
+
 /* The reader shares a picture of the article rather than a bare link — the same
    "Share as card" the old native app had.
 
-   The card is drawn straight onto a canvas rather than built as HTML and
-   rasterised: there is no html-to-image dependency in this project, and drawing
-   it once means the preview on screen and the file that gets shared are the same
-   pixels. The Malayalam face is whatever the page is already using — read off
-   the live DOM so it matches the site instead of falling back to a system font. */
-export default function ShareCard({ title, author, date, category, url, className = "" }: ShareCardProps) {
+   Layout, top to bottom, everything centred like a phone story card:
+     featured image (when the post has one) → headline → author →
+     the site logo with the URL under it, pinned to the bottom.
+   No category chip and no date: the card is a poster, not a listing row.
+
+   Drawn straight onto a canvas: no html-to-image dependency, and the preview on
+   screen and the shared file are the same pixels. The featured image comes
+   through /_next/image — same origin — so drawing it doesn't taint the canvas
+   (WordPress sends no CORS header, so the raw URL would). */
+export default function ShareCard({ title, author, img, url, className = "" }: ShareCardProps) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -54,84 +77,102 @@ export default function ShareCard({ title, author, date, category, url, classNam
 
     // next/font family names are hashed at build time; take them from the page
     const family = getComputedStyle(document.body).fontFamily || "system-ui, sans-serif";
-    // canvas silently falls back to a default face for glyphs whose font has not
-    // finished loading — Malayalam would render as boxes on a cold visit
-    try {
-      await document.fonts.load(`700 64px ${family}`, title.slice(0, 40));
-      await document.fonts.ready;
-    } catch {
-      /* no font loading API — draw with whatever is resolved */
-    }
+    const [photo, logo] = await Promise.all([
+      // w and q must be values the optimizer allows (Next 16 only serves q=75 by default)
+      img ? loadImage(`/_next/image?url=${encodeURIComponent(img)}&w=1080&q=75`) : Promise.resolve(null),
+      loadImage("/logo-white.png"),
+      // canvas silently falls back to a default face for glyphs whose font has not
+      // finished loading — Malayalam would render as boxes on a cold visit
+      (async () => {
+        try {
+          await document.fonts.load(`700 64px ${family}`, title.slice(0, 40));
+          await document.fonts.ready;
+        } catch {
+          /* no font loading API — draw with whatever is resolved */
+        }
+      })(),
+    ]);
 
     const g = ctx.createLinearGradient(0, 0, W, H);
-    g.addColorStop(0, "#5B2BC9");
-    g.addColorStop(0.55, "#3F3AA8");
-    g.addColorStop(1, "#1F7A6E");
+    g.addColorStop(0, "#4A1E9E");
+    g.addColorStop(0.55, "#31094C");
+    g.addColorStop(1, "#1B0530");
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, H);
 
     // a soft highlight so the flat gradient reads as a designed card
-    const glow = ctx.createRadialGradient(W * 0.15, H * 0.1, 0, W * 0.15, H * 0.1, W * 0.9);
-    glow.addColorStop(0, "rgba(255,255,255,0.16)");
+    const glow = ctx.createRadialGradient(W * 0.5, H * 0.05, 0, W * 0.5, H * 0.05, W * 0.9);
+    glow.addColorStop(0, "rgba(255,255,255,0.14)");
     glow.addColorStop(1, "rgba(255,255,255,0)");
     ctx.fillStyle = glow;
     ctx.fillRect(0, 0, W, H);
 
     ctx.textBaseline = "top";
-    let y = PAD;
+    ctx.textAlign = "center";
+    const cx = W / 2;
+    const maxW = W - PAD * 2;
 
-    ctx.font = `600 38px ${family}`;
-    ctx.fillStyle = "rgba(255,255,255,0.72)";
-    ctx.fillText("islamonlive", PAD, y);
-    y += 74;
-
-    if (category) {
-      const label = category.toUpperCase();
-      ctx.font = `700 28px system-ui, sans-serif`;
-      const tw = ctx.measureText(label).width;
-      ctx.fillStyle = "rgba(255,255,255,0.18)";
-      ctx.beginPath();
-      ctx.roundRect(PAD, y, tw + 44, 56, 28);
-      ctx.fill();
+    // footer: logo + url, pinned to the bottom
+    const footerH = 150;
+    const footerTop = H - PAD - footerH;
+    if (logo) {
+      const lh = 64;
+      const lw = (logo.width / logo.height) * lh;
+      ctx.drawImage(logo, cx - lw / 2, footerTop + 20, lw, lh);
+    } else {
+      ctx.font = `700 44px ${family}`;
       ctx.fillStyle = "#ffffff";
-      ctx.fillText(label, PAD + 22, y + 14);
-      y += 96;
+      ctx.fillText("islamonlive", cx, footerTop + 26);
+    }
+    ctx.font = `500 30px system-ui, sans-serif`;
+    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.fillText("www.islamonlive.in", cx, footerTop + 106);
+    // hairline above the footer
+    ctx.fillStyle = "rgba(255,255,255,0.14)";
+    ctx.fillRect(PAD, footerTop - 26, maxW, 2);
+
+    // photo block across the top, rounded, cover-cropped
+    let y = PAD;
+    if (photo) {
+      const ph = 640;
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(PAD, y, maxW, ph, 32);
+      ctx.clip();
+      drawCover(ctx, photo, PAD, y, maxW, ph);
+      ctx.restore();
+      y += ph + 48;
     }
 
-    // the headline gets whatever vertical room is left above the footer, and the
-    // type shrinks a step at a time until it fits rather than being clipped
-    const maxW = W - PAD * 2;
-    const footerTop = H - PAD - 120;
-    let size = 68;
+    // headline fills the middle: with a photo it starts right under it; without
+    // one the text block is centred in the space above the footer, with the
+    // author sitting tight beneath it
+    const authorH = author ? 84 : 0;
+    const blockBottom = footerTop - 40;
+    let size = photo ? 60 : 68;
     let lines: string[] = [];
-    for (; size >= 40; size -= 4) {
+    let lineH = 0;
+    for (; size >= 36; size -= 4) {
       ctx.font = `700 ${size}px ${family}`;
       lines = wrap(ctx, title, maxW);
-      if (y + lines.length * size * 1.35 < footerTop - 90) break;
+      lineH = size * 1.38;
+      if (y + lines.length * lineH + authorH <= blockBottom) break;
     }
+    const textH = lines.length * lineH + authorH;
+    if (!photo) y = Math.max(PAD, (y + blockBottom) / 2 - textH / 2);
+
     ctx.fillStyle = "#ffffff";
     for (const line of lines) {
-      ctx.fillText(line, PAD, y);
-      y += size * 1.35;
+      ctx.fillText(line, cx, y, maxW);
+      y += lineH;
     }
-
     if (author) {
-      y += 26;
-      ctx.font = `500 36px ${family}`;
-      ctx.fillStyle = "rgba(255,255,255,0.86)";
-      ctx.fillText(`— ${author}`, PAD, y);
-      y += 54;
+      y += 18;
+      ctx.font = `500 34px ${family}`;
+      ctx.fillStyle = "rgba(255,255,255,0.82)";
+      ctx.fillText(author, cx, y, maxW);
     }
-    if (date) {
-      ctx.font = `400 30px ${family}`;
-      ctx.fillStyle = "rgba(255,255,255,0.6)";
-      ctx.fillText(date, PAD, y);
-    }
-
-    ctx.font = `500 32px system-ui, sans-serif`;
-    ctx.fillStyle = "rgba(255,255,255,0.62)";
-    ctx.fillText("islamonlive.in", PAD, H - PAD - 40);
-  }, [title, author, date, category]);
+  }, [title, author, img]);
 
   useEffect(() => {
     if (open) void draw();

@@ -1,9 +1,14 @@
 import Image from "next/image";
+import Link from "next/link";
 
 interface BylineProps {
   name?: string;
   avatar?: string | null;
   date: string;
+  /** /author/{slug} — only pass it where the byline is NOT already inside a
+      link (nested anchors are invalid HTML); the name becomes a link to the
+      author's page */
+  href?: string | null;
   /** dark backgrounds (overlay cards, hero) */
   light?: boolean;
   className?: string;
@@ -12,7 +17,8 @@ interface BylineProps {
 /* author avatar as a small round icon on the left of the name.
    No avatar → generic silhouette, not the initial: a Malayalam first letter
    renders as a half-formed cluster and reads as a glitch. */
-export default function Byline({ name, avatar, date, light = false, className = "" }: BylineProps) {
+export default function Byline({ name, avatar, date, href, light = false, className = "" }: BylineProps) {
+  const nameClass = `min-w-0 font-medium [overflow-wrap:anywhere] ${light ? "text-white" : "text-zinc-700"}`;
   return (
     // wraps rather than truncates: a clipped Malayalam name loses whole
     // syllables, and on a phone-width card the old `truncate` cut most of them
@@ -35,7 +41,13 @@ export default function Byline({ name, avatar, date, light = false, className = 
               </svg>
             </span>
           )}
-          <span className={`min-w-0 font-medium [overflow-wrap:anywhere] ${light ? "text-white" : "text-zinc-700"}`}>{name}</span>
+          {href ? (
+            <Link href={href} className={`${nameClass} hover:underline ${light ? "" : "hover:text-[#31094C]"}`}>
+              {name}
+            </Link>
+          ) : (
+            <span className={nameClass}>{name}</span>
+          )}
           {/* the separator travels with the date, so a wrapped name never
               leaves a dangling middot at the end of its line */}
           <span className="shrink-0 whitespace-nowrap">

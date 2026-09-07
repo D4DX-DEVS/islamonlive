@@ -10,6 +10,8 @@ export interface PostItem {
   category: string;
   author?: string;
   authorAvatar?: string | null;
+  /** /author/{slug}, for the places that render the byline outside a card link */
+  authorHref?: string | null;
   date: string;
   excerpt?: string;
 }

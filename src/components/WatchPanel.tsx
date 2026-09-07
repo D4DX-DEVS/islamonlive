@@ -21,9 +21,11 @@ export default function WatchPanel({ videos }: { videos: YTVideo[] }) {
       <div className="xl:col-span-2">
         <div className="relative aspect-video w-full overflow-hidden rounded-xl">
           <iframe
-            src={`https://www.youtube-nocookie.com/embed/${main.id}${picked ? "?autoplay=1" : ""}`}
+            src={`https://www.youtube.com/embed/${main.id}?playsinline=1&rel=0${picked ? "&autoplay=1" : ""}`}
             title={main.title}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            // YouTube "error 153": embeds without a Referer are refused
+            referrerPolicy="strict-origin-when-cross-origin"
             allowFullScreen
             className="absolute inset-0 h-full w-full"
           />

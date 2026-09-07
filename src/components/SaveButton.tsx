@@ -12,8 +12,8 @@ export default function SaveButton({ item, className = "" }: { item: Omit<SavedI
       type="button"
       onClick={() => toggleSave(item)}
       aria-pressed={saved}
-      aria-label={saved ? "Remove from saved" : "Save for later"}
-      title={saved ? "Saved" : "Save for later"}
+      aria-label={saved ? "Remove bookmark" : "Bookmark"}
+      title={saved ? "Bookmarked" : "Bookmark"}
       className={`flex h-9 w-9 items-center justify-center rounded-full transition ${
         saved ? "bg-purple-800 text-white" : "bg-zinc-100 text-zinc-600 hover:bg-purple-800 hover:text-white"
       } ${className}`}

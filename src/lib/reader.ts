@@ -26,16 +26,44 @@ export interface SavedItem {
 }
 
 /** same record, minus the note — reading a post doesn't annotate it */
-export type RecentItem = Omit<SavedItem, "note">;
+export type RecentItem = Omit<SavedItem, "note"> & {
+  /** how far down the article the reader got, 0..1 — drives "Continue reading" */
+  progress?: number;
+};
 
 export interface Reminder {
-  /** one of REMINDER_SLOTS */
+  /** "HH:MM", 24h, on a 15-minute grid — see normalizeReminderTime */
   time: string;
   enabled: boolean;
 }
 
-/** the five slots the push cron knows how to deliver — see app/api/reminder */
-export const REMINDER_SLOTS = ["06:00", "09:00", "13:00", "18:00", "21:00"] as const;
+/** preset times offered in the dropdown; anything else goes through the custom
+    box. Delivery works for any quarter-hour — app/api/reminder walks all 96. */
+export const REMINDER_SLOTS = ["06:00", "07:00", "09:00", "13:00", "18:00", "21:00"] as const;
+
+/** step the push cron delivers on, in minutes */
+export const REMINDER_STEP = 15;
+
+/** snap a free-typed "H:MM" / "HH:MM" onto the delivery grid; null when it
+    isn't a time at all */
+export function normalizeReminderTime(raw: string): string | null {
+  const m = /^\s*(\d{1,2}):(\d{2})\s*$/.exec(raw);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  if (h > 23 || min > 59) return null;
+  let total = Math.round((h * 60 + min) / REMINDER_STEP) * REMINDER_STEP;
+  if (total >= 24 * 60) total = 0;
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+/** "07:30" → "7:30 AM" for labels */
+export function reminderLabel(time: string): string {
+  const [h, m] = time.split(":").map(Number);
+  const suffix = h < 12 ? "AM" : "PM";
+  const hour = h % 12 === 0 ? 12 : h % 12;
+  return `${hour}:${String(m).padStart(2, "0")} ${suffix}`;
+}
 
 /** the four Malayalam faces offered on /settings, keyed to the CSS vars layout.tsx
     publishes from next/font */
@@ -50,6 +78,9 @@ export const FONTS: { key: FontKey; label: string; var: string }[] = [
 
 /** article body scale — index into this, so the stored value survives retuning */
 export const TEXT_SIZES = ["0.95rem", "1.05rem", "1.15rem", "1.25rem", "1.4rem", "1.55rem", "1.7rem"];
+
+/** the names a phone's own Display settings would give those steps */
+export const TEXT_SIZE_LABELS = ["Small", "Default", "Medium", "Large", "Extra large", "Huge", "Maximum"];
 
 export interface ReadingPrefs {
   /** index into TEXT_SIZES */
@@ -231,10 +262,28 @@ export function clearSaved(): void {
   commitSaved([]);
 }
 
-/** called once per post view — moves an already-seen post back to the top */
-export function recordRead(item: Omit<RecentItem, "at">): void {
+/** called once per post view — moves an already-seen post back to the top,
+    keeping the progress it already had so a re-open doesn't reset the bar */
+export function recordRead(item: Omit<RecentItem, "at" | "progress">): void {
   hydrate();
-  commitRecent([{ ...item, at: Date.now() }, ...recent.filter((r) => r.id !== item.id)]);
+  const prev = recent.find((r) => r.id === item.id);
+  commitRecent([{ ...item, progress: prev?.progress, at: Date.now() }, ...recent.filter((r) => r.id !== item.id)]);
+}
+
+/** how far the reader scrolled — only ever moves forward, so skimming back up
+    to re-read a paragraph doesn't lose the place */
+export function setReadProgress(id: number, progress: number): void {
+  hydrate();
+  const p = Math.max(0, Math.min(1, progress));
+  const cur = recent.find((r) => r.id === id);
+  if (!cur || (cur.progress ?? 0) >= p) return;
+  commitRecent(recent.map((r) => (r.id === id ? { ...r, progress: p } : r)));
+}
+
+/** the stored place for a post, 0 when unknown */
+export function readProgress(id: number): number {
+  hydrate();
+  return recent.find((r) => r.id === id)?.progress ?? 0;
 }
 
 export function removeRecent(id: number): void {
