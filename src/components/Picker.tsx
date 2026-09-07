@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
+import { useBackDismiss } from "@/lib/useBackDismiss";
 
 export interface PickerOption<T extends string | number> {
   value: T;
@@ -46,6 +47,8 @@ export default function Picker<T extends string | number>({ value, options, onCh
       setClosing(false);
     }, 160);
   }, []);
+
+  useBackDismiss(open, close);
 
   // close on outside click / Escape; the sheet's backdrop handles phones
   useEffect(() => {

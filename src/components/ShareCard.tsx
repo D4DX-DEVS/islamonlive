@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useBackDismiss } from "@/lib/useBackDismiss";
 
 const W = 1080;
 const H = 1350;
@@ -173,6 +174,8 @@ export default function ShareCard({ title, author, img, url, className = "" }: S
       ctx.fillText(author, cx, y, maxW);
     }
   }, [title, author, img]);
+
+  useBackDismiss(open, () => setOpen(false));
 
   useEffect(() => {
     if (open) void draw();

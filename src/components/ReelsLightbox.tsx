@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { useBackDismiss } from "@/lib/useBackDismiss";
 
 export interface ReelItem {
   id: string;
@@ -192,6 +193,9 @@ export default function ReelsLightbox({ items, grid = false }: { items: ReelItem
       return next;
     });
   }, []);
+
+  // Back puts the reel away instead of leaving the page
+  useBackDismiss(open !== null, () => setOpen(null));
 
   // lock page scroll + Esc to close while the feed is open
   useEffect(() => {

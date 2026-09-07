@@ -1,6 +1,11 @@
+import { readFileSync } from "node:fs";
 import type { NextConfig } from "next";
 
+// the version /settings shows — read from package.json so the two can't drift
+const { version } = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")) as { version: string };
+
 const nextConfig: NextConfig = {
+  env: { NEXT_PUBLIC_APP_VERSION: version },
   // lets a prod build/start run beside the dev server (unset = normal .next)
   distDir: process.env.NEXT_DIST_DIR || ".next",
   // allow opening the dev server from other devices on the LAN

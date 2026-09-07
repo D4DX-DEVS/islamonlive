@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useBackDismiss } from "@/lib/useBackDismiss";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -83,8 +84,6 @@ const NAV: NavItem[] = [
   },
   { label: "Listen", href: "/listen" },
   { label: "Infographics", href: "/category/infographics" },
-  // hover dropdown of the sister sites; the label itself goes nowhere
-  { label: "Subsite", href: "#", children: SUBSITES },
 ];
 
 // the phone drawer behind the hamburger. The sections are one tap away in the
@@ -158,6 +157,18 @@ const DRAWER: (NavItem & { icon: ReactNode })[] = [
 ];
 
 const SUPPORT_HREF = "https://rzp.io/rzp/5bOM6U7A";
+
+/* the "this opens a menu" caret on a nav item. The text glyph it replaces drew
+   at roughly six pixels in the fallback face — barely visible against the
+   purple bar — so it is an SVG at a size we control, and it turns over when
+   the menu opens. */
+function NavCaret() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="h-3.5 w-3.5 shrink-0 opacity-80 transition-transform duration-200 group-hover:rotate-180 group-hover:opacity-100">
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
 
 /* post previews shown while hovering a nav item — the live site's mega menu */
 function MegaPanel({ item, posts }: { item: NavItem; posts: NavPreviewItem[] }) {
@@ -416,6 +427,9 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
     return () => clearTimeout(id);
   }, [menuOpen]);
 
+  // Back closes the drawer rather than leaving the page
+  useBackDismiss(menuOpen, () => setMenuOpen(false));
+
   // an open sheet owns the screen: the page behind it must not scroll away under
   // the reader's thumb, and Escape closes it for anyone on a keyboard
   useEffect(() => {
@@ -582,14 +596,14 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
               ) : item.href === "#" ? (
                 // a pure dropdown label (Subsite): nothing to navigate to, the
                 // card under it carries the links
-                <span className={`flex cursor-default items-center gap-1 whitespace-nowrap px-4 text-[15px] font-medium text-white/90 hover:text-white ${pinned ? "py-3" : "py-4"}`}>
+                <span className={`flex cursor-default items-center gap-1.5 whitespace-nowrap px-4 text-[15px] font-medium text-white/90 hover:text-white ${pinned ? "py-3" : "py-4"}`}>
                   {item.label}
-                  <span className="text-[10px]">▾</span>
+                  <NavCaret />
                 </span>
               ) : (
-                <Link href={item.href} className={`flex items-center gap-1 whitespace-nowrap px-4 text-[15px] font-medium text-white/90 hover:text-white ${pinned ? "py-3" : "py-4"}`}>
+                <Link href={item.href} className={`flex items-center gap-1.5 whitespace-nowrap px-4 text-[15px] font-medium text-white/90 hover:text-white ${pinned ? "py-3" : "py-4"}`}>
                   {item.label}
-                  {(item.children || previews[item.label]?.length) && <span className="text-[10px]">▾</span>}
+                  {(item.children || previews[item.label]?.length) && <NavCaret />}
                 </Link>
               )}
               {previews[item.label]?.length ? (

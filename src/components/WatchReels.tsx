@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import type { YTVideo } from "@/lib/youtube";
+import { useBackDismiss } from "@/lib/useBackDismiss";
 
 /* Instagram-Reels-style viewer: tapping a thumbnail opens a full-screen
    vertical snap feed — swipe up/down for next/previous video. Only the
@@ -12,6 +13,9 @@ export default function WatchReels({ videos }: { videos: YTVideo[] }) {
   const [open, setOpen] = useState<number | null>(null);
   const [active, setActive] = useState(0);
   const feedRef = useRef<HTMLDivElement>(null);
+
+  // Back puts the reel away instead of leaving the page
+  useBackDismiss(open !== null, () => setOpen(null));
 
   // lock page scroll + Esc to close while the feed is open
   useEffect(() => {

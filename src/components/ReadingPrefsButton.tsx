@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import { useBackDismiss } from "@/lib/useBackDismiss";
 import { FONTS, TEXT_SIZES, TEXT_SIZE_LABELS, setReadingPrefs, useReadingPrefs, type FontKey } from "@/lib/reader";
 
 /* "Aa" button in the article's action row: a quick sheet for text size and
@@ -11,6 +12,8 @@ import { FONTS, TEXT_SIZES, TEXT_SIZE_LABELS, setReadingPrefs, useReadingPrefs, 
 export default function ReadingPrefsButton({ className = "" }: { className?: string }) {
   const [open, setOpen] = useState(false);
   const prefs = useReadingPrefs();
+
+  useBackDismiss(open, () => setOpen(false));
 
   useEffect(() => {
     if (!open) return;

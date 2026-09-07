@@ -15,6 +15,7 @@ import {
   type RecentItem,
   type SavedItem,
 } from "@/lib/reader";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 /* The reader's library: the posts they bookmarked and the ones they were in
    the middle of. Both live in localStorage, so this page renders empty on the
@@ -313,27 +314,34 @@ function Library() {
               : (list as RecentItem[]).map((r) => <Card key={r.id} item={r} progress={r.progress ?? 0} onRemove={() => removeRecent(r.id)} />)}
           </ul>
 
-          {/* clearing everything is a two-tap action — one stray tap on a text
-              link used to wipe the whole list with no way back */}
+          {/* wiping the list asks first — one stray tap on a text link used to
+              empty it with no way back. Same dialog as Settings uses, so the
+              destructive gesture always looks the same wherever it appears. */}
           {!needle && (
-          <div className="mt-6 flex justify-center">
-            {confirmClear ? (
-              <div className="flex items-center gap-2 rounded-full bg-white p-1 shadow-sm ring-1 ring-black/5">
-                <span className="pl-3 text-xs font-semibold text-zinc-600">Remove all {all.length}?</span>
-                <button type="button" onClick={() => setConfirmClear(false)} className="min-h-9 rounded-full px-3 text-xs font-semibold text-zinc-500 hover:text-zinc-800">
-                  Keep
-                </button>
-                <button type="button" onClick={() => { clear(); setConfirmClear(false); }} className="min-h-9 rounded-full bg-red-600 px-4 text-xs font-semibold text-white hover:bg-red-700">
-                  Clear
-                </button>
-              </div>
-            ) : (
+            <div className="mt-6 flex justify-center">
               <button type="button" onClick={() => setConfirmClear(true)} className="min-h-10 text-xs font-semibold text-zinc-500 hover:text-red-600">
                 {tab === "saved" ? "Clear all bookmarks" : "Clear reading history"}
               </button>
-            )}
-          </div>
+            </div>
           )}
+
+          <ConfirmDialog
+            open={confirmClear}
+            title={tab === "saved" ? "Clear all bookmarks?" : "Clear reading history?"}
+            body={
+              tab === "saved"
+                ? `All ${all.length} saved ${all.length === 1 ? "article" : "articles"} and any notes on them are removed from this device. This can't be undone.`
+                : `Your reading history of ${all.length} ${all.length === 1 ? "article" : "articles"} is removed from this device, along with where you had got to in each. This can't be undone.`
+            }
+            confirmLabel="Clear"
+            cancelLabel="Keep"
+            destructive
+            onConfirm={() => {
+              clear();
+              setConfirmClear(false);
+            }}
+            onCancel={() => setConfirmClear(false)}
+          />
         </>
       )}
     </div>
