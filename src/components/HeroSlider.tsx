@@ -117,9 +117,10 @@ export default function HeroSlider({ slides }: { slides: Slide[] }) {
       <div className="relative z-10 mx-4 -mt-20 grid items-end sm:mx-0 sm:-mt-[14%] sm:ml-[9.6%] sm:w-[81%]">
         {slides.map((s, n) => {
           const live = n === i;
-          // only the slide on screen is the page's h1; the four waiting behind it
-          // would otherwise stack up as duplicate headings in the markup
-          const Heading: ElementType = live ? "h1" : "div";
+          // only the slide on screen is a heading (h2 — the page's h1 is the site's
+          // own, in app/page.tsx); the four waiting behind it would otherwise stack
+          // up as duplicate headings in the markup
+          const Heading: ElementType = live ? "h2" : "div";
           return (
             <div
               key={n}

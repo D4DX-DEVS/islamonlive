@@ -3,10 +3,18 @@ import { notFound } from "next/navigation";
 import { getStaticPage } from "@/lib/wpPage";
 import { SOCIAL, SocialIcon } from "@/components/social";
 import ContactForm from "@/components/ContactForm";
+import JsonLd from "@/components/JsonLd";
+import { siteUrl } from "@/lib/env";
+import { breadcrumbSchema, graph, ORG_ID, siteNodes, webPageSchema } from "@/lib/schema";
 
 export const revalidate = 3600;
 
-export const metadata = { title: "Contact Us" };
+// self-canonical: this page has no WordPress twin, so nothing else declares one
+export const metadata = {
+  title: "Contact Us",
+  description: "Send your articles to the Islamonlive editorial desk, or reach the office in Kozhikode by email and WhatsApp.",
+  alternates: { canonical: "/contact/" },
+};
 
 const EMAIL = "editor@islamonlive.in";
 const PHONE = "+91 9895944006";
@@ -44,9 +52,17 @@ export default async function ContactPage() {
   // the address and the two "send your works to" lines are rendered as cards from
   // the constants above — what's left is the Malayalam submission guideline
   const guidelines = page.paragraphs.filter((p) => !/Hira Centre|Send Your Works|WhatsApp Number/i.test(p));
+  const url = siteUrl("/contact/");
 
   return (
     <div className="mx-auto max-w-5xl">
+      <JsonLd
+        data={graph(
+          webPageSchema(url, "Contact Us", { type: "ContactPage", description: `Reach the Islamonlive editorial desk: ${EMAIL}, ${PHONE}.`, mainEntity: { "@id": ORG_ID } }),
+          breadcrumbSchema([{ name: "Home", path: "/" }, { name: "Contact Us" }], url),
+          ...siteNodes()
+        )}
+      />
       <nav className="mb-3 hidden text-xs text-zinc-500 sm:block">
         <Link href="/" className="hover:text-purple-800">Home</Link>
         <span className="px-1.5">/</span>

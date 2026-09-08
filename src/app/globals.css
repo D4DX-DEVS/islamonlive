@@ -1,4 +1,11 @@
-@import "tailwindcss";
+/* source(none) + an explicit @source: Tailwind v4 otherwise discovers content
+   on its own, skipping only what git ignores. A build directory that is not
+   ignored (or a dev server that read .gitignore before it changed) gets scanned
+   as if it were source, and Turbopack's binary cache blobs hand it "classes"
+   like pb-[env(safe-area-\1\4bottom)] — which then fail to parse and take the
+   whole stylesheet down. Every class this app uses lives under src/. */
+@import "tailwindcss" source(none);
+@source "../";
 @plugin "@tailwindcss/typography";
 
 @theme inline {

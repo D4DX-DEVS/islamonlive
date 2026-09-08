@@ -7,10 +7,13 @@ import PostCard from "@/components/PostCard";
 import { Skel, SkelCard } from "@/components/Skeleton";
 import { loadMorePosts } from "@/lib/actions";
 import { FEED_PER_PAGE, type FeedQuery } from "@/lib/feed";
+import { pagePath } from "@/lib/paging";
 import { featuredImage, postPath, type WPPost } from "@/lib/wordpress";
 
 type Variant = "cards" | "infographics";
 type Status = "idle" | "loading" | "error" | "end";
+
+const PAGE_LINK = "pill inline-flex min-h-11 items-center rounded-full bg-white px-5 font-semibold text-purple-800 ring-1 ring-purple-300 transition hover:bg-purple-50";
 
 const GRID: Record<Variant, string> = {
   cards: "grid gap-5 sm:grid-cols-2 lg:grid-cols-3",
@@ -69,6 +72,8 @@ export default function InfiniteFeed({
   // Search overrides it: its first page is padded with the matching author's
   // posts, so the count on its own says nothing about what is left
   hasMore = initial.length >= perPage,
+  base,
+  totalPages,
 }: {
   initial: WPPost[];
   query: FeedQuery;
@@ -76,6 +81,15 @@ export default function InfiniteFeed({
   perPage?: number;
   startPage?: number;
   hasMore?: boolean;
+  /* The archive's own path (/category/news/). When given, real Previous /
+     Next links to /page/N/ are rendered under the list: the scroll-loading
+     above is invisible to a crawler, and without links every page past the
+     first is reachable only through the sitemap — internal links are what
+     pass ranking signal down to the older articles. The Next link always
+     points at the first page not yet loaded, so it is right with or without
+     JavaScript. */
+  base?: string;
+  totalPages?: number;
 }) {
   const [items, setItems] = useState(initial);
   const [page, setPage] = useState(startPage);
@@ -175,6 +189,30 @@ export default function InfiniteFeed({
           </p>
         )}
       </div>
+
+      {base && (startPage > 1 || status !== "end") && (
+        <nav aria-label="Pagination" className="mt-6 flex items-center justify-between gap-3 text-sm print:hidden">
+          {startPage > 1 ? (
+            <Link rel="prev" href={pagePath(base, startPage - 1)} className={PAGE_LINK}>
+              ← Previous page
+            </Link>
+          ) : (
+            <span />
+          )}
+          {totalPages ? (
+            <span className="text-zinc-500">
+              Page {page} of {totalPages}
+            </span>
+          ) : null}
+          {status !== "end" ? (
+            <Link rel="next" href={pagePath(base, page + 1)} className={PAGE_LINK}>
+              Next page →
+            </Link>
+          ) : (
+            <span />
+          )}
+        </nav>
+      )}
     </div>
   );
 }

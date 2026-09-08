@@ -1,0 +1,225 @@
+{
+  "summary": {
+    "domain": "islamonlive.in",
+    "audited_at": "2026-09-08",
+    "target": "local production build (next start, port 3686) of the Next.js 16 frontend with live WordPress data",
+    "health_score": 77,
+    "health_score_before_fixes": 64,
+    "scoring_note": "The 'before' figure aggregates the seven agent findings with the seo-audit weights (Technical 22, Content 23, On-page 20, Schema 10, Performance 10, AI search 10, Images 5). The 'after' figure re-scores the same rubric with the frontend fixes verified by probes; it is an estimate, not a fresh agent run. The remaining gap is owned by WordPress/Yoast settings, editorial content, Cloudflare/DNS and field data that only exists after launch.",
+    "business_type": "Publisher / news portal (Malayalam-language Islamic portal, 22,297 articles)",
+    "top_findings": [
+      "Category archive titles doubled the site name and tagline (fixed: cleanTitle in src/lib/seo.ts)",
+      "No ISR on any content route — every article, archive and WP page rendered per request (fixed: generateStaticParams + path-based pagination)",
+      "Yoast JSON-LD carried inLanguage en-GB, a second Organization identity, no dateModified, no ProfilePage.mainEntity (fixed: normalizeGraph at every depth)",
+      "page-sitemap.xml listed Elementor template pages that answer 500 from WordPress (fixed in the sitemap; the pages still need trashing in WordPress)",
+      "Archives had no crawlable pagination links; the scroll-loading list is invisible to crawlers (fixed: Previous/Next links in InfiniteFeed)",
+      "Meta descriptions truncated mid-sentence / in English / 'Title |' on older posts, Yoast archive template typos, admin-account bylines (WordPress editorial — pending)"
+    ],
+    "quick_wins": [
+      "Trash or noindex /elementor-122398/, /elementor-122411/, /elementor-119103/ in WordPress",
+      "Set WordPress Settings → General → Site Language to Malayalam",
+      "Fix 'compelete' / 'middile' in Yoast's archive description template",
+      "Decide the AI-crawler policy (GPTBot/ClaudeBot) — one-line change in src/app/robots.txt/route.ts",
+      "Run scripts/warm-sitemaps.mjs after each deploy",
+      "Connect YouTube and Instagram as Search Console platform properties"
+    ]
+  },
+  "categories": [
+    {
+      "name": "Technical SEO",
+      "weight": 22,
+      "score_before": 76,
+      "score": 90,
+      "what_works": [
+        "robots.txt, 33 sitemap files at Yoast's exact paths with X-Robots-Tag: noindex, lowercase percent-encoding, 22,297/22,297 posts",
+        "Self-canonicals on the public host on every page type; real 404s; trailing-slash normalisation",
+        "Single-hop 301s for ?p=, ?page_id=, ?cat=, ?s=, /feed/, /amp/, /authors/, /page/1/",
+        "ISR on articles, archives, WP pages and the authors directory (Cache-Control: s-maxage=60, stale-while-revalidate)",
+        "HSTS, X-Content-Type-Options, Referrer-Policy, X-Frame-Options, CSP frame-ancestors, Permissions-Policy"
+      ],
+      "findings": [
+        {
+          "title": "Duplicate identical Location header on the first render of an app-level 308",
+          "severity": "Low",
+          "description": "Next 16.3.0–16.3.4 replays the render's headers with appendHeader (next-server.js), so the first, uncached answer at a wrong-category article path or a short sub-category path carries the same Location twice. Cached answers carry it once. Identical duplicates are accepted by Chrome, Firefox and Googlebot; the static redirects in next.config are unaffected.",
+          "recommendation": "No app-level fix exists; documented in docs/MIGRATION.md §2. Re-check when upgrading Next.",
+          "owner": "Next.js"
+        },
+        {
+          "title": "Pinch-zoom disabled by the viewport meta",
+          "severity": "Medium",
+          "description": "maximum-scale=1, user-scalable=no fails WCAG 1.4.4 and Lighthouse's accessibility audit; the layout comment records it as a deliberate UX choice.",
+          "recommendation": "Publisher decision: remove the two directives in src/app/layout.tsx.",
+          "owner": "Decision"
+        },
+        {
+          "title": "Elementor template pages answer 500 from WordPress",
+          "severity": "High",
+          "description": "/elementor-122398/, /elementor-122411/, /elementor-119103/ are Elementor templates published as pages; WordPress's own REST render of them fails. The frontend no longer lists them in page-sitemap.xml.",
+          "recommendation": "Trash them, or set them to noindex in Yoast.",
+          "owner": "WordPress"
+        }
+      ]
+    },
+    {
+      "name": "Content Quality",
+      "weight": 23,
+      "score_before": 58,
+      "score": 66,
+      "what_works": [
+        "Full Yoast graph republished per article; bylines linked to author pages; publish and (now) updated dates visible; visible breadcrumb; author bio in the author box; own h1 on the home page and the search page",
+        "Descriptions from the excerpt are trimmed on a sentence or word boundary when Yoast has nothing usable"
+      ],
+      "findings": [
+        {
+          "title": "Yoast meta descriptions truncated mid-sentence, in English on Malayalam posts, or 'Title |' only",
+          "severity": "High",
+          "description": "6 of 11 sampled pages; these are authored values passed through as-is (they are what Google has indexed).",
+          "recommendation": "Rewrite in Yoast per post; give the privacy policy a description about the policy.",
+          "owner": "Editorial"
+        },
+        {
+          "title": "Yoast archive description template typos ('compelete', 'middile'); article titles carry the 61-character tagline",
+          "severity": "Medium",
+          "description": "Template text generated in WordPress; the frontend ignores the archive description and strips the doubled tagline from archive titles, but article titles still come from Yoast.",
+          "recommendation": "Fix the template in Yoast → Search Appearance; shorten the post title template.",
+          "owner": "WordPress"
+        },
+        {
+          "title": "Articles bylined to the generic 'islamonlive' admin account; writers without bios",
+          "severity": "High",
+          "description": "E-E-A-T expertise signal; the author page h1 reads 'islamonlive' because that is the account's display name.",
+          "recommendation": "Reassign posts to real writers or give the staff account a proper name and bio; fill author bios in WordPress.",
+          "owner": "Editorial"
+        },
+        {
+          "title": "No in-body subheadings; closing summaries in English only",
+          "severity": "Medium",
+          "description": "Analytical articles have zero H2/H3; the existing closing Summary is English-only and under the 134–167 word citation band.",
+          "recommendation": "Style-guide change: 2–3 H2s on analytical pieces, a 2–4 sentence Malayalam takeaway at the end, a linked source for historical claims.",
+          "owner": "Editorial"
+        }
+      ]
+    },
+    {
+      "name": "On-Page SEO",
+      "weight": 20,
+      "score_before": 55,
+      "score": 75,
+      "what_works": [
+        "Archive titles cleaned; page N titles and self-canonicals; og:url equals canonical; home OG/Twitter defaults; Search title carries the query; RSS autodiscovery; internal links normalised with trailing slashes; crawlable pagination"
+      ],
+      "findings": [
+        {
+          "title": "Article titles 105–152 characters because of Yoast's tagline suffix",
+          "severity": "Medium",
+          "description": "Guaranteed SERP truncation; the frontend keeps Yoast's article titles as they are what ranks today.",
+          "recommendation": "Shorten the Yoast post title template.",
+          "owner": "WordPress"
+        }
+      ]
+    },
+    {
+      "name": "Schema / Structured Data",
+      "weight": 10,
+      "score_before": 62,
+      "score": 88,
+      "what_works": [
+        "One WebSite and one Organization identity on every page (name, logo /logo.png 298×81, SearchAction /search/?q=, inLanguage ml at every depth)",
+        "dateModified on every Article/WebPage with a UTC offset; ProfilePage.mainEntity; AboutPage/ContactPage with mainEntity → Organization and the site nodes embedded",
+        "Organization sameAs (Facebook, X, YouTube, Instagram), foundingDate, address, email, parentOrganization"
+      ],
+      "findings": [
+        {
+          "title": "Featured images below Google's 696 px guidance",
+          "severity": "Medium",
+          "description": "Sampled ImageObjects: 650×370, 400×400, 289×175.",
+          "recommendation": "Upload featured images at ≥1200 px; not a code defect.",
+          "owner": "Editorial"
+        }
+      ]
+    },
+    {
+      "name": "Performance (CWV)",
+      "weight": 10,
+      "score_before": 83,
+      "score": 86,
+      "what_works": [
+        "CLS 0 and TBT good everywhere; desktop LCP 1.2–1.8 s; ISR on all content routes; AVIF offered; only 4 font files preloaded (the two reader faces are on demand); YouTube player is a click-to-play facade"
+      ],
+      "findings": [
+        {
+          "title": "Lab mobile LCP 5–11 s on all five pages",
+          "severity": "High",
+          "description": "Local, no-CDN Lighthouse with mobile throttling. Home: third-party Instagram previews (~1.1 MB, signed URLs that cannot be resized) and the podcast artwork (880 KB, hot-linked); other pages: font weight (~470 KB).",
+          "recommendation": "Judge on Search Console field data after launch (Cloudflare + Vercel edge, Brotli). Route the podcast artwork through the media proxy; consider dropping a font family for phones.",
+          "owner": "Frontend / field data"
+        }
+      ]
+    },
+    {
+      "name": "AI Search Readiness (GEO)",
+      "weight": 10,
+      "score_before": 52,
+      "score": 62,
+      "what_works": [
+        "Full SSR; news sitemap; robots.txt policy matches Content-Signal search=yes/ai-train=no; sameAs with YouTube/Instagram; inLanguage ml; dateModified; author bios; visible breadcrumbs; llms.txt (optional, ignored by Google)"
+      ],
+      "findings": [
+        {
+          "title": "GPTBot and ClaudeBot blocked — also blocks ChatGPT search and Claude web results",
+          "severity": "Info",
+          "description": "Reproduces the live site's Cloudflare list. OAI-SearchBot and PerplexityBot are open only by omission.",
+          "recommendation": "Publisher decision; one-line change in src/app/robots.txt/route.ts plus explicit Allow groups.",
+          "owner": "Decision"
+        },
+        {
+          "title": "Citability: no in-body headings, summaries under the 134–167 word band, English-only",
+          "severity": "Medium",
+          "description": "Highest-weighted GEO dimension; editorial habit rather than code.",
+          "recommendation": "See Content Quality.",
+          "owner": "Editorial"
+        }
+      ]
+    },
+    {
+      "name": "Images",
+      "weight": 5,
+      "score_before": 65,
+      "score": 72,
+      "what_works": [
+        "next/image with srcset/sizes, lazy loading, AVIF/WebP; zero broken images at 375/768/1280; featured-image alt text from WordPress"
+      ],
+      "findings": [
+        {
+          "title": "Decorative alt=\"\" on card thumbnails and avatars beside their visible titles",
+          "severity": "Low",
+          "description": "Correct accessibility practice for images adjacent to a text label (no double announcement); the audit counted them as missing alt text.",
+          "recommendation": "No change; keep descriptive alt on featured images (already the case).",
+          "owner": "Frontend"
+        },
+        {
+          "title": "No 1200×630 default social image for old posts without a featured image",
+          "severity": "Medium",
+          "description": "Falls back to /icon-512.png.",
+          "recommendation": "Provide the file; change the fallback in src/lib/seo.ts.",
+          "owner": "Design"
+        }
+      ]
+    }
+  ],
+  "action_plan": {
+    "phases": [
+      { "name": "Phase 1: Critical Fixes", "timeframe": "Week 1 (before cutover)", "items": ["Frontend items 1.1–1.7 done", "Trash Elementor template pages in WordPress", "DNS/env/Cloudflare cutover per MIGRATION.md", "Warm sitemaps after deploy", "Cloudflare managed robots.txt decision"] },
+      { "name": "Phase 2: High-Impact Improvements", "timeframe": "Weeks 2-3", "items": ["Frontend items 2.1–2.6 done", "Yoast templates (typos, tagline), WP site language", "Rewrite broken Yoast descriptions", "Real bylines and bios", "GSC resubmission + platform properties"] },
+      { "name": "Phase 3: Content & Authority", "timeframe": "Month 2", "items": ["Subheadings + Malayalam takeaways + sources", "Larger featured images, default OG image", "AI-crawler policy decision", "watch/jet-menu CPT noindex", "Podcast artwork via media proxy", "Full CSP", "Viewport zoom decision", "Preferred-source button"] },
+      { "name": "Phase 4: Monitoring & Iteration", "timeframe": "Ongoing", "items": ["Search Console coverage + CWV field data", "Monthly url-audit.mjs run", "Re-run the audit agents after WordPress-side fixes"] }
+    ]
+  },
+  "artifacts": {
+    "findings_dir": "findings/",
+    "screenshots_dir": "screenshots/",
+    "performance_dir": "performance/",
+    "url_audit": "725-URL sample from the original Yoast sitemaps (scripts/url-audit.mjs)"
+  }
+}

@@ -88,7 +88,7 @@ function ReelVideo({
     }
     refreshed.current = true;
     try {
-      const res = await fetch(`/api/reel?id=${encodeURIComponent(item.id)}`);
+      const res = await fetch(`/api/reel/?id=${encodeURIComponent(item.id)}`);
       const { video } = (await res.json()) as { video?: string | null };
       if (video) setSrc(video);
       else onDead();

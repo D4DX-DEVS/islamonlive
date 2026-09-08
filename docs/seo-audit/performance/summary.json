@@ -1,0 +1,222 @@
+{
+  "category-news-desktop-run1.json": {
+    "score": 93,
+    "lcp_ms": 1710.993,
+    "cls": 0,
+    "tbt_ms": 0,
+    "fcp_ms": 378.822,
+    "si_ms": 639.5121059275688,
+    "ttfb_ms": 49,
+    "bytes": 1306971,
+    "requests": 94
+  },
+  "category-news-desktop-run2.json": {
+    "score": 97,
+    "lcp_ms": 1297.4589999999998,
+    "cls": 0,
+    "tbt_ms": 0,
+    "fcp_ms": 372.20399999999995,
+    "si_ms": 530.9557422452344,
+    "ttfb_ms": 46,
+    "bytes": 1309485,
+    "requests": 94
+  },
+  "category-news-mobile-run1.json": {
+    "score": 76,
+    "lcp_ms": 6879.502500000002,
+    "cls": 0,
+    "tbt_ms": 36.5,
+    "fcp_ms": 1366.77,
+    "si_ms": 1366.77,
+    "ttfb_ms": 53,
+    "bytes": 1206334,
+    "requests": 62
+  },
+  "category-news-mobile-run2.json": {
+    "score": 72,
+    "lcp_ms": 9809.0636,
+    "cls": 0,
+    "tbt_ms": 129,
+    "fcp_ms": 1362.6420000000003,
+    "si_ms": 3737.041540131378,
+    "ttfb_ms": 54,
+    "bytes": 1206485,
+    "requests": 62
+  },
+  "culture-mosque-desktop-run1.json": {
+    "score": 98,
+    "lcp_ms": 1182.0884750000002,
+    "cls": 0,
+    "tbt_ms": 0,
+    "fcp_ms": 337.3049,
+    "si_ms": 626.5203394256514,
+    "ttfb_ms": 24,
+    "bytes": 1339437,
+    "requests": 84
+  },
+  "culture-mosque-desktop-run2.json": {
+    "score": 97,
+    "lcp_ms": 1222.2464999999997,
+    "cls": 0,
+    "tbt_ms": 2.5,
+    "fcp_ms": 350.499,
+    "si_ms": 693.9266365143058,
+    "ttfb_ms": 44,
+    "bytes": 1333254,
+    "requests": 84
+  },
+  "culture-mosque-mobile-run1.json": {
+    "score": 61,
+    "lcp_ms": 8231.6529,
+    "cls": 0,
+    "tbt_ms": 432,
+    "fcp_ms": 1715.4414,
+    "si_ms": 4729.605969993735,
+    "ttfb_ms": 30,
+    "bytes": 971173,
+    "requests": 49
+  },
+  "culture-mosque-mobile-run2.json": {
+    "score": 77,
+    "lcp_ms": 5953.499250000001,
+    "cls": 0,
+    "tbt_ms": 116,
+    "fcp_ms": 1296.3635000000002,
+    "si_ms": 1585.436447448188,
+    "ttfb_ms": 49,
+    "bytes": 969670,
+    "requests": 49
+  },
+  "home-desktop-run1.json": {
+    "score": 92,
+    "lcp_ms": 1773.8732000000005,
+    "cls": 0,
+    "tbt_ms": 0,
+    "fcp_ms": 837.4343000000001,
+    "si_ms": 1059.1390010145108,
+    "ttfb_ms": 14,
+    "bytes": 5451010,
+    "requests": 162
+  },
+  "home-desktop-run2.json": {
+    "score": 87,
+    "lcp_ms": 1802.6133999999997,
+    "cls": 0.001499500919359075,
+    "tbt_ms": 24.5,
+    "fcp_ms": 1064.9784,
+    "si_ms": 1959.5923888259376,
+    "ttfb_ms": 65,
+    "bytes": 5444007,
+    "requests": 164
+  },
+  "home-mobile-run1.json": {
+    "score": 55,
+    "lcp_ms": 18072.740099999995,
+    "cls": 0,
+    "tbt_ms": 217,
+    "fcp_ms": 6512.160399999999,
+    "si_ms": 6568.059127799983,
+    "ttfb_ms": 10,
+    "bytes": 5176686,
+    "requests": 118
+  },
+  "home-mobile-run2.json": {
+    "score": 60,
+    "lcp_ms": 10995.404800000004,
+    "cls": 0,
+    "tbt_ms": 133,
+    "fcp_ms": 3911.7039999999993,
+    "si_ms": 6787.881372352826,
+    "ttfb_ms": 28,
+    "bytes": 5178215,
+    "requests": 119
+  },
+  "malayalam-article-desktop-run1.json": {
+    "score": 97,
+    "lcp_ms": 1233.3357,
+    "cls": 0,
+    "tbt_ms": 3,
+    "fcp_ms": 431.1119,
+    "si_ms": 891.2870372868132,
+    "ttfb_ms": 21,
+    "bytes": 1214662,
+    "requests": 85
+  },
+  "malayalam-article-desktop-run2.json": {
+    "score": 97,
+    "lcp_ms": 1219.0173999999993,
+    "cls": 0,
+    "tbt_ms": 0,
+    "fcp_ms": 335.5058,
+    "si_ms": 500.1125885851731,
+    "ttfb_ms": 23,
+    "bytes": 1211469,
+    "requests": 85
+  },
+  "malayalam-article-mobile-run1.json": {
+    "score": 77,
+    "lcp_ms": 5789.96175,
+    "cls": 0,
+    "tbt_ms": 146.5,
+    "fcp_ms": 1219.1847,
+    "si_ms": 1219.1847,
+    "ttfb_ms": 39,
+    "bytes": 1142250,
+    "requests": 56
+  },
+  "malayalam-article-mobile-run2.json": {
+    "score": 80,
+    "lcp_ms": 5264.040000000001,
+    "cls": 0,
+    "tbt_ms": 41.5,
+    "fcp_ms": 1215.52,
+    "si_ms": 1215.52,
+    "ttfb_ms": 47,
+    "bytes": 1141438,
+    "requests": 56
+  },
+  "search-quran-desktop-run1.json": {
+    "score": 91,
+    "lcp_ms": 1992.4575,
+    "cls": 0,
+    "tbt_ms": 0,
+    "fcp_ms": 381.47,
+    "si_ms": 689.8278679788523,
+    "ttfb_ms": 114,
+    "bytes": 1367663,
+    "requests": 99
+  },
+  "search-quran-desktop-run2.json": {
+    "score": 93,
+    "lcp_ms": 1804.9370000000001,
+    "cls": 0,
+    "tbt_ms": 3.0000000000002274,
+    "fcp_ms": 373.082,
+    "si_ms": 717.1621815786675,
+    "ttfb_ms": 55,
+    "bytes": 1357995,
+    "requests": 97
+  },
+  "search-quran-mobile-run1.json": {
+    "score": 74,
+    "lcp_ms": 8442.29325,
+    "cls": 0,
+    "tbt_ms": 115.00000000000091,
+    "fcp_ms": 1363.7529999999997,
+    "si_ms": 2431.6726759187695,
+    "ttfb_ms": 30,
+    "bytes": 1168076,
+    "requests": 61
+  },
+  "search-quran-mobile-run2.json": {
+    "score": 71,
+    "lcp_ms": 8678.9519,
+    "cls": 0,
+    "tbt_ms": 111,
+    "fcp_ms": 1863.964,
+    "si_ms": 3850.360434893885,
+    "ttfb_ms": 35,
+    "bytes": 1166699,
+    "requests": 61
+  }
+}

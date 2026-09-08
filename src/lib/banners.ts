@@ -1,3 +1,6 @@
+import { WP_URL } from "@/lib/env";
+import { mediaOriginUrl, rewriteUrl } from "@/lib/urls";
+
 // The promo strip between the video playlist and the reels feed is an Elementor
 // image widget on the WordPress homepage. Editors swap it there, so read it from
 // the rendered page rather than hard-coding the artwork.
@@ -19,7 +22,14 @@ function attr(tag: string, name: string): string | null {
 }
 
 export async function getHomeBanners(): Promise<Banner[]> {
-  const res = await fetch("https://islamonlive.in/", { next: { revalidate: 1800 } });
+  /* WP_URL, not the public site.
+
+     This reads the *WordPress-rendered* home page for an Elementor widget. Once
+     the apex serves Next.js, fetching islamonlive.in here would fetch this app's
+     own home page — which has no Elementor markup, so the strip would silently
+     empty out (and the app would be calling itself in a loop). The banner lives
+     in the CMS, so it is read from the CMS. */
+  const res = await fetch(`${WP_URL}/`, { next: { revalidate: 1800, tags: ["banners"] } });
   if (!res.ok) return [];
   const html = await res.text();
   // the slot sits between the video playlist and the Instagram feed.
@@ -37,8 +47,10 @@ export async function getHomeBanners(): Promise<Banner[]> {
     const href = decode(m[1]);
     if (!/^(https?:\/\/|\/)/i.test(href)) continue;
     out.push({
-      href,
-      img,
+      // the click goes to the public site; the artwork is a next/image src, so
+      // it points at the origin the optimizer has to fetch from
+      href: rewriteUrl(href),
+      img: mediaOriginUrl(img),
       width: Number(attr(m[2], "width")) || 1440,
       height: Number(attr(m[2], "height")) || 120,
       alt: attr(m[2], "alt") || "",

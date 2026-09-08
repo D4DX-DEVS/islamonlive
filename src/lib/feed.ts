@@ -1,3 +1,4 @@
+import { normalizeSearch, searchPosts } from "@/lib/search";
 import { getPosts, type WPPost } from "@/lib/wordpress";
 
 /* "which list am I looking at?", small enough to hand to a client component and
@@ -16,7 +17,6 @@ export const FEED_PER_PAGE = 12;
 const MAX_PAGE = 400;
 const MAX_PER_PAGE = 24;
 const MAX_IDS = 60;
-const MAX_SEARCH = 120;
 
 function clamp(n: number, lo: number, hi: number): number {
   return Number.isFinite(n) ? Math.min(hi, Math.max(lo, Math.trunc(n))) : lo;
@@ -36,7 +36,7 @@ export function feedPosts(query: FeedQuery, page: number, perPage: number): Prom
   switch (query?.kind) {
     case "category": {
       const categories = ids(query.ids);
-      return categories.length ? getPosts({ categories, perPage: per, page: p }) : Promise.resolve([]);
+      return categories.length ? getPosts({ categories, includeChildren: true, perPage: per, page: p }) : Promise.resolve([]);
     }
     case "author": {
       const author = clamp(query.id, 0, Number.MAX_SAFE_INTEGER);
@@ -47,8 +47,8 @@ export function feedPosts(query: FeedQuery, page: number, perPage: number): Prom
       return tag ? getPosts({ tags: [tag], perPage: per, page: p }) : Promise.resolve([]);
     }
     case "search": {
-      const search = String(query.q ?? "").slice(0, MAX_SEARCH).trim();
-      return search ? getPosts({ search, perPage: per, page: p }) : Promise.resolve([]);
+      const search = normalizeSearch(query.q);
+      return search ? searchPosts(search, p, per).then((r) => r.items) : Promise.resolve([]);
     }
     default:
       return Promise.resolve([]);

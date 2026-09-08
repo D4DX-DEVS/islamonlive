@@ -9,7 +9,7 @@ import { usePathname } from "next/navigation";
    links styled as one control — the switch the old native app put over its feed. */
 const FEEDS = [
   { label: "Reels", href: "/reels" },
-  { label: "Video", href: "/watch-videos" },
+  { label: "Videos", href: "/watch-videos" },
 ];
 
 export default function WatchSwitch() {

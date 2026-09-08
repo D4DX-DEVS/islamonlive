@@ -15,43 +15,58 @@ const CHIPS = ["ഖുർആൻ", "റമദാൻ", "ഫലസ്തീൻ", "�
 export default function SearchBox({ initialQ = "" }: { initialQ?: string }) {
   const router = useRouter();
   const [q, setQ] = useState(initialQ);
-  const [sugs, setSugs] = useState<Suggestion[]>([]);
+  // suggestions remember the query they answer, so a stale set can never show
+  // under a newer query — and nothing has to be reset when the query changes
+  const [sugs, setSugs] = useState<{ q: string; rows: Suggestion[] }>({ q: "", rows: [] });
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
   // which row was tapped — the tap has to look acknowledged before the route
   // resolves, or on a slow phone the user taps again thinking it missed
   const [going, setGoing] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const box = useRef<HTMLDivElement>(null);
 
-  // debounced type-ahead. Skips the query we are already navigating to, so
-  // filling the field from a chip doesn't pop a dropdown over the outgoing page.
+  /* Type-ahead is live for a real query we are not already navigating to — so
+     filling the field from a chip doesn't pop a dropdown over the outgoing
+     page. Both flags are derived rather than stored: the effect below only
+     sets state from inside its async callback, so nothing re-renders the field
+     twice per keystroke. The rows of the previous query stay on screen while
+     the next answer loads, the way every type-ahead does. */
+  const t = q.trim();
+  const active = t.length >= 2 && t !== initialQ && t !== going;
+  const loading = active && sugs.q !== t;
+
+  // debounced fetch; a newer query aborts the one in flight
   useEffect(() => {
-    const t = q.trim();
-    if (t.length < 2 || t === initialQ || t === going) {
-      setSugs([]);
-      setOpen(false);
-      setLoading(false);
-      return;
-    }
+    if (!active) return;
     const ctl = new AbortController();
-    setLoading(true);
     const id = setTimeout(async () => {
       try {
-        const r = await fetch(`/api/suggest?q=${encodeURIComponent(t)}`, { signal: ctl.signal });
+        const r = await fetch(`/api/suggest/?q=${encodeURIComponent(t)}`, { signal: ctl.signal });
         const rows: Suggestion[] = await r.json();
-        setSugs(rows);
+        setSugs({ q: t, rows });
         setOpen(true);
-        setLoading(false);
       } catch {
-        /* aborted or offline — keep whatever is shown */
+        // aborted: superseded, nothing to record. Offline or 500: keep what is
+        // shown but mark the query answered so the bar stops instead of
+        // running forever
+        if (!ctl.signal.aborted) setSugs((s) => ({ q: t, rows: s.rows }));
       }
     }, 300);
     return () => {
       clearTimeout(id);
       ctl.abort();
     };
-  }, [q, initialQ, going]);
+  }, [active, t]);
+
+  // a query too short to search drops the old rows, so they cannot flash back
+  // under the next real one before its answer lands
+  const onChange = (value: string) => {
+    setQ(value);
+    if (value.trim().length < 2) {
+      setSugs({ q: "", rows: [] });
+      setOpen(false);
+    }
+  };
 
   // tap outside closes the dropdown
   useEffect(() => {
@@ -99,8 +114,8 @@ export default function SearchBox({ initialQ = "" }: { initialQ?: string }) {
           type="search"
           enterKeyHint="search"
           value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onFocus={() => sugs.length > 0 && setOpen(true)}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={() => active && sugs.rows.length > 0 && setOpen(true)}
           placeholder="Search articles, topics, authors…"
           aria-label="Search"
           className="h-11 w-full bg-transparent text-[15px] outline-none placeholder:text-zinc-400"
@@ -127,9 +142,9 @@ export default function SearchBox({ initialQ = "" }: { initialQ?: string }) {
         )}
       </form>
 
-      {open && sugs.length > 0 && (
+      {open && active && sugs.rows.length > 0 && (
         <div className="absolute inset-x-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-zinc-200 bg-white py-1 shadow-xl">
-          {sugs.map((s) => (
+          {sugs.rows.map((s) => (
             <button
               key={s.path}
               type="button"

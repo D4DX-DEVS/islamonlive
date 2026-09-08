@@ -3,7 +3,8 @@ import WatchReels from "@/components/WatchReels";
 import WatchSwitch from "@/components/WatchSwitch";
 
 export const revalidate = 3600;
-export const metadata = { title: "Videos" };
+// canonical drops the ?v= deep-link so every video variant consolidates here
+export const metadata = { title: "Videos", alternates: { canonical: "/watch-videos/" } };
 
 export default async function WatchPage({ searchParams }: { searchParams: Promise<{ v?: string }> }) {
   const videos = await getVideos(30);

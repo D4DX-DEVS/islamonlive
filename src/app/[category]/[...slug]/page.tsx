@@ -1,7 +1,12 @@
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { getPostBySlug, getPosts, featuredImage, author, authorName, primaryCategory, formatDate, stripHtml, postPath, WPPost } from "@/lib/wordpress";
+import { resolvePostByPath, getPosts, featuredImage, author, authorName, primaryCategory, postCategories, formatDate, modifiedIso, stripHtml, postPath, WPPost } from "@/lib/wordpress";
+import { renderContent } from "@/lib/content";
+import { seoMetadata, seoSchema } from "@/lib/seo";
+import { articleSchema, breadcrumbSchema, graph, siteNodes } from "@/lib/schema";
+import { siteUrl } from "@/lib/env";
+import JsonLd from "@/components/JsonLd";
 import PostCard from "@/components/PostCard";
 import ShareRow from "@/components/ShareRow";
 import ShareCard from "@/components/ShareCard";
@@ -11,19 +16,63 @@ import ReadingPrefsButton from "@/components/ReadingPrefsButton";
 
 export const revalidate = 60;
 
-// Catch-all: WP keeps sub-category posts at /{cat}/{subcat}/{slug}/, so depth varies.
-// The last segment is always the post slug.
+/* No entries: an article renders on its first request and is then cached and
+   revalidated like a static page (and purged by /api/revalidate on edit).
+   Without this export a dynamic route is rendered afresh on every request and
+   never cached at all — for 22,000 articles that is WordPress answering every
+   reader instead of the CDN. */
+export function generateStaticParams(): { category: string; slug: string[] }[] {
+  return [];
+}
+
+// Catch-all: WP keeps sub-category posts at /{cat}/{subcat}/{slug}/, so depth
+// varies from two segments to four. The last segment is always the post slug.
 type Params = Promise<{ category: string; slug: string[] }>;
 
+/* Next hands these back percent-decoded. The comparison inside
+   resolvePostByPath decodes both sides before matching, so the Malayalam slugs
+   — which WP stored already-encoded — line up either way. */
+function requestPath(category: string, slug: string[]): string {
+  return `/${[category, ...slug].join("/")}/`;
+}
+
+/* The 404 is decided in both generateMetadata and the page — the two render
+   concurrently and either may run first — while the canonical redirect is
+   thrown from the page alone. There is no loading.tsx on this route, so
+   nothing is flushed before the page's throw sets the status. Known and
+   accepted: on the first, uncached answer Next 16.3 replays the render's
+   headers with appendHeader (next-server.js), so that one 308 carries the
+   same Location twice — identical values, which browsers and Googlebot
+   accept; cached answers carry it once (docs/MIGRATION.md §2).
+
+   Note there is no try/catch: a null result means "WordPress says no such post"
+   and must 404, while a thrown error means WordPress itself is unreachable and
+   must surface as a 500 through error.tsx. Collapsing the two would tell Google
+   an article was deleted every time the origin hiccuped. */
 export async function generateMetadata({ params }: { params: Params }) {
-  const post = await getPostBySlug((await params).slug.at(-1)!);
-  if (!post) return {};
+  const { category, slug } = await params;
+  const resolved = await resolvePostByPath(requestPath(category, slug), slug.at(-1)!);
+  if (!resolved) notFound();
+
+  // for a request at the wrong path this describes the real permalink; the
+  // page turns that request into a 308 and the metadata is never sent
+  const { post, canonical } = resolved;
   const img = featuredImage(post);
-  return {
+  /* Yoast's own head wins whenever it is there — those are the titles and
+     descriptions Google has been ranking for years. The fallbacks only cover a
+     post the plugin skipped. The canonical always points at the post's real
+     permalink on the public domain, never at whatever URL was requested and
+     never at the backend. */
+  return seoMetadata(post.yoast_head_json, {
+    path: canonical,
     title: stripHtml(post.title.rendered),
-    description: stripHtml(post.excerpt.rendered).slice(0, 160),
-    openGraph: { images: img ? [img.url] : [] },
-  };
+    description: stripHtml(post.excerpt.rendered),
+    image: img?.url ?? null,
+    publishedTime: post.date,
+    modifiedTime: modifiedIso(post),
+    authors: authorName(post) ? [authorName(post)] : undefined,
+    type: "article",
+  });
 }
 
 /* the writer's name in the meta row — a link to their page when WP embedded a
@@ -34,7 +83,7 @@ function AuthorName({ post, className = "" }: { post: WPPost; className?: string
   if (!a) return null;
   const cls = `min-w-0 font-medium text-zinc-700 [overflow-wrap:anywhere] ${className}`;
   return a.slug ? (
-    <Link href={`/author/${a.slug}`} className={`${cls} hover:text-[#31094C] hover:underline`}>
+    <Link href={`/author/${a.slug}/`} className={`${cls} hover:text-[#31094C] hover:underline`}>
       {a.name}
     </Link>
   ) : (
@@ -43,14 +92,92 @@ function AuthorName({ post, className = "" }: { post: WPPost; className?: string
 }
 
 export default async function PostPage({ params }: { params: Params }) {
-  const { slug } = await params;
-  const post = await getPostBySlug(slug.at(-1)!);
-  if (!post) notFound();
+  const { category, slug } = await params;
+  const resolved = await resolvePostByPath(requestPath(category, slug), slug.at(-1)!);
+  if (!resolved) notFound();
+
+  const { post, canonical, exact } = resolved;
+
+  /* WordPress matches a post on its slug alone, so /anything-at-all/{slug}/
+     would happily render this article at a 200 — an unbounded supply of
+     duplicate URLs, which is exactly what Google penalises. When the requested
+     path is not the post's real permalink (an article whose category was
+     changed after it was indexed, a hand-typed link, an old scrape) we send the
+     reader and the crawler to the canonical one instead of serving it twice.
+
+     This is a 308, not the 301 elsewhere in the migration: a Server Component
+     cannot choose the status code, and Next only offers 307/308 here. Google
+     documents 308 as equivalent to 301 for consolidating signals, and it is
+     stricter about preserving the method. */
+  if (!exact) permanentRedirect(canonical);
 
   const img = featuredImage(post);
   const cat = primaryCategory(post);
   // share this site's own URL, not the WP backend permalink
-  const shareUrl = new URL(postPath(post), "https://islamonlive.in").href;
+  const shareUrl = siteUrl(canonical);
+  const body = renderContent(post.content.rendered);
+
+  /* Yoast already computed a full JSON-LD graph for this article — Article,
+     WebPage, ImageObject, BreadcrumbList, WebSite, Organization, Person — so it
+     is republished with the hosts corrected rather than rebuilt from scratch.
+     The hand-built graph is the fallback for a post the plugin has no head for. */
+  const crumbs = postCategories(post);
+  const modified = modifiedIso(post);
+  const jsonLd =
+    seoSchema(post.yoast_head_json, { modified }) ??
+    graph(
+      articleSchema({
+        url: siteUrl(canonical),
+        headline: stripHtml(post.title.rendered),
+        description: stripHtml(post.excerpt.rendered).slice(0, 200),
+        image: img?.url ?? null,
+        datePublished: post.date,
+        dateModified: modified,
+        authorName: authorName(post) || undefined,
+        authorPath: author(post)?.slug ? `/author/${author(post)!.slug}/` : null,
+        section: cat?.name,
+        // the news desks are the ones Google News actually crawls
+        isNews: crumbs.some((c) => c.slug === "news" || c.slug.endsWith("-news")),
+      }),
+      breadcrumbSchema(
+        [
+          { name: "Home", path: "/" },
+          ...crumbs.slice(0, 2).map((c) => ({ name: c.name, path: `/category/${c.slug}/` })),
+          { name: stripHtml(post.title.rendered) },
+        ],
+        siteUrl(canonical)
+      ),
+      ...siteNodes()
+    );
+
+  /* "Updated" only when the edit is a real one — WP bumps `modified` for a
+     re-save of an unchanged post, so anything inside the first day of
+     publication is noise. Both stamps are WP-local, so the comparison holds. */
+  const updated =
+    post.modified && new Date(post.modified).getTime() - new Date(post.date).getTime() >= 86_400_000 ? post.modified : null;
+
+  /* The visible trail for the same list Yoast's BreadcrumbList carries: readers
+     see where the article sits, crawlers get a crawl path up to the archive.
+     The head-of-page position is the one Google reads breadcrumbs from. */
+  const breadcrumb = (
+    <nav aria-label="Breadcrumb" className="mb-3 hidden text-xs text-zinc-500 sm:block print:hidden">
+      <ol className="flex flex-wrap items-center">
+        <li>
+          <Link href="/" className="hover:text-purple-800">Home</Link>
+        </li>
+        {crumbs.slice(0, 2).map((c) => (
+          <li key={c.slug} className="flex items-center">
+            <span className="px-1.5" aria-hidden>/</span>
+            <Link href={`/category/${c.slug}/`} className="hover:text-purple-800">{c.name}</Link>
+          </li>
+        ))}
+        <li className="flex min-w-0 items-center">
+          <span className="px-1.5" aria-hidden>/</span>
+          <span className="truncate text-zinc-700" aria-current="page">{stripHtml(post.title.rendered)}</span>
+        </li>
+      </ol>
+    </nav>
+  );
 
   // one record for the bookmark button, the reader history and the share card —
   // everything they need is already on the post, so none of them costs a fetch
@@ -66,7 +193,14 @@ export default async function PostPage({ params }: { params: Params }) {
   // infographics get the live-site split layout: content column + sticky banner
   const isInfographic = post._embedded?.["wp:term"]?.flat().some((t) => t.taxonomy === "category" && t.slug === "infographics") ?? false;
 
-  const tracker = <ReadTracker item={record} />;
+  // both layouts below render `tracker`, so the structured data rides along with
+  // it and neither branch can ship without it
+  const tracker = (
+    <>
+      <ReadTracker item={record} />
+      <JsonLd data={jsonLd} />
+    </>
+  );
   const actions = (
     <>
       <SaveButton item={record} />
@@ -90,11 +224,13 @@ export default async function PostPage({ params }: { params: Params }) {
         {/* min-w-0: WP figures carry inline width:750px — without it the grid track
             grows to fit and the whole page overflows the phone viewport */}
         <div className="sticky top-2 hidden min-w-0 sm:block lg:top-24">
+          {breadcrumb}
           {cat && <span className="mb-3 pill inline-flex items-center justify-center rounded bg-purple-800 px-2 py-1 text-[10px] font-semibold text-white sm:mb-4 sm:px-3 sm:py-1.5 sm:text-xs">{cat.name}</span>}
           <h1 className="border-b-2 border-purple-800 pb-3 text-base font-extrabold leading-snug sm:pb-4 sm:text-2xl lg:text-3xl" dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-zinc-600 sm:mt-4 sm:gap-3 sm:text-sm">
             <AuthorName post={post} />
-            <time className="border-l border-zinc-300 pl-3">{formatDate(post.date)}</time>
+            <time dateTime={post.date} className="border-l border-zinc-300 pl-3">{formatDate(post.date)}</time>
+            {updated && <span className="text-zinc-400">Updated <time dateTime={updated}>{formatDate(updated)}</time></span>}
             <span className="ml-auto flex items-center gap-2">{actions}</span>
           </div>
           {img && (
@@ -116,7 +252,7 @@ export default async function PostPage({ params }: { params: Params }) {
              column's width, so without it the block only shifted left instead of
              growing. Text keeps the wider gutter. */
           className="reader-body prose prose-zinc min-w-0 max-w-none leading-relaxed prose-a:text-purple-800 prose-img:rounded-lg break-words sm:text-base [&_*]:max-w-full [&_img]:h-auto [&_iframe]:aspect-video [&_iframe]:h-auto [&_iframe]:w-full [&_table]:block [&_table]:overflow-x-auto max-sm:[&_figure]:-mx-2 max-sm:[&_figure]:my-0 max-sm:[&_figure]:max-w-none max-sm:[&_img]:my-1 max-sm:[&_p:has(img)]:-mx-2 max-sm:[&_p:has(img)]:my-0 max-sm:[&_p:has(img)]:max-w-none"
-          dangerouslySetInnerHTML={{ __html: post.content.rendered }}
+          dangerouslySetInnerHTML={{ __html: body }}
         />
       </div>
     );
@@ -137,6 +273,7 @@ export default async function PostPage({ params }: { params: Params }) {
         white card with its shadow comes back from sm up. */}
     <article className="sm:rounded-2xl sm:bg-white sm:p-8 sm:shadow-[0_4px_24px_rgba(0,0,0,0.08)] lg:p-10">
       {tracker}
+      {breadcrumb}
       {cat && <span className="mb-3 pill inline-flex items-center justify-center rounded bg-purple-800 px-3 py-1.5 text-xs font-semibold text-white">{cat.name}</span>}
       <h1 className="text-[22px] font-extrabold leading-snug [overflow-wrap:anywhere] sm:text-3xl" dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
       {/* phones: author · date wrap onto as many lines as they need, the action
@@ -149,7 +286,12 @@ export default async function PostPage({ params }: { params: Params }) {
               <span aria-hidden>·</span>
             </>
           )}
-          <time className="shrink-0 whitespace-nowrap">{formatDate(post.date)}</time>
+          <time dateTime={post.date} className="shrink-0 whitespace-nowrap">{formatDate(post.date)}</time>
+          {updated && (
+            <span className="shrink-0 whitespace-nowrap text-zinc-400">
+              · Updated <time dateTime={updated}>{formatDate(updated)}</time>
+            </span>
+          )}
         </span>
         <span className="flex flex-wrap items-center gap-2 sm:ml-auto">{actions}</span>
       </div>
@@ -160,11 +302,11 @@ export default async function PostPage({ params }: { params: Params }) {
       )}
       <div
         className="reader-body prose prose-zinc mt-5 max-w-none leading-relaxed sm:mt-6 sm:text-justify sm:hyphens-auto prose-headings:text-left prose-headings:leading-snug prose-p:leading-relaxed prose-a:text-purple-800 prose-img:mx-auto prose-img:rounded-lg [&_iframe]:aspect-video [&_iframe]:h-auto [&_iframe]:w-full break-words [overflow-wrap:anywhere] [&_*]:max-w-full [&_img]:h-auto [&_table]:block [&_table]:overflow-x-auto"
-        dangerouslySetInnerHTML={{ __html: post.content.rendered }}
+        dangerouslySetInnerHTML={{ __html: body }}
       />
 
       {a && (
-        <div className="mt-8 flex items-center gap-4 rounded-xl border border-zinc-200 bg-white p-4 sm:mt-10 sm:p-5 print:hidden">
+        <div className="mt-8 flex items-start gap-4 rounded-xl border border-zinc-200 bg-white p-4 sm:mt-10 sm:p-5 print:hidden">
           {a.avatar ? (
             <Image src={a.avatar} alt="" width={72} height={72} unoptimized className="h-16 w-16 shrink-0 rounded-full object-cover ring-1 ring-black/10" />
           ) : (
@@ -176,12 +318,13 @@ export default async function PostPage({ params }: { params: Params }) {
           )}
           <div className="min-w-0">
             {a.slug ? (
-              <Link href={`/author/${a.slug}`} className="text-lg font-bold text-zinc-800 [overflow-wrap:anywhere] hover:text-[#31094C] hover:underline">{a.name}</Link>
+              <Link href={`/author/${a.slug}/`} className="block text-lg font-bold text-zinc-800 [overflow-wrap:anywhere] hover:text-[#31094C] hover:underline">{a.name}</Link>
             ) : (
               <p className="text-lg font-bold text-zinc-800 [overflow-wrap:anywhere]">{a.name}</p>
             )}
+            {a.bio && <p className="mt-1 line-clamp-3 text-sm leading-relaxed text-zinc-600">{a.bio}</p>}
             {a.slug && (
-              <Link href={`/author/${a.slug}`} className="pill mt-2 inline-block rounded bg-purple-800 px-4 py-2 text-xs font-semibold text-white hover:bg-purple-700">
+              <Link href={`/author/${a.slug}/`} className="pill mt-2 inline-block rounded bg-purple-800 px-4 py-2 text-xs font-semibold text-white hover:bg-purple-700">
                 View Other Articles
               </Link>
             )}
@@ -194,7 +337,7 @@ export default async function PostPage({ params }: { params: Params }) {
       <section className="mt-10 print:hidden">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-extrabold text-zinc-900">Related Articles</h2>
-          {cat && <Link href={`/category/${cat.slug}`} className="text-sm font-semibold text-purple-800 hover:underline">See all →</Link>}
+          {cat && <Link href={`/category/${cat.slug}/`} className="text-sm font-semibold text-purple-800 hover:underline">See all →</Link>}
         </div>
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {related.map((p) => <PostCard key={p.id} post={p} />)}

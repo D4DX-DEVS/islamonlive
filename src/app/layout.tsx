@@ -8,6 +8,7 @@ import MobileTabBar from "@/components/MobileTabBar";
 import PwaSetup from "@/components/PwaSetup";
 import ReadingPrefsSetup from "@/components/ReadingPrefsSetup";
 import { getPosts, featuredImage, postPath, primaryCategory, formatDate } from "@/lib/wordpress";
+import { SITE_URL } from "@/lib/env";
 
 // which categories feed each nav item's hover preview
 const NAV_PREVIEW: Record<string, number[]> = {
@@ -39,16 +40,32 @@ const notoMalayalam = Noto_Sans_Malayalam({ subsets: ["malayalam", "latin"], var
 const anekMalayalam = Anek_Malayalam({ subsets: ["malayalam", "latin"], variable: "--font-anek-ml", display: "swap" });
 // the two extra faces /settings offers for the article body. They are only ever
 // applied through --read-font, so nothing outside a post can pull them in
-const serifMalayalam = Noto_Serif_Malayalam({ subsets: ["malayalam", "latin"], variable: "--font-serif-ml", display: "swap" });
-const manjari = Manjari({ subsets: ["malayalam", "latin"], weight: ["400", "700"], variable: "--font-manjari", display: "swap" });
+const serifMalayalam = Noto_Serif_Malayalam({ subsets: ["malayalam", "latin"], variable: "--font-serif-ml", display: "swap", preload: false });
+const manjari = Manjari({ subsets: ["malayalam", "latin"], weight: ["400", "700"], variable: "--font-manjari", display: "swap", preload: false });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://islamonlive.in"),
+  // every relative URL in a child page's metadata resolves against this, so it
+  // has to be the public site and never the WordPress backend
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "Islamonlive.in | The one and only Comprehensive Islamic portal in Malayalam",
     template: "%s | Islamonlive.in",
   },
   description: "Comprehensive Islamic portal in Malayalam - news, opinion, columns, Shariah, Quran and more.",
+  /* Site-wide social defaults. Pages with a WordPress twin replace these
+     wholesale through seoMetadata(); the hand-built pages (home, listen,
+     reels, search, the 404) inherit them, so a share of any URL on the
+     site carries a title, a description and an image. */
+  openGraph: {
+    type: "website",
+    siteName: "Islamonlive.in",
+    locale: "ml_IN",
+    url: "/",
+    title: "Islamonlive.in | The one and only Comprehensive Islamic portal in Malayalam",
+    description: "Comprehensive Islamic portal in Malayalam - news, opinion, columns, Shariah, Quran and more.",
+    images: [{ url: "/icon-512.png", width: 512, height: 512, type: "image/png" }],
+  },
+  twitter: { card: "summary_large_image", title: "Islamonlive.in", description: "Comprehensive Islamic portal in Malayalam - news, opinion, columns, Shariah, Quran and more.", images: ["/icon-512.png"] },
   appleWebApp: { capable: true, statusBarStyle: "default", title: "Islamonlive" },
   icons: { icon: "/icon-192.png", apple: "/icon-192.png" },
 };
@@ -69,6 +86,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="ml">
       <body className={`${notoMalayalam.variable} ${anekMalayalam.variable} ${serifMalayalam.variable} ${manjari.variable} bg-zinc-50 font-sans text-zinc-900 antialiased flex min-h-dvh flex-col`}>
+        {/* feed autodiscovery — WordPress printed this in <head>; React hoists it there from here */}
+        <link rel="alternate" type="application/rss+xml" title="Islamonlive.in" href={`${SITE_URL}/feed/`} />
         <Header previews={previews} />
         {/* paper masthead — the on-screen <header> is display:none when printing */}
         <div className="hidden print:block print:border-b print:border-zinc-400 print:pb-3 print:text-center">

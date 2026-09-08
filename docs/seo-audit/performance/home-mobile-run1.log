@@ -1,0 +1,22 @@
+node:fs:1952
+  binding.unlink(getValidatedPath(path));
+          ^
+
+Error: EBUSY: resource busy or locked, unlink 'C:\Users\moham\AppData\Local\Temp\lighthouse.34847941\Default\Account Web Data'
+    at unlinkSync (node:fs:1952:11)
+    at _unlinkSync (node:internal/fs/rimraf:215:14)
+    at rimrafSync (node:internal/fs/rimraf:196:7)
+    at node:internal/fs/rimraf:254:9
+    at Array.forEach (<anonymous>)
+    at _rmdirSync (node:internal/fs/rimraf:251:7)
+    at rimrafSync (node:internal/fs/rimraf:194:7)
+    at node:internal/fs/rimraf:254:9
+    at Array.forEach (<anonymous>)
+    at _rmdirSync (node:internal/fs/rimraf:251:7) {
+  errno: -4082,
+  code: 'EBUSY',
+  syscall: 'unlink',
+  path: 'C:\\Users\\moham\\AppData\\Local\\Temp\\lighthouse.34847941\\Default\\Account Web Data'
+}
+
+Node.js v22.20.0

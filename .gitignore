@@ -14,8 +14,11 @@
 /coverage
 
 # next.js
-/.next/
-/.next-prod/
+# any .next* build dir, not just the two we happen to use today: Tailwind v4
+# discovers its own content and skips whatever git ignores, so an un-ignored
+# build directory gets scanned as source and mangled class names out of the
+# compiled chunks reach globals.css ("Unexpected token Delim").
+/.next*/
 /out/
 
 # production
@@ -33,6 +36,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel

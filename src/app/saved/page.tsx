@@ -84,7 +84,7 @@ function Card({
           {item.img && <Image src={item.img} alt="" fill sizes="80px" className="object-cover transition duration-500 group-hover:scale-105" />}
         </span>
         <span className="min-w-0 flex-1 pr-7">
-          <span className="line-clamp-2 block text-[15px] font-bold leading-snug text-zinc-900 [overflow-wrap:anywhere] group-hover:text-[#31094C]">{item.title}</span>
+          <span className="line-clamp-2 text-[15px] font-bold leading-snug text-zinc-900 [overflow-wrap:anywhere] group-hover:text-[#31094C]">{item.title}</span>
           <span className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-zinc-500">
             {item.category && <span className="pill font-bold uppercase tracking-wide text-[#693FE2]">{item.category}</span>}
             {item.category && <span aria-hidden>·</span>}

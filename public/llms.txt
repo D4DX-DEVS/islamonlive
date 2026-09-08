@@ -1,0 +1,31 @@
+# Islamonlive.in
+
+> The one and only comprehensive Islamic portal in Malayalam: news, opinion, columns, Shariah, Quran, culture and current affairs, published since 18 June 2012 from Kozhikode, Kerala, India, under D4 Media.
+
+Google Search ignores this file (Search Central, 2026-06-29); it is published for other AI systems that read it. Crawling policy for everyone is in /robots.txt: search=yes, ai-train=no.
+
+## Main sections
+
+- [Home](https://islamonlive.in/): the latest Islamic news, opinion and columns in Malayalam
+- [News](https://islamonlive.in/category/news/): current affairs
+- [Opinion](https://islamonlive.in/category/opinion/): analysis and commentary
+- [Shariah](https://islamonlive.in/category/shariah/): Islamic jurisprudence, Quran and Hadith studies
+- [Culture](https://islamonlive.in/category/culture/): Islamic history, art and civilisation
+- [Columns](https://islamonlive.in/category/columns/): regular columnists
+- [Authors](https://islamonlive.in/authors-list/): every writer published on the portal
+- [About](https://islamonlive.in/about/): the editorial team and the portal's history
+- [Contact](https://islamonlive.in/contact/): editorial contact and article submissions
+
+## Machine-readable resources
+
+- [Sitemap index](https://islamonlive.in/sitemap_index.xml)
+- [Google News sitemap](https://islamonlive.in/news-sitemap.xml): articles from the last 48 hours
+- [RSS feed](https://islamonlive.in/feed/)
+
+## Key facts
+
+- Founded 18 June 2012 in Kozhikode, Kerala, India; published under D4 Media
+- Language: Malayalam (ml)
+- Editorial contact: editor@islamonlive.in
+- Office: Hira Centre, Mavoor Road, Kozhikode, Kerala, India, 673004
+- Official channels: https://www.facebook.com/islamonlive, https://x.com/islamonlive, https://www.youtube.com/@IslamOnlivePortal, https://www.instagram.com/islam.onlive/

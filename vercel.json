@@ -6,15 +6,16 @@
   ],
   "env": {
     "NEXT_PUBLIC_WORDPRESS_URL": "https://islamonlive.in",
-    "NEXT_PUBLIC_ONESIGNAL_APP_ID": "130497ac-7891-4ccb-8b8b-702a90604b98"
+    "NEXT_PUBLIC_ONESIGNAL_APP_ID": "130497ac-7891-4ccb-8b8b-702a90604b98",
+    "NEXT_PUBLIC_SITE_URL": "https://islamonlive.in"
   },
   "crons": [
     {
-      "path": "/api/notify",
+      "path": "/api/notify/",
       "schedule": "0 4 * * *"
     },
     {
-      "path": "/api/reminder",
+      "path": "/api/reminder/",
       "schedule": "0 1 * * *"
     }
   ]

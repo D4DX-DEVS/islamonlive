@@ -5,7 +5,7 @@ import { getReels } from "@/lib/instagram";
 import { getShorts } from "@/lib/youtube";
 
 export const revalidate = 1800;
-export const metadata = { title: "Reels" };
+export const metadata = { title: "Reels", alternates: { canonical: "/reels/" } };
 
 const PER_PAGE = 24;
 

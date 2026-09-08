@@ -2,12 +2,24 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getStaticPage } from "@/lib/wpPage";
 import { stripHtml } from "@/lib/wordpress";
+import { trimDescription } from "@/lib/seo";
+import { siteUrl } from "@/lib/env";
+import { breadcrumbSchema, graph, ORG_ID, siteNodes, webPageSchema } from "@/lib/schema";
+import JsonLd from "@/components/JsonLd";
 
 export const revalidate = 3600;
 
 export async function generateMetadata() {
   const page = await getStaticPage("about");
-  return page ? { title: stripHtml(page.title) } : {};
+  if (!page) return {};
+  // self-canonical: /about/ is served by this page, not the [category] WP route;
+  // the description is the page's own opening, not the site-wide default
+  const opening = page.paragraphs.find((p) => !EDITORIAL.test(p));
+  return {
+    title: stripHtml(page.title),
+    description: trimDescription(opening ? stripHtml(opening) : undefined) ?? "Who runs Islamonlive.in, the Malayalam Islamic portal, and how to reach the editorial desk.",
+    alternates: { canonical: "/about/" },
+  };
 }
 
 // the masthead block: chief editor / editor / layout & design. Anything else the
@@ -20,9 +32,17 @@ export default async function AboutPage() {
 
   const editorial = page.paragraphs.filter((p) => EDITORIAL.test(p));
   const body = page.paragraphs.filter((p) => !EDITORIAL.test(p));
+  const url = siteUrl("/about/");
 
   return (
     <div className="mx-auto max-w-5xl">
+      <JsonLd
+        data={graph(
+          webPageSchema(url, stripHtml(page.title), { type: "AboutPage", description: stripHtml(body[0] ?? "").slice(0, 200), mainEntity: { "@id": ORG_ID } }),
+          breadcrumbSchema([{ name: "Home", path: "/" }, { name: "About Us" }], url),
+          ...siteNodes()
+        )}
+      />
       <nav className="mb-3 hidden text-xs text-zinc-500 sm:block">
         <Link href="/" className="hover:text-purple-800">Home</Link>
         <span className="px-1.5">/</span>

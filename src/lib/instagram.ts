@@ -1,7 +1,14 @@
+import { WP_URL } from "@/lib/env";
+
 // Real reels come from Instagram (islam.onlive). Instagram blocks anonymous API access,
 // but the WordPress homepage server-renders the Smash Balloon feed with reel links +
 // signed CDN thumbnails - so we parse them from there. WP refreshes the signed URLs.
 // Batches past the first 10 come from Smash Balloon's own load-more AJAX endpoint.
+//
+// Every fetch below targets WP_URL — the CMS — and not the public site. The
+// Smash Balloon plugin and its admin-ajax endpoint only exist on WordPress; once
+// Next.js owns islamonlive.in, pointing these at the apex would have the app
+// scraping its own output.
 export interface Reel {
   id: string;
   url: string;
@@ -79,7 +86,7 @@ async function loadMore(offset: number, fresh = false): Promise<string> {
   const hit = pageCache.get(offset);
   if (!fresh && hit && Date.now() - hit.at < PAGE_TTL) return hit.html;
 
-  const res = await fetch("https://islamonlive.in/wp-admin/admin-ajax.php", {
+  const res = await fetch(`${WP_URL}/wp-admin/admin-ajax.php`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -120,7 +127,7 @@ export async function getReels(limit = 8): Promise<Reel[]> {
   // fine; its videos will mostly 403, and the player falls back to Instagram's
   // own embed for those.
   if (!out.length) {
-    const res = await fetch("https://islamonlive.in/", { next: { revalidate: 1800 } }).catch(() => null);
+    const res = await fetch(`${WP_URL}/`, { next: { revalidate: 1800 } }).catch(() => null);
     if (res?.ok) parseReels(await res.text(), out, seen, limit);
   }
 

@@ -13,8 +13,20 @@ import { getVideos, getShorts } from "@/lib/youtube";
 import { getReels } from "@/lib/instagram";
 import { getEpisodes } from "@/lib/podcast";
 import { getHomeBanners } from "@/lib/banners";
+import { graph, organizationSchema, websiteSchema } from "@/lib/schema";
+import JsonLd from "@/components/JsonLd";
 
 export const revalidate = 60;
+
+/* Self-referencing canonical on the front page.
+
+   It matters more here than it looks: next.config folds WordPress's old
+   /page/2/ archive URLs onto /?page=N so they cannot 404, and this magazine
+   layout renders the same front page for all of them. Pinning the canonical to
+   "/" tells Google those are one page, not a series of near-duplicates. */
+export const metadata = {
+  alternates: { canonical: "/" },
+};
 
 // posts each hero source contributes: 3 Opinion + 3 Shari'ah in the big slider,
 // 3 Columns and 3 Culture in the two cards beside it
@@ -197,6 +209,16 @@ export default async function Home() {
 
   return (
     <div className="space-y-8 sm:space-y-12">
+      {/* Organization, WebSite and the SearchAction that earns a sitelinks
+          search box, declared once on the front page. Article pages carry their
+          own copies inside Yoast's graph, so repeating them in the layout would
+          only duplicate the nodes on every route. */}
+      <JsonLd data={graph(websiteSchema(), organizationSchema())} />
+      {/* The page's one h1 is the site itself, for screen readers and crawlers;
+          the top story in the slider is an h2 like every other section head.
+          With the story as h1 the front page's heading changed on every
+          rotation, and the outline read as an article rather than a portal. */}
+      <h1 className="sr-only">Islamonlive.in — Comprehensive Islamic portal in Malayalam</h1>
       {/* 1. Hero: big slider + 2 stacked overlay cards. The live site splits the
           row 887/500 with a 37px gutter — 1.77fr / 1fr, gap-9. The side cards take
           their height from the row (lg:aspect-auto), so both columns end level. */}

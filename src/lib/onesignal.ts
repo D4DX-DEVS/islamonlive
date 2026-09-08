@@ -1,3 +1,4 @@
+import { SITE_URL } from "@/lib/env";
 import { createHash } from "node:crypto";
 import type { NextRequest } from "next/server";
 
@@ -12,7 +13,11 @@ const SECRET = process.env.NOTIFY_SECRET ?? "";
 // it keeps NOTIFY_SECRET out of vercel.json, which is committed.
 const CRON_SECRET = process.env.CRON_SECRET ?? "";
 
-export const SITE = "https://islamonlive.in";
+/* from lib/env so push payloads link wherever the site is actually deployed
+   (production, staging) rather than at a baked-in host. Re-exported as SITE
+   because callers already import that name; a bare `export ... from` would not
+   create the local binding this module uses further down. */
+export const SITE = SITE_URL;
 
 // new OneSignal apps call the everyone-segment "Total Subscriptions"; apps created
 // before the rename still answer to "Subscribed Users" — try both before failing

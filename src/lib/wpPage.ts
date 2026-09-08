@@ -1,4 +1,6 @@
-import { getPageBySlug, stripHtml } from "@/lib/wordpress";
+import { getPageBySlug, stripHtml, type WPPage } from "@/lib/wordpress";
+import { renderContent } from "@/lib/content";
+import { toSitePath } from "@/lib/urls";
 
 /* The WP static pages (about, contact, privacy-policy, ...) are Elementor
    documents: nested container divs, a breadcrumbs widget and — on Contact — a
@@ -52,6 +54,11 @@ export interface StaticPage {
   title: string;
   paragraphs: string[];
   html: string;
+  /** the page's own path on this site — its canonical */
+  path: string;
+  modified?: string;
+  /** Yoast's head for this page, when the plugin has one */
+  seo?: WPPage["yoast_head_json"];
 }
 
 export async function getStaticPage(slug: string): Promise<StaticPage | null> {
@@ -60,6 +67,11 @@ export async function getStaticPage(slug: string): Promise<StaticPage | null> {
   return {
     title: page.title.rendered,
     paragraphs: pageParagraphs(page.content.rendered),
-    html: cleanPageHtml(page.content.rendered, page.title.rendered),
+    // renderContent moves the hosts and strips scripts; cleanPageHtml then takes
+    // out the Elementor scaffolding this site has no theme to style
+    html: cleanPageHtml(renderContent(page.content.rendered), page.title.rendered),
+    path: page.link ? toSitePath(page.link) : `/${slug}/`,
+    modified: page.modified,
+    seo: page.yoast_head_json,
   };
 }

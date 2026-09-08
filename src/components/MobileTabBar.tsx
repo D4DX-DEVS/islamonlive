@@ -65,7 +65,7 @@ const TABS: Tab[] = [
     match: ["/watch-videos"],
     children: [
       { label: "Reels", href: "/reels", hint: "Short vertical clips" },
-      { label: "Video", href: "/watch-videos", hint: "Full episodes and talks" },
+      { label: "Videos", href: "/watch-videos", hint: "Full episodes and talks" },
     ],
     icon: (
       <>

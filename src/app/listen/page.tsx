@@ -2,7 +2,7 @@ import PodcastPlayer from "@/components/PodcastPlayer";
 import { getEpisodes } from "@/lib/podcast";
 
 export const revalidate = 1800;
-export const metadata = { title: "Listen" };
+export const metadata = { title: "Listen", alternates: { canonical: "/listen/" } };
 
 // the same show the Anchor RSS in lib/podcast.ts comes from, resolved once from
 // podcasters.spotify.com/pod/show/islamonlive

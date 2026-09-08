@@ -63,7 +63,7 @@ const NAV: NavItem[] = [
   {
     label: "Watch", href: "#", children: [
       {
-        label: "Video", href: "/watch-videos", hint: "Full episodes and talks",
+        label: "Videos", href: "/watch-videos", hint: "Full episodes and talks",
         icon: (
           <>
             <rect x="2.5" y="5.5" width="19" height="13" rx="4" />
@@ -274,7 +274,7 @@ function SavedLink({ className, badgeClass }: { className: string; badgeClass: s
     <Link href="/saved" prefetch aria-label={count ? `My Library (${count} bookmarks)` : "My Library"} className={`relative ${className}`}>
       <BookmarkIcon className="h-5 w-5" />
       {count > 0 && (
-        <span className={`pill absolute -right-2 -top-1.5 min-w-4 rounded-full px-1 text-center text-[10px] font-bold leading-4 ${badgeClass}`}>
+        <span className={`pill absolute -right-1.5 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none tabular-nums ${badgeClass}`}>
           {count > 99 ? "99+" : count}
         </span>
       )}
