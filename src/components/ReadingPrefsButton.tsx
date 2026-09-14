@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useBackDismiss } from "@/lib/useBackDismiss";
-import { FONTS, TEXT_SIZES, TEXT_SIZE_LABELS, setReadingPrefs, useReadingPrefs, type FontKey } from "@/lib/reader";
+import { FONTS, setReadingPrefs, useReadingPrefs, type FontKey } from "@/lib/reader";
+import TextSizePicker from "@/components/TextSizePicker";
 
 /* "Aa" button in the article's action row: a quick sheet for text size and
    font, so the reader doesn't have to leave the page for /settings. Same store
-   as the settings page — whatever is picked here shows there too. */
+   as the settings page — and, since TextSizePicker, the same three named sizes,
+   so "Large" here is the "Large" shown there. */
 export default function ReadingPrefsButton({ className = "" }: { className?: string }) {
   const [open, setOpen] = useState(false);
   const prefs = useReadingPrefs();
@@ -21,8 +23,6 @@ export default function ReadingPrefsButton({ className = "" }: { className?: str
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [open]);
-
-  const step = (d: number) => setReadingPrefs({ size: Math.max(0, Math.min(TEXT_SIZES.length - 1, prefs.size + d)) });
 
   return (
     <>
@@ -56,27 +56,7 @@ export default function ReadingPrefsButton({ className = "" }: { className?: str
               </div>
 
               <p className="mt-4 text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">Text size</p>
-              <div className="mt-2 flex items-center gap-2 rounded-2xl bg-zinc-100 p-1.5">
-                <button
-                  type="button"
-                  onClick={() => step(-1)}
-                  disabled={prefs.size === 0}
-                  aria-label="Smaller text"
-                  className="flex h-11 w-14 items-center justify-center rounded-xl bg-white text-sm font-bold text-zinc-800 shadow-sm transition active:scale-95 disabled:opacity-40"
-                >
-                  A<span className="text-[10px]">−</span>
-                </button>
-                <span className="flex-1 text-center text-sm font-semibold text-zinc-700">{TEXT_SIZE_LABELS[prefs.size]}</span>
-                <button
-                  type="button"
-                  onClick={() => step(1)}
-                  disabled={prefs.size === TEXT_SIZES.length - 1}
-                  aria-label="Larger text"
-                  className="flex h-11 w-14 items-center justify-center rounded-xl bg-white text-lg font-bold text-zinc-800 shadow-sm transition active:scale-95 disabled:opacity-40"
-                >
-                  A<span className="text-xs">+</span>
-                </button>
-              </div>
+              <TextSizePicker className="mt-2" />
 
               <p className="mt-4 text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">Font</p>
               <div className="mt-2 grid grid-cols-2 gap-2">

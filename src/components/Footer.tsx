@@ -24,7 +24,7 @@ export default function Footer() {
             <li><Link href="/contact" className="hover:text-white">Contact Us</Link></li>
             <li><Link href="/privacy-policy" className="hover:text-white">Privacy Policy</Link></li>
             <li><Link href="/terms-of-use" className="hover:text-white">Terms of Use</Link></li>
-            <li><a href="https://rzp.io/rzp/5bOM6U7A" target="_blank" rel="noopener noreferrer" className="hover:text-white">Support Us</a></li>
+            <li><Link href="/support-us" className="hover:text-white">Support Us</Link></li>
           </ul>
         </div>
         <div className="hidden md:block">

@@ -79,8 +79,18 @@ export const FONTS: { key: FontKey; label: string; var: string }[] = [
 /** article body scale — index into this, so the stored value survives retuning */
 export const TEXT_SIZES = ["0.95rem", "1.05rem", "1.15rem", "1.25rem", "1.4rem", "1.55rem", "1.7rem"];
 
-/** the names a phone's own Display settings would give those steps */
-export const TEXT_SIZE_LABELS = ["Small", "Default", "Medium", "Large", "Extra large", "Huge", "Maximum"];
+/** The three steps a reader is actually offered, each standing for a band of the
+    stored indices above. Seven named steps and three named steps were on offer
+    in two different places and disagreed with each other; this is the one
+    vocabulary now — see components/TextSizePicker.
+
+    The wider range stays in TEXT_SIZES so a size stored before this still reads
+    back as the band it belongs to. */
+export const SIZE_BANDS: { label: string; set: number; from: number; to: number }[] = [
+  { label: "Small", set: 1, from: 0, to: 1 },
+  { label: "Medium", set: 3, from: 2, to: 3 },
+  { label: "Large", set: 5, from: 4, to: TEXT_SIZES.length - 1 },
+];
 
 export interface ReadingPrefs {
   /** index into TEXT_SIZES */

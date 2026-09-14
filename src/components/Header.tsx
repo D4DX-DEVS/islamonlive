@@ -156,7 +156,10 @@ const DRAWER: (NavItem & { icon: ReactNode })[] = [
   },
 ];
 
-const SUPPORT_HREF = "https://rzp.io/rzp/5bOM6U7A";
+/* the site's own page now, not the payment link straight off the header: it
+   carries the Razorpay button alongside the UPI QR and the bank transfer
+   details, so a reader who doesn't want a card still has a way to give */
+const SUPPORT_HREF = "/support-us";
 
 /* the "this opens a menu" caret on a nav item. The text glyph it replaces drew
    at roughly six pixels in the fallback face — barely visible against the
@@ -529,14 +532,13 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
           <Link href="/search" prefetch aria-label="Search" className="hidden text-zinc-700 hover:text-[#31094C] md:block">
             <SearchIcon className="h-5 w-5" />
           </Link>
-          <a
-            href="https://rzp.io/rzp/5bOM6U7A"
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href={SUPPORT_HREF}
+            prefetch
             className="pill hidden whitespace-nowrap rounded-full bg-[#693FE2] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#5a34c7] md:inline-block"
           >
             Support Us
-          </a>
+          </Link>
         </div>
       </div>
 
@@ -572,14 +574,13 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
               <SearchIcon className="h-5 w-5" />
             </Link>
             {/* lg only: at 768 the pill would run into the centred nav */}
-            <a
-              href="https://rzp.io/rzp/5bOM6U7A"
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              href={SUPPORT_HREF}
+              prefetch
               className="pill hidden whitespace-nowrap rounded-full bg-[#693FE2] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#5a34c7] lg:inline-block"
             >
               Support Us
-            </a>
+            </Link>
           </div>
         </div>
 
@@ -730,27 +731,27 @@ export default function Header({ previews = {} }: { previews?: Record<string, Na
                 a taller bar */}
             <div className="max-h-[calc(100dvh-8.5rem)] overflow-y-auto overscroll-contain rounded-[26px] bg-[#31094C] p-2 shadow-[0_22px_45px_-12px_rgba(10,1,18,0.7)] ring-1 ring-white/10">
               <p className="pill px-3 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">More</p>
-              {DRAWER.map((item, i) => (
-                <DrawerRow key={item.label} item={item} index={i} onNavigate={() => setMenuOpen(false)} />
-              ))}
-
-              {/* Support Us is the one thing here worth asking for, so it stops
-                  being a list row and becomes the sheet's single button */}
-              <a
+              {/* Support Us is the one thing here worth asking for, so it leads
+                  the sheet rather than trailing it, and is a button rather than
+                  one more list row */}
+              <Link
                 href={SUPPORT_HREF}
-                target="_blank"
-                rel="noopener noreferrer"
+                prefetch
                 onClick={() => setMenuOpen(false)}
-                style={{ animationDelay: `${60 + DRAWER.length * 34}ms` }}
-                className="drawer-item mt-1.5 flex min-h-12 touch-manipulation items-center justify-center gap-2 rounded-2xl bg-[#693FE2] px-4 text-[15px] font-semibold text-white shadow-lg shadow-black/25 transition active:scale-[0.98] active:bg-[#5a34c7]"
+                style={{ animationDelay: "60ms" }}
+                className="drawer-item mb-1.5 flex min-h-12 touch-manipulation items-center justify-center gap-2 rounded-2xl bg-[#693FE2] px-4 text-[15px] font-semibold text-white shadow-lg shadow-black/25 transition active:scale-[0.98] active:bg-[#5a34c7]"
               >
                 <HeartIcon className="h-4 w-4" />
                 Support Us
-              </a>
+              </Link>
+
+              {DRAWER.map((item, i) => (
+                <DrawerRow key={item.label} item={item} index={i + 1} onNavigate={() => setMenuOpen(false)} />
+              ))}
 
               {/* the live drawer carries the social row the bar has no space for */}
               <div
-                style={{ animationDelay: `${94 + DRAWER.length * 34}ms` }}
+                style={{ animationDelay: `${94 + (DRAWER.length + 1) * 34}ms` }}
                 className="drawer-item mt-1.5 rounded-2xl bg-white/[0.06] px-3 pb-2.5 pt-2"
               >
                 <p className="pill pb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">Follow us</p>

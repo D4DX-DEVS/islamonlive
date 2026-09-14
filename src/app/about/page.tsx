@@ -62,14 +62,12 @@ export default async function AboutPage() {
               <Link href="/contact" className="pill rounded-full bg-purple-800 px-4 py-2 text-xs font-semibold text-white hover:bg-purple-700">
                 Contact Us
               </Link>
-              <a
-                href="https://rzp.io/rzp/5bOM6U7A"
-                target="_blank"
-                rel="noopener noreferrer"
+              <Link
+                href="/support-us"
                 className="pill rounded-full px-4 py-2 text-xs font-semibold text-purple-800 ring-1 ring-purple-300 hover:bg-purple-50"
               >
                 Support Us
-              </a>
+              </Link>
             </div>
           </div>
         </div>

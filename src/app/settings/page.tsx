@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   FONTS,
   REMINDER_SLOTS,
-  TEXT_SIZES,
   normalizeReminderTime,
   reminderLabel,
   setReadingPrefs,
@@ -15,6 +14,7 @@ import {
 } from "@/lib/reader";
 import { disableReminder, enableReminder, notificationPermission, pushConfigured } from "@/lib/push";
 import Picker from "@/components/Picker";
+import TextSizePicker from "@/components/TextSizePicker";
 import ConfirmDialog from "@/components/ConfirmDialog";
 
 /* Laid out like a phone's own Settings app: a titled group per area, each with
@@ -133,43 +133,6 @@ function Switch({ checked, onChange, disabled, label }: { checked: boolean; onCh
     >
       <span className={`absolute top-[2px] h-[27px] w-[27px] rounded-full bg-white shadow-[0_3px_8px_rgba(0,0,0,0.15),0_1px_1px_rgba(0,0,0,0.16)] transition-all ${checked ? "left-[22px]" : "left-[2px]"}`} />
     </button>
-  );
-}
-
-/* Small / Medium / Large, the way a phone's Display settings offers it.
-
-   The reader's stored size is one of seven steps (the article's own "Aa" sheet
-   walks them one at a time), so each segment stands for a band of those steps
-   rather than a single one: whichever band the current step falls in is the
-   one lit, and tapping a segment moves to the middle of it. Nothing here can
-   show a size the reader is not actually on. */
-const SIZE_BANDS: { label: string; set: number; from: number; to: number }[] = [
-  { label: "Small", set: 1, from: 0, to: 1 },
-  { label: "Medium", set: 3, from: 2, to: 3 },
-  { label: "Large", set: 5, from: 4, to: TEXT_SIZES.length - 1 },
-];
-
-function SizeSegmented({ size, onChange }: { size: number; onChange: (n: number) => void }) {
-  return (
-    <div role="radiogroup" aria-label="Text size" className="flex gap-1 rounded-full bg-zinc-100 p-1 sm:shrink-0">
-      {SIZE_BANDS.map((b) => {
-        const on = size >= b.from && size <= b.to;
-        return (
-          <button
-            key={b.label}
-            type="button"
-            role="radio"
-            aria-checked={on}
-            onClick={() => onChange(b.set)}
-            className={`min-h-9 flex-1 touch-manipulation rounded-full px-3 text-[13px] font-semibold transition sm:min-h-8 sm:flex-none ${
-              on ? "bg-[#693FE2] text-white shadow-sm" : "text-zinc-600 hover:text-zinc-900"
-            }`}
-          >
-            {b.label}
-          </button>
-        );
-      })}
-    </div>
   );
 }
 
@@ -355,7 +318,7 @@ export default function SettingsPage() {
       <div className="space-y-7">
         <Group title="Appearance" hint="Customize how the app looks" tint="purple" icon={SUN_ICON}>
           <Row icon={ICON.textSize} label="Text size" hint="Adjust reading size" stack>
-            <SizeSegmented size={prefs.size} onChange={(n) => setReadingPrefs({ size: n })} />
+            <TextSizePicker className="sm:shrink-0" />
           </Row>
           <Row icon={ICON.font} label="Font" hint="Reading font style">
             <Picker<FontKey>
