@@ -7,6 +7,7 @@ import BackToTop from "@/components/BackToTop";
 import MobileTabBar from "@/components/MobileTabBar";
 import PwaSetup from "@/components/PwaSetup";
 import ReadingPrefsSetup from "@/components/ReadingPrefsSetup";
+import ImageRetry from "@/components/ImageRetry";
 import { getPosts, featuredImage, postPath, primaryCategory, formatDate } from "@/lib/wordpress";
 import { SITE_URL } from "@/lib/env";
 
@@ -86,6 +87,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="ml">
       <body className={`${notoMalayalam.variable} ${anekMalayalam.variable} ${serifMalayalam.variable} ${manjari.variable} bg-zinc-50 font-sans text-zinc-900 antialiased flex min-h-dvh flex-col`}>
+        {/* Every card image comes from Photon, and the first one pays for the DNS
+            lookup and TLS handshake before a byte moves — ~200ms of the ~700ms a
+            cold rendition takes. Opening that connection while the HTML is still
+            parsing takes it off the critical path. No crossOrigin: an <img> is a
+            plain no-cors request and a CORS preconnect would open the wrong
+            connection and be ignored. */}
+        <link rel="preconnect" href="https://i0.wp.com" />
+        <link rel="dns-prefetch" href="https://i0.wp.com" />
         {/* feed autodiscovery — WordPress printed this in <head>; React hoists it there from here */}
         <link rel="alternate" type="application/rss+xml" title="Islamonlive.in" href={`${SITE_URL}/feed/`} />
         <Header previews={previews} />
@@ -103,6 +112,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <BackToTop />
         <PwaSetup />
         <ReadingPrefsSetup />
+        <ImageRetry />
       </body>
     </html>
   );

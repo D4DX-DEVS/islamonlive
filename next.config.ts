@@ -49,6 +49,18 @@ const nextConfig: NextConfig = {
   experimental: { staleTimes: { dynamic: 300, static: 300 } },
 
   images: {
+    /* Photon, not Vercel's optimizer — see lib/imageLoader.ts. Vercel bills
+       optimization per source image and the archive exhausted the allowance,
+       so /_next/image began answering 402 and every uncached size rendered as
+       a broken image. A custom loader bypasses that route completely: the
+       browser fetches i0.wp.com directly. */
+    loader: "custom",
+    loaderFile: "./src/lib/imageLoader.ts",
+
+    /* Unused while the loader is custom — Next only consults remotePatterns in
+       its own optimizer — but kept as the record of which hosts may appear in
+       an <Image src>, and what the config must be if the loader is ever
+       dropped. */
     remotePatterns: [
       { protocol: "https", hostname: "islamonlive.in" },
       { protocol: "https", hostname: "*.islamonlive.in" },
@@ -59,12 +71,21 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "secure.gravatar.com" },
       { protocol: "https", hostname: "i.ytimg.com" },
     ],
-    // AVIF first: 20-30% smaller than WebP for the photographs that make up the
-    // archive; the optimizer falls back to WebP for browsers without it
-    formats: ["image/avif", "image/webp"],
-    // WP writes a new filename for every upload and size, so an optimized
-    // rendition can be cached for a month rather than re-checked every minute
-    minimumCacheTTL: 2678400,
+    /* Fewer, wider-apart breakpoints than Next's defaults (8 device widths +
+       8 image widths). Every distinct width is a separate rendition Photon has
+       to generate on first request, and it throttles bursts of *cold* ones
+       hard — a scroll that reveals a row of cards then comes back as 429s,
+       which Chrome refuses to render (ERR_BLOCKED_BY_ORB) and the card shows
+       as broken until a reload finds the rendition warm. Halving the width
+       count roughly doubles the chance any given card asks for a size the CDN
+       has already made, for the same visual result. ImageRetry.tsx covers what
+       still slips through. */
+    deviceSizes: [640, 828, 1280, 1920],
+    imageSizes: [96, 192, 384],
+
+    /* formats/minimumCacheTTL are deliberately absent: both configure the
+       built-in optimizer, which no longer runs. Photon negotiates WebP from
+       the Accept header itself and caches on its own CDN. */
   },
 
   async rewrites() {
