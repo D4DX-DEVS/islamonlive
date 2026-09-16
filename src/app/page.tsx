@@ -28,9 +28,11 @@ export const metadata = {
   alternates: { canonical: "/" },
 };
 
-// posts each hero source contributes: 3 Opinion + 3 Shari'ah in the big slider,
-// 3 Columns and 3 Culture in the two cards beside it
-const HERO_TAKE = 3;
+// posts each hero source contributes: the big slider alternates Opinion and
+// Shari'ah, so HERO_TAKE from each makes a 4-slide rotation
+const HERO_TAKE = 2;
+// the two cards beside it rotate this many Columns and this many Culture posts
+const SIDE_TAKE = 3;
 
 // WP REST `categories=` doesn't include child terms, so parent sections list
 // children explicitly — live site's queries do include them
@@ -134,19 +136,19 @@ export default async function Home() {
 
   const [latest, opinion, columns, shariah, culture, infographics, videos, reels, shorts, episodes, banners] = await Promise.all([
     getPosts({ perPage: 18 }),
-    // each fetches HERO_TAKE extra: the first 3 go into the hero, the rest feed
-    // the section further down, so no post shows up twice on the page
+    // each fetches its hero share extra: the first HERO_TAKE / SIDE_TAKE go into
+    // the hero, the rest feed the section further down, so no post shows twice
     getPosts({ perPage: 5 + HERO_TAKE, categories: CAT.opinion }),
     // Columns is the sidebar's height driver: its block has to span Watch + Listen
     // in the main column so that "Culture" below it lands level with "Opinion".
     // Featured card + 10 rows — see the column-alignment note on the grid below.
-    // 12 + the hero's 3: Columns is paired with the tall Watch + Listen cell, and
+    // 12 + the side card's 3: Columns is paired with the tall Watch + Listen cell, and
     // its rows are what keep the featured card in shape — too few and the card
     // stretches into a billboard, too many and it flattens to its min height
-    getPosts({ perPage: 12 + HERO_TAKE, categories: CAT.columns }),
+    getPosts({ perPage: 12 + SIDE_TAKE, categories: CAT.columns }),
     // Shari'ah now leads the main column, so it needs a section's worth of posts
     getPosts({ perPage: 5 + HERO_TAKE, categories: CAT.shariah }),
-    getPosts({ perPage: 5 + HERO_TAKE, categories: CAT.culture }).catch(() => []),
+    getPosts({ perPage: 5 + SIDE_TAKE, categories: CAT.culture }).catch(() => []),
     getPosts({ perPage: 6, categories: CAT.infographics }).catch(() => []),
     getVideos(5).catch(() => []),
     getReels(8).catch(() => []),
@@ -165,15 +167,15 @@ export default async function Home() {
     .map((p) => toItem(p));
   // the two cards rotate too — staggered so they don't flip together
   const sideSlides = [
-    columns.slice(0, HERO_TAKE).map((p) => toItem(p)),
-    culture.slice(0, HERO_TAKE).map((p) => toItem(p)),
+    columns.slice(0, SIDE_TAKE).map((p) => toItem(p)),
+    culture.slice(0, SIDE_TAKE).map((p) => toItem(p)),
   ];
 
   // what's left after the hero took its share — the sections below use these
   const opinionRest = opinion.slice(HERO_TAKE);
-  const columnsRest = columns.slice(HERO_TAKE);
+  const columnsRest = columns.slice(SIDE_TAKE);
   const shariahRest = shariah.slice(HERO_TAKE);
-  const cultureRest = culture.slice(HERO_TAKE);
+  const cultureRest = culture.slice(SIDE_TAKE);
 
   const [cultureSubPosts, opinionSubPosts, shariahSubPosts] = await Promise.all([cultureSubsP, opinionSubsP, shariahSubsP]);
 
