@@ -141,7 +141,12 @@ export default function HeroSlider({ slides }: { slides: Slide[] }) {
               )}
               <Link href={s.href} className="group block" tabIndex={live ? undefined : -1}>
                 <Heading
-                  className="mt-3 line-clamp-3 [overflow-wrap:anywhere] text-xl font-semibold leading-snug text-black transition-colors group-hover:text-[#31094C] sm:text-2xl lg:text-[34px] lg:leading-tight"
+                  /* font-display explicitly: globals give h1-h4 the Anek display face and
+                     everything else Noto, so the waiting plates (rendered as div) measured in
+                     a different font than the live h2 — the same headline wrapped to a
+                     different number of lines the moment a slide went live, which resized the
+                     stack and, with it, the whole hero row and the side cards beside it. */
+                  className="mt-3 line-clamp-3 font-display [overflow-wrap:anywhere] text-xl font-semibold leading-snug text-black transition-colors group-hover:text-[#31094C] sm:text-2xl lg:text-[34px] lg:leading-tight"
                   dangerouslySetInnerHTML={{ __html: s.title }}
                 />
               </Link>
