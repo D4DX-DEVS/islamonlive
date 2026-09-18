@@ -30,12 +30,14 @@ export const metadata = {
 
 // posts each hero source contributes to the row's shared pool, and how many of
 // the rest of the page's sections skip past as already shown up there
-const HERO_TAKE = 2;
+const HERO_TAKE = 3;
 const SIDE_TAKE = 3;
-// the slider and the two cards are one cycle over the same posts: this many of
-// the newest, rotating through the three slots. 4 over 3 slots means every slot
-// shows a different story at every step and the cycle closes on the fourth.
-const HERO_CYCLE = 4;
+// the slider and the two cards share one newest-first list this long, split
+// between them in date order: the big slider gets the freshest block, the top
+// card the next, the bottom card the oldest. Keep it a multiple of HERO_SLOTS
+// so each slot ends up with the same number of posts to rotate through.
+const HERO_CYCLE = 12;
+const HERO_SLOTS = 3;
 
 // WP REST `categories=` doesn't include child terms, so parent sections list
 // children explicitly — live site's queries do include them
@@ -178,11 +180,17 @@ export default async function Home() {
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, HERO_CYCLE)
     .map((p) => toItem(p));
-  const slides = cycle;
-  // each card starts one post further into the same list, and every slot runs on
-  // the slider's own 6s beat (SideSlider's default), so the posts step round the
-  // row together and no two slots ever hold the same story
-  const sideSlides = [1, 2].map((n) => [...cycle.slice(n), ...cycle.slice(0, n)]);
+  // the list is then cut into one block per slot, in date order — the slider
+  // rotates the newest block, the top card the block behind it, the bottom card
+  // the oldest. Each slot stays inside its own block, so the row reads newest
+  // (left) to oldest (bottom right) at every step and a post never crosses from
+  // one slot to another. Any slot left without posts drops out rather than
+  // rendering an empty card.
+  const per = Math.ceil(cycle.length / HERO_SLOTS) || 1;
+  const slides = cycle.slice(0, per);
+  const sideSlides = Array.from({ length: HERO_SLOTS - 1 }, (_, n) =>
+    cycle.slice((n + 1) * per, (n + 2) * per),
+  ).filter((set) => set.length > 0);
 
   // what's left after the hero took its share — the sections below use these
   const opinionRest = opinion.slice(HERO_TAKE);
@@ -243,7 +251,7 @@ export default async function Home() {
             which both have their own sections further down the page */}
         <div className="hidden min-w-0 gap-4 sm:grid sm:grid-cols-2 sm:gap-5 lg:grid-cols-1 lg:grid-rows-2">
           {sideSlides.map((set, n) => (
-            <SideSlider key={n} slides={set} className="aspect-[16/10] sm:aspect-[2/1] lg:aspect-auto" />
+            <SideSlider key={n} slides={set} interval={7000 + n * 2500} className="aspect-[16/10] sm:aspect-[2/1] lg:aspect-auto" />
           ))}
         </div>
       </section>
