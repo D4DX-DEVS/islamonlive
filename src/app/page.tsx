@@ -28,11 +28,14 @@ export const metadata = {
   alternates: { canonical: "/" },
 };
 
-// posts each hero source contributes: the big slider alternates Opinion and
-// Shari'ah, so HERO_TAKE from each makes a 4-slide rotation
+// posts each hero source contributes to the row's shared pool, and how many of
+// the rest of the page's sections skip past as already shown up there
 const HERO_TAKE = 2;
-// the two cards beside it rotate this many Columns and this many Culture posts
 const SIDE_TAKE = 3;
+// the slider and the two cards are one cycle over the same posts: this many of
+// the newest, rotating through the three slots. 4 over 3 slots means every slot
+// shows a different story at every step and the cycle closes on the fourth.
+const HERO_CYCLE = 4;
 
 // WP REST `categories=` doesn't include child terms, so parent sections list
 // children explicitly — live site's queries do include them
@@ -158,18 +161,28 @@ export default async function Home() {
     getHomeBanners().catch(() => []),
   ]);
 
-  // hero banner: the big slider carries Opinion + Shari'ah (alternating so neither
-  // section owns the top slot), the two small cards beside it carry Columns and Culture
-  const slides: Slide[] = opinion
-    .slice(0, HERO_TAKE)
-    .flatMap((p, n) => [p, shariah[n]])
-    .filter(Boolean)
+  // hero row: left slider and right cards are one merged cycle. Opinion,
+  // Shari'ah, Columns and Culture all pour into the same pool, deduped by id (a
+  // post filed under two of them would otherwise appear twice) and ordered newest
+  // first — WP `date` is ISO, so a plain string compare sorts it — then cut to
+  // the newest HERO_CYCLE. The latest post on the row leads the big slot instead
+  // of whichever section happened to own it.
+  const heroPool = [
+    ...opinion.slice(0, HERO_TAKE),
+    ...shariah.slice(0, HERO_TAKE),
+    ...columns.slice(0, SIDE_TAKE),
+    ...culture.slice(0, SIDE_TAKE),
+  ].filter(Boolean);
+  const cycle: Slide[] = heroPool
+    .filter((p, n) => heroPool.findIndex((q) => q.id === p.id) === n)
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, HERO_CYCLE)
     .map((p) => toItem(p));
-  // the two cards rotate too — staggered so they don't flip together
-  const sideSlides = [
-    columns.slice(0, SIDE_TAKE).map((p) => toItem(p)),
-    culture.slice(0, SIDE_TAKE).map((p) => toItem(p)),
-  ];
+  const slides = cycle;
+  // each card starts one post further into the same list, and every slot runs on
+  // the slider's own 6s beat (SideSlider's default), so the posts step round the
+  // row together and no two slots ever hold the same story
+  const sideSlides = [1, 2].map((n) => [...cycle.slice(n), ...cycle.slice(0, n)]);
 
   // what's left after the hero took its share — the sections below use these
   const opinionRest = opinion.slice(HERO_TAKE);
@@ -230,7 +243,7 @@ export default async function Home() {
             which both have their own sections further down the page */}
         <div className="hidden min-w-0 gap-4 sm:grid sm:grid-cols-2 sm:gap-5 lg:grid-cols-1 lg:grid-rows-2">
           {sideSlides.map((set, n) => (
-            <SideSlider key={n} slides={set} interval={7000 + n * 2500} className="aspect-[16/10] sm:aspect-[2/1] lg:aspect-auto" />
+            <SideSlider key={n} slides={set} className="aspect-[16/10] sm:aspect-[2/1] lg:aspect-auto" />
           ))}
         </div>
       </section>
