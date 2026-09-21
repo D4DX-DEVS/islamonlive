@@ -28,24 +28,53 @@ export const metadata = {
   alternates: { canonical: "/" },
 };
 
-// posts each hero source contributes to the row's shared pool, and how many of
-// the rest of the page's sections skip past as already shown up there
-const HERO_TAKE = 3;
-const SIDE_TAKE = 3;
-// the slider and the two cards share one newest-first list this long, split
-// between them in date order: the big slider gets the freshest block, the top
-// card the next, the bottom card the oldest. Keep it a multiple of HERO_SLOTS
-// so each slot ends up with the same number of posts to rotate through.
-const HERO_CYCLE = 12;
+// posts each hero source contributes to the row's shared pool. The sections
+// further down no longer skip past them: a story leading the hero also heads its
+// own section, the way the live site runs it. Hiding it below meant the newest
+// post in a section was whatever the hero had not claimed, so Shari'ah's block
+// sat two posts behind the archive and read as though it had stopped updating.
+const HERO_TAKE = 2;
+const SIDE_TAKE = 2;
+// how many posts each section renders: featured card + 4 rows for the tabbed
+// sections, featured card + 11 rows for Columns, which spans Watch + Listen in
+// the main column and needs the height. These are also the fetch sizes — the
+// hero takes its share off the top of the same lists.
+const SECTION_POSTS = 5;
+const COLUMNS_POSTS = 12;
+/* Editor's Picks is a real editorial signal, not a slice of the feed: the desk
+   tags chosen posts `editorspicks` in WordPress (553 of them, still being
+   applied). The block used to render `latest.slice(10, 14)` — the 11th-14th
+   newest posts site-wide — which is why it always trailed the rest of the page
+   by about ten posts and never showed anything the editors had actually picked.
+   Desktop shows 4 (featured card + 3 rows), the phone slider 5. */
+const EDITORS_PICKS_TAG = 28542;
+const PICKS_POSTS = 5;
+// the slider and the two cards share one newest-first list, split between them
+// in date order: the big slider gets the freshest HERO_MAIN, then each side card
+// takes HERO_SIDE behind it — the top card the next block, the bottom card the
+// oldest. The side cards rotate through fewer posts than the slider on purpose.
+// Keep HERO_CYCLE equal to the blocks below it, and HERO_TAKE / SIDE_TAKE large
+// enough to fill them, or the pool's tail is skipped by the sections further
+// down the page without ever appearing up here.
+const HERO_MAIN = 4;
+const HERO_SIDE = 2;
 const HERO_SLOTS = 3;
+const HERO_CYCLE = HERO_MAIN + HERO_SIDE * (HERO_SLOTS - 1);
 
-// WP REST `categories=` doesn't include child terms, so parent sections list
-// children explicitly — live site's queries do include them
+/* WP REST `categories=` doesn't include child terms, so parent sections list
+   children explicitly — the live site's queries do include them. These are the
+   FULL subtrees, verified against /wp-json/wp/v2/categories?parent=…: a term
+   left out here is invisible on the homepage even though the category archive
+   still lists it (archives pass includeChildren, which takes the whole subtree).
+   The second rows are terms that had been missed — all dormant now, but a post
+   filed under one would otherwise never reach the front page. Re-check with a
+   parent= walk if the desk adds a subcategory. */
 const CAT = {
-  opinion: [7899, 26, 28543, 3147, 25802, 28544],
+  opinion: [7899, 26, 28543, 3147, 25802, 28544,
+            38, 39, 40, 41, 42, 47, 25796, 25797, 25798],
   columns: [28, 36, 28545, 43, 45, 50],
-  shariah: [3, 22, 51, 24, 23, 30, 49, 26549],
-  culture: [4, 9, 31, 25, 25397, 7],
+  shariah: [3, 22, 51, 24, 23, 30, 49, 26549, 48],
+  culture: [4, 9, 31, 25, 25397, 7, 44],
   infographics: [28546],
 };
 // Opinion's children on the live site — the tabs its homepage section shows
@@ -139,21 +168,20 @@ export default async function Home() {
     SHARIAH_SUBS.map((c) => getPosts({ perPage: 5, categories: [c.id] }).catch(() => [] as WPPost[]))
   );
 
-  const [latest, opinion, columns, shariah, culture, infographics, videos, reels, shorts, episodes, banners] = await Promise.all([
-    getPosts({ perPage: 18 }),
-    // each fetches its hero share extra: the first HERO_TAKE / SIDE_TAKE go into
-    // the hero, the rest feed the section further down, so no post shows twice
-    getPosts({ perPage: 5 + HERO_TAKE, categories: CAT.opinion }),
+  const [picks, opinion, columns, shariah, culture, infographics, videos, reels, shorts, episodes, banners] = await Promise.all([
+    getPosts({ perPage: PICKS_POSTS, tags: [EDITORS_PICKS_TAG] }).catch(() => [] as WPPost[]),
+    // one list per section, newest first. The hero reads its share off the top of
+    // these same lists rather than being fed a separate slice, so a post can head
+    // both the hero and its section — which is what keeps the section current.
+    getPosts({ perPage: SECTION_POSTS, categories: CAT.opinion }),
     // Columns is the sidebar's height driver: its block has to span Watch + Listen
     // in the main column so that "Culture" below it lands level with "Opinion".
-    // Featured card + 10 rows — see the column-alignment note on the grid below.
-    // 12 + the side card's 3: Columns is paired with the tall Watch + Listen cell, and
-    // its rows are what keep the featured card in shape — too few and the card
+    // Its rows are what keep the featured card in shape — too few and the card
     // stretches into a billboard, too many and it flattens to its min height
-    getPosts({ perPage: 12 + SIDE_TAKE, categories: CAT.columns }),
+    getPosts({ perPage: COLUMNS_POSTS, categories: CAT.columns }),
     // Shari'ah now leads the main column, so it needs a section's worth of posts
-    getPosts({ perPage: 5 + HERO_TAKE, categories: CAT.shariah }),
-    getPosts({ perPage: 5 + SIDE_TAKE, categories: CAT.culture }).catch(() => []),
+    getPosts({ perPage: SECTION_POSTS, categories: CAT.shariah }),
+    getPosts({ perPage: SECTION_POSTS, categories: CAT.culture }).catch(() => []),
     getPosts({ perPage: 6, categories: CAT.infographics }).catch(() => []),
     getVideos(5).catch(() => []),
     getReels(8).catch(() => []),
@@ -186,17 +214,23 @@ export default async function Home() {
   // (left) to oldest (bottom right) at every step and a post never crosses from
   // one slot to another. Any slot left without posts drops out rather than
   // rendering an empty card.
-  const per = Math.ceil(cycle.length / HERO_SLOTS) || 1;
-  const slides = cycle.slice(0, per);
+  // the cards are reserved their share first: a pool thinned by the dedupe above
+  // shortens the slider rather than leaving the bottom card empty, which would
+  // punch a hole in the right column instead of just rotating through less.
+  const sideNeed = HERO_SIDE * (HERO_SLOTS - 1);
+  const main = Math.max(1, Math.min(HERO_MAIN, cycle.length - sideNeed));
+  const slides = cycle.slice(0, main);
   const sideSlides = Array.from({ length: HERO_SLOTS - 1 }, (_, n) =>
-    cycle.slice((n + 1) * per, (n + 2) * per),
+    cycle.slice(main + n * HERO_SIDE, main + (n + 1) * HERO_SIDE),
   ).filter((set) => set.length > 0);
 
-  // what's left after the hero took its share — the sections below use these
-  const opinionRest = opinion.slice(HERO_TAKE);
-  const columnsRest = columns.slice(SIDE_TAKE);
-  const shariahRest = shariah.slice(HERO_TAKE);
-  const cultureRest = culture.slice(SIDE_TAKE);
+  // the sections show their own newest, hero or no hero. Fetched at section size
+  // already, so these are the whole lists — the aliases stay because the tab
+  // builders below read them by name.
+  const opinionRest = opinion;
+  const columnsRest = columns;
+  const shariahRest = shariah;
+  const cultureRest = culture;
 
   const [cultureSubPosts, opinionSubPosts, shariahSubPosts] = await Promise.all([cultureSubsP, opinionSubsP, shariahSubsP]);
 
@@ -267,15 +301,19 @@ export default async function Home() {
         </section>
       )}
 
-      {/* Editor's Picks — phones only: thumbnail slider right after Reels (desktop keeps the sidebar list) */}
+      {/* Editor's Picks — phones only: thumbnail slider right after Reels (desktop keeps the sidebar list).
+          Guarded, unlike the old feed slice that could never come back empty: if the
+          tag query fails the block drops out rather than leaving a bare heading. */}
+      {picks.length > 0 && (
       <section className="lg:hidden">
-        <SectionHead title="Editor's Picks" href="/category/news" />
+        <SectionHead title="Editor's Picks" href="/tag/editorspicks" />
         <div className="scrollbar-none flex gap-4 overflow-x-auto">
-          {latest.slice(10, 15).map((p) => (
+          {picks.map((p) => (
             <OverlayCard key={p.id} item={toItem(p)} className="aspect-[16/10] w-64 flex-none" />
           ))}
         </div>
       </section>
+      )}
 
       {/* 2b. Promo banner — Elementor image widget pulled from the WP homepage. Hidden on phones. */}
       {banners.map((b) => (
@@ -311,7 +349,7 @@ export default async function Home() {
         </div>
         {/* phones get the slider version after Reels instead */}
         <div className="order-4 hidden min-w-0 lg:order-none lg:block lg:self-stretch">
-          <SideList title="Editor's Picks" href="/category/news" posts={latest.slice(10, 14)} featured />
+          {picks.length > 0 && <SideList title="Editor's Picks" href="/tag/editorspicks" posts={picks.slice(0, 4)} featured />}
         </div>
 
         <div className="order-2 flex min-w-0 flex-col gap-8 sm:gap-10 lg:order-none lg:col-span-2">
