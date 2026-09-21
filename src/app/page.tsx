@@ -3,6 +3,7 @@ import Image from "next/image";
 import HeroSlider, { Slide } from "@/components/HeroSlider";
 import SideSlider from "@/components/SideSlider";
 import ReelsLightbox from "@/components/ReelsLightbox";
+import InstallBanner from "@/components/InstallBanner";
 import WatchPanel from "@/components/WatchPanel";
 import PodcastPlayer from "@/components/PodcastPlayer";
 import TabbedSection from "@/components/TabbedSection";
@@ -300,6 +301,13 @@ export default async function Home() {
           <ReelsLightbox items={reelItems.slice(0, 6)} />
         </section>
       )}
+
+      {/* Install popup. It portals to <body>, so this call site only decides
+          which route offers it — the homepage — not where it appears. It renders
+          only where the app can actually be installed and the reader has not
+          closed it in the last 10 days, which is why it is absent from the server
+          HTML and from most page views. */}
+      <InstallBanner />
 
       {/* Editor's Picks — phones only: thumbnail slider right after Reels (desktop keeps the sidebar list).
           Guarded, unlike the old feed slice that could never come back empty: if the

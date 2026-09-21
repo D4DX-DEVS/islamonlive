@@ -93,6 +93,27 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             parsing takes it off the critical path. No crossOrigin: an <img> is a
             plain no-cors request and a CORS preconnect would open the wrong
             connection and be ignored. */}
+        {/* Chrome fires beforeinstallprompt while the document is still loading —
+            well before React hydrates — so a listener attached from a component
+            effect loses the race and the event is gone for that page view. That
+            is not theoretical: the install shelf appeared on one load and never
+            again, because whether it won depended on how fast hydration ran.
+            This captures the event the moment it can fire, parks it on window,
+            and tells any mounted listener. InstallBanner reads the parked event
+            on subscribe, so it no longer matters which one happens first.
+            beforeMount, not a Script component: next/script's afterInteractive
+            default would put it back behind hydration. */}
+        <script
+          id="iol-install-capture"
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){window.__iolInstallEvent=null;window.__iolInstalled=false;" +
+              "addEventListener('beforeinstallprompt',function(e){e.preventDefault();" +
+              "window.__iolInstallEvent=e;dispatchEvent(new Event('iol:installready'));});" +
+              "addEventListener('appinstalled',function(){window.__iolInstallEvent=null;" +
+              "window.__iolInstalled=true;dispatchEvent(new Event('iol:installready'));});})();",
+          }}
+        />
         <link rel="preconnect" href="https://i0.wp.com" />
         <link rel="dns-prefetch" href="https://i0.wp.com" />
         {/* feed autodiscovery — WordPress printed this in <head>; React hoists it there from here */}
