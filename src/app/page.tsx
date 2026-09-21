@@ -28,13 +28,10 @@ export const metadata = {
   alternates: { canonical: "/" },
 };
 
-// posts each hero source contributes to the row's shared pool. The sections
-// further down no longer skip past them: a story leading the hero also heads its
-// own section, the way the live site runs it. Hiding it below meant the newest
-// post in a section was whatever the hero had not claimed, so Shari'ah's block
-// sat two posts behind the archive and read as though it had stopped updating.
-const HERO_TAKE = 2;
-const SIDE_TAKE = 2;
+// The sections further down do not skip past what the hero took: a story leading
+// the hero also heads its own section, the way the live site runs it. Hiding it
+// below meant the newest post in a section was whatever the hero had not claimed,
+// so Shari'ah's block sat two posts behind the archive and read as stale.
 // how many posts each section renders: featured card + 4 rows for the tabbed
 // sections, featured card + 11 rows for Columns, which spans Watch + Listen in
 // the main column and needs the height. These are also the fetch sizes — the
@@ -53,9 +50,7 @@ const PICKS_POSTS = 5;
 // in date order: the big slider gets the freshest HERO_MAIN, then each side card
 // takes HERO_SIDE behind it — the top card the next block, the bottom card the
 // oldest. The side cards rotate through fewer posts than the slider on purpose.
-// Keep HERO_CYCLE equal to the blocks below it, and HERO_TAKE / SIDE_TAKE large
-// enough to fill them, or the pool's tail is skipped by the sections further
-// down the page without ever appearing up here.
+// Keep HERO_CYCLE equal to the blocks below it.
 const HERO_MAIN = 4;
 const HERO_SIDE = 2;
 const HERO_SLOTS = 3;
@@ -191,18 +186,23 @@ export default async function Home() {
     getHomeBanners().catch(() => []),
   ]);
 
-  // hero row: left slider and right cards are one merged cycle. Opinion,
-  // Shari'ah, Columns and Culture all pour into the same pool, deduped by id (a
-  // post filed under two of them would otherwise appear twice) and ordered newest
-  // first — WP `date` is ISO, so a plain string compare sorts it — then cut to
-  // the newest HERO_CYCLE. The latest post on the row leads the big slot instead
-  // of whichever section happened to own it.
-  const heroPool = [
-    ...opinion.slice(0, HERO_TAKE),
-    ...shariah.slice(0, HERO_TAKE),
-    ...columns.slice(0, SIDE_TAKE),
-    ...culture.slice(0, SIDE_TAKE),
-  ].filter(Boolean);
+  /* hero row: left slider and right cards are one merged cycle. Opinion,
+     Shari'ah, Columns and Culture pour their WHOLE fetched lists into the pool,
+     deduped by id (a post filed under two of them would otherwise appear twice)
+     and ordered newest first — WP `date` is ISO, so a plain string compare sorts
+     it — then cut to the newest HERO_CYCLE.
+
+     Each section used to contribute a fixed two posts. That quietly handed the
+     bottom-right card to whichever section published least often: with a fixed
+     quota, Culture's two always sorted last, so the card sat on posts ten days
+     old while the rest of the page had moved on. Pooling the full lists and
+     cutting to the newest 8 makes the row the site's 8 freshest stories, and a
+     section that has not published in a while simply drops out of it.
+
+     Cutting the tail is safe only because the sections below no longer skip what
+     the hero took — a post that misses the cut still heads its own section. Do
+     not reintroduce that skip without also capping the pool again. */
+  const heroPool = [...opinion, ...shariah, ...columns, ...culture].filter(Boolean);
   const cycle: Slide[] = heroPool
     .filter((p, n) => heroPool.findIndex((q) => q.id === p.id) === n)
     .sort((a, b) => b.date.localeCompare(a.date))
