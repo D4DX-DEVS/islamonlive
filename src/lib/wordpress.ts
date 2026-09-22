@@ -51,13 +51,36 @@ export interface WPPage_<T> {
   totalPages: number;
 }
 
-// ponytail: one retry — origin 5xx/522 (Cloudflare timeout) is transient. Add backoff if it turns flakier.
-// Every response is tagged ("wp" + the endpoint) so app/api/revalidate can drop it
-// the moment WordPress publishes, instead of waiting the TTL out.
+/* One retry, for both ways a request to WordPress fails transiently.
+
+   An origin 5xx or a 522 (Cloudflare timed out reaching WP) arrives as a
+   response and is retried on its status. A connection that never completes —
+   UND_ERR_CONNECT_TIMEOUT, ECONNRESET, a DNS blip — does not arrive as a
+   response at all: fetch() *throws*, so the status check below is never
+   reached and the old shape propagated it on the first attempt with no retry.
+   That is the same class of transient failure and now gets the same second
+   chance. It matters more since the move off Vercel: the app reaches
+   admin.islamonlive.in across the public internet from a single container, and
+   one dropped connection was enough to turn the home page into a 500.
+
+   Still one retry, not a loop with backoff — a reader is waiting, and the
+   connect timeout has already spent 10s by the time we get here. Add backoff
+   if it turns flakier.
+
+   Every response is tagged ("wp" + the endpoint) so app/api/revalidate can drop
+   it the moment WordPress publishes, instead of waiting the TTL out. */
 async function wpRequest(path: string, revalidate: number): Promise<Response> {
   const tags = ["wp", wpTag(path)];
   for (let attempt = 0; ; attempt++) {
-    const res = await fetch(`${API}${path}`, { next: { revalidate, tags } });
+    let res: Response;
+    try {
+      res = await fetch(`${API}${path}`, { next: { revalidate, tags } });
+    } catch (error: unknown) {
+      // rethrown as-is on the second failure: wpFetchPage reads the message to
+      // tell an over-the-end page number from a real outage
+      if (attempt > 0) throw error;
+      continue;
+    }
     if (res.ok) return res;
     if (res.status < 500 || attempt > 0) throw new Error(`WP API ${res.status}: ${path}`);
   }

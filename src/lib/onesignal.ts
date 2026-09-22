@@ -1,4 +1,5 @@
 import { SITE_URL } from "@/lib/env";
+import { rewriteUrl } from "@/lib/urls";
 import { createHash } from "node:crypto";
 import type { NextRequest } from "next/server";
 
@@ -73,14 +74,34 @@ export interface Push {
   externalId?: string;
 }
 
-/** the shared visual shape of every push this site sends */
+/* the shared visual shape of every push this site sends
+
+   The image goes through rewriteUrl() because the callers hand over whatever
+   WordPress gave them: /api/notify's POST takes the plugin's `image` field, and
+   both cron routes read featuredImage(), which deliberately returns the
+   *origin* URL on admin.islamonlive.in because its other consumer is next/image
+   (see lib/urls.ts). A push payload is not next/image — the URL in it is
+   fetched by the reader's browser and shown in the notification, so shipping
+   the backend host there breaks the day that host is firewalled or moved, and
+   it is the one address lib/env.ts says a reader must never be handed. The
+   apex serves the identical bytes through the /wp-content proxy, already behind
+   the CDN.
+
+   rewriteUrl() rather than mediaUrl(): mediaUrl() rewrites only what it
+   recognises as an uploads path and hands back anything else untouched, so a
+   backend URL that is not a plain /wp-content/… — /api/notify's POST takes the
+   image straight from the plugin's payload — would pass through with the admin
+   host still on it. rewriteUrl() has the host fallback that closes that, and
+   its withTrailingSlash() leaves a filename alone, so a .jpg does not acquire a
+   slash on the way out. */
 export function baseBody(p: Push): Record<string, unknown> {
+  const image = p.image ? rewriteUrl(p.image, true) : undefined;
   return {
     headings: { en: p.title },
     contents: { en: p.message || p.title },
     url: p.url,
     chrome_web_icon: `${SITE}/icon-192.png`,
-    ...(p.image ? { chrome_web_image: p.image, big_picture: p.image } : {}),
+    ...(image ? { chrome_web_image: image, big_picture: image } : {}),
     ...(p.externalId ? { external_id: uuidFor(p.externalId), idempotency_key: uuidFor(p.externalId) } : {}),
   };
 }

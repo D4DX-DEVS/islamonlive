@@ -41,7 +41,7 @@ export default function WatchPanel({ videos }: { videos: YTVideo[] }) {
               aria-label={`Play: ${main.title}`}
               className="group absolute inset-0 h-full w-full cursor-pointer"
             >
-              <Image src={main.thumbnail} alt="" fill sizes="(min-width: 1280px) 720px, 100vw" className="object-cover" />
+              <Image src={main.thumbnail} alt="" fill sizes="(min-width: 1280px) 720px, 100vw" className="object-cover" unoptimized />
               <span className="absolute inset-0 flex items-center justify-center bg-black/10 transition group-hover:bg-black/20">
                 <span className="flex h-16 w-16 items-center justify-center rounded-full bg-black/60 text-white ring-2 ring-white/80 transition group-hover:scale-105 group-hover:bg-[#ff0000]">
                   <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="ml-1 h-8 w-8">
@@ -71,7 +71,7 @@ export default function WatchPanel({ videos }: { videos: YTVideo[] }) {
             className={`group min-h-0 flex-1 items-center gap-3 rounded-lg p-2 text-left transition hover:bg-purple-900/50 ${n >= 2 ? "hidden xl:flex" : "flex"}`}
           >
             <div className="relative aspect-video w-32 shrink-0 self-stretch overflow-hidden rounded-lg bg-zinc-800 sm:w-36">
-              <Image src={v.thumbnail} alt="" fill sizes="144px" className="object-cover transition duration-500 group-hover:scale-105" />
+              <Image src={v.thumbnail} alt="" fill sizes="144px" className="object-cover transition duration-500 group-hover:scale-105" unoptimized />
             </div>
             <p className="line-clamp-3 text-sm font-medium text-zinc-200 group-hover:text-purple-300">{v.title}</p>
           </button>

@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { REVALIDATION_SECRET } from "@/lib/env";
+import { cloudflareConfigured, purgePaths } from "@/lib/cloudflare";
 import { toSitePath, withTrailingSlash } from "@/lib/urls";
 
 /* The endpoint WordPress calls when an editor changes something.
@@ -124,15 +125,27 @@ export async function POST(request: Request): Promise<Response> {
      not in `paths`; they ride on the wp:posts tag above, which every search
      fetch is tagged with. Same for the related-articles rail. */
 
+  /* Cloudflare holds its own copy of these pages and revalidatePath() cannot
+     see it. Awaited rather than fired and forgotten: the point of the call is
+     that the edge is clean by the time WordPress is told the edit went through,
+     and a purge that failed has to show up in the response instead of being
+     swallowed. lib/cloudflare.ts never throws and no-ops without credentials. */
+  const purged = await purgePaths(paths);
+
   return Response.json({
     ok: true,
     event,
     revalidated: { paths: [...paths], tags },
+    cdn: purged,
     now: new Date().toISOString(),
   });
 }
 
 /** GET is a health check for the WP settings screen — it never invalidates. */
 export function GET(): Response {
-  return Response.json({ ok: true, configured: Boolean(REVALIDATION_SECRET) });
+  return Response.json({
+    ok: true,
+    configured: Boolean(REVALIDATION_SECRET),
+    cdnPurge: cloudflareConfigured(),
+  });
 }

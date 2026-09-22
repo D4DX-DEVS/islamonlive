@@ -53,6 +53,16 @@ export default function photonLoader({ src, width, quality }: LoaderArgs): strin
 
   /* Everything else — i.ytimg.com thumbnails above all — stays as it is.
      Photon answers those with a 302 back to the origin, so proxying them buys
-     a redirect and nothing else. They are already thumbnail-sized. */
+     a redirect and nothing else. They are already thumbnail-sized.
+
+     Returning src unchanged means this branch ignores `width`, which next/image
+     warns about (next-image-missing-loader-width) because a loader that drops
+     the width silently serves one size to every breakpoint. That is the
+     intended behaviour here, so the components rendering these thumbnails pass
+     `unoptimized` — the escape hatch the warning itself points at — rather than
+     this branch inventing a width the origin cannot honour. YouTube serves
+     fixed named renditions (hqdefault is 480x360 4:3, mqdefault 320x180 16:9),
+     so picking one by width would change the aspect ratio between breakpoints
+     and move the crop under object-cover. */
   return src;
 }

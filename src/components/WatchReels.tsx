@@ -59,7 +59,7 @@ export default function WatchReels({ videos }: { videos: YTVideo[] }) {
             className="group overflow-hidden rounded-lg border border-zinc-200 bg-white text-left shadow-sm hover:shadow-md"
           >
             <div className="relative aspect-video w-full bg-zinc-100">
-              <Image src={x.thumbnail} alt="" fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover transition group-hover:scale-105" />
+              <Image src={x.thumbnail} alt="" fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover transition group-hover:scale-105" unoptimized />
               <span className="absolute inset-0 flex items-center justify-center">
                 <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/50 text-white group-hover:bg-purple-700">
                   {/* centred SVG glyph — the ▶ text char renders off-centre in font fallback */}
@@ -100,7 +100,7 @@ export default function WatchReels({ videos }: { videos: YTVideo[] }) {
                   />
                 ) : (
                   <div className="relative aspect-video w-full max-w-[1000px] opacity-60">
-                    <Image src={x.thumbnail} alt="" fill sizes="100vw" className="object-cover sm:rounded-xl" />
+                    <Image src={x.thumbnail} alt="" fill sizes="100vw" className="object-cover sm:rounded-xl" unoptimized />
                   </div>
                 )}
                 {x.title && (
