@@ -104,17 +104,41 @@ export interface NextNudge {
 
 const CATCH_UP_KEY = "iol:reminder-catchup";
 
-function readCatchUp(): string {
+/** the nudge this browser has already arranged for today */
+interface Queued {
+  /** the OneSignal notification, so a change of mind can call it off */
+  id: string;
+  time: string;
+  /** the reader's own date, not UTC's — "YYYY-MM-DD" */
+  day: string;
+}
+
+function localDay(): string {
+  return new Date().toLocaleDateString("en-CA");
+}
+
+/** has this slot already gone by on the reader's own clock? */
+function slotPassed(time: string): boolean {
+  const [h, m] = time.split(":").map(Number);
+  const now = new Date();
+  return h * 60 + m <= now.getHours() * 60 + now.getMinutes();
+}
+
+function readQueued(): Queued | null {
   try {
-    return window.localStorage.getItem(CATCH_UP_KEY) ?? "";
+    const raw = window.localStorage.getItem(CATCH_UP_KEY);
+    const q = raw ? (JSON.parse(raw) as Partial<Queued>) : null;
+    return q && typeof q.id === "string" && typeof q.time === "string" && typeof q.day === "string"
+      ? (q as Queued)
+      : null;
   } catch {
-    return "";
+    return null;
   }
 }
 
-function writeCatchUp(id: string): void {
+function writeQueued(q: Queued | null): void {
   try {
-    if (id) window.localStorage.setItem(CATCH_UP_KEY, id);
+    if (q) window.localStorage.setItem(CATCH_UP_KEY, JSON.stringify(q));
     else window.localStorage.removeItem(CATCH_UP_KEY);
   } catch {
     /* private mode, or storage is full — the daily batch still has them */
@@ -165,23 +189,33 @@ async function catchUp(body: Record<string, unknown>): Promise<{ queued?: boolea
 
 /** ask for today's nudge at the time just saved. null when it couldn't be asked */
 export async function scheduleTodayNudge(time: string): Promise<NextNudge | null> {
+  const queued = readQueued();
+
+  /* Saving the time that is already arranged — pressing Set twice, or coming
+     back to the page — must not queue a second nudge, and must not be treated
+     as nothing happening either: the answer is still "yes, one is coming". */
+  if (queued && queued.day === localDay() && queued.time === time) {
+    if (!slotPassed(time)) return { today: true };
+    writeQueued(null); // it has already been and gone
+  }
+
   const id = await subscriptionId();
   if (!id) return null;
   const out = await catchUp({
     subscriptionId: id,
     time,
     offsetMinutes: new Date().getTimezoneOffset(),
-    cancelId: readCatchUp() || undefined,
+    cancelId: queued?.id,
   });
   if (!out) return null;
-  writeCatchUp(out.queued ? (out.id ?? "") : "");
+  writeQueued(out.queued && out.id ? { id: out.id, time, day: localDay() } : null);
   return { today: Boolean(out.queued) };
 }
 
 /** switching the reminder off has to call off a nudge already queued for today */
 export async function cancelTodayNudge(): Promise<void> {
-  const id = readCatchUp();
-  if (!id) return;
-  writeCatchUp("");
-  await catchUp({ cancelId: id, cancelOnly: true });
+  const queued = readQueued();
+  if (!queued) return;
+  writeQueued(null);
+  await catchUp({ cancelId: queued.id, cancelOnly: true });
 }

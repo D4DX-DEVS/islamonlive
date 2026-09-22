@@ -277,11 +277,9 @@ export default function SettingsPage() {
     }
     setDraftError(null);
     setDraft(t);
-    // pressing Set on the time that is already saved still confirms it
-    if (t === reminder.time) {
-      flashSaved();
-      return;
-    }
+    /* even when the time hasn't moved: today's nudge may still not be arranged
+       — the daily batch is built long before the reader gets here, and
+       scheduleTodayNudge is the thing that knows whether one is already out */
     void applyReminder({ time: t }).then(flashSaved);
   };
 
