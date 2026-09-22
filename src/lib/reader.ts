@@ -32,7 +32,7 @@ export type RecentItem = Omit<SavedItem, "note"> & {
 };
 
 export interface Reminder {
-  /** "HH:MM", 24h, on a 15-minute grid — see normalizeReminderTime */
+  /** "HH:MM", 24h, on the REMINDER_STEP grid — see normalizeReminderTime */
   time: string;
   enabled: boolean;
 }
@@ -41,8 +41,9 @@ export interface Reminder {
     box. Delivery works for any quarter-hour — app/api/reminder walks all 96. */
 export const REMINDER_SLOTS = ["06:00", "07:00", "09:00", "13:00", "18:00", "21:00"] as const;
 
-/** step the push cron delivers on, in minutes */
-export const REMINDER_STEP = 15;
+/** step the push cron delivers on, in minutes. The cron sends once per slot,
+    so this is also 1440/STEP sends per daily run — see app/api/reminder. */
+export const REMINDER_STEP = 5;
 
 /** snap a free-typed "H:MM" / "HH:MM" onto the delivery grid; null when it
     isn't a time at all */

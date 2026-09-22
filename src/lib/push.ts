@@ -121,13 +121,30 @@ function writeCatchUp(id: string): void {
   }
 }
 
-/** this browser's push subscription, once the SDK is up; null if it never is */
+/* this browser's push subscription, once the SDK is up; null if it never is.
+
+   The id is polled rather than read once: the deferred queue drains as soon as
+   the SDK script has run, which on a cold start is before it has finished
+   loading the subscription, and the first read then comes back undefined. That
+   is a whole day without a nudge, so it is worth waiting the extra beat. */
+const ID_POLL_MS = 300;
+
 function subscriptionId(): Promise<string | null> {
   return Promise.race([
     new Promise<string | null>((resolve) => {
-      queue((os) => resolve(os.User.PushSubscription.id ?? null));
+      queue((os) => {
+        const started = Date.now();
+        const read = () => {
+          const id = os.User.PushSubscription.id;
+          if (id) return resolve(id);
+          if (Date.now() - started >= SDK_WAIT_MS) return resolve(null);
+          setTimeout(read, ID_POLL_MS);
+        };
+        read();
+      });
     }),
-    new Promise<string | null>((r) => setTimeout(() => r(null), SDK_WAIT_MS)),
+    // the queue itself never drained — the SDK is blocked or absent
+    new Promise<string | null>((r) => setTimeout(() => r(null), SDK_WAIT_MS * 2)),
   ]);
 }
 

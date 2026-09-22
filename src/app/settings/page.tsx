@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import {
   FONTS,
   REMINDER_SLOTS,
+  REMINDER_STEP,
   normalizeReminderTime,
   reminderLabel,
   setReadingPrefs,
@@ -413,7 +414,7 @@ export default function SettingsPage() {
               ? "Push isn't configured for this site yet, so reminders can't be delivered."
               : blocked
                 ? "Notifications are blocked for this site in your browser settings — allow them there first."
-                : "Delivered in your own timezone, rounded to the nearest 15 minutes."
+                : `Delivered in your own timezone, rounded to the nearest ${REMINDER_STEP} minutes.`
           }
         >
           <Row icon={ICON.bell} label="Daily reminder" hint="Get a daily nudge with the latest article">
@@ -482,8 +483,11 @@ export default function SettingsPage() {
                   <svg viewBox="0 0 24 24" aria-hidden className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
                     <path d="m5 12.5 4.5 4.5L19 7.5" />
                   </svg>
-                  {nudge
-                    ? `Saved — next nudge ${nudge.today ? "today" : "tomorrow"} at ${reminderLabel(reminder.time)}`
+                  {/* "tomorrow" is the honest answer whenever today's nudge
+                      couldn't be arranged — whether the slot had gone by or the
+                      catch-up never got through, the daily batch still has them */}
+                  {configured && !blocked
+                    ? `Saved — next nudge ${nudge?.today ? "today" : "tomorrow"} at ${reminderLabel(reminder.time)}`
                     : `Saved — reminder set for ${reminderLabel(reminder.time)}`}
                 </p>
               ) : (

@@ -11,24 +11,28 @@ import {
 } from "@/lib/onesignal";
 
 export const dynamic = "force-dynamic";
+// 288 slots at 16 at a time — comfortably inside this, but the default is not
+export const maxDuration = 60;
 
 /* The daily reading nudge readers switch on at /settings.
 
    Scheduling model: the reader tags their OneSignal subscription with
    `reminder_time` (lib/push.ts), and this route runs ONCE a day and queues one
-   notification per quarter-hour slot, each filtered to that tag and marked
+   notification per five-minute slot, each filtered to that tag and marked
    `delayed_option: "timezone"`. OneSignal then delivers it at that local time in
    every subscriber's own timezone. That is what lets any delivery time run off
    a single daily cron — a Vercel Hobby project only gets one.
 
    The time is free-form on the settings page (a preset or a typed one) and
-   snapped to a 15-minute grid there, so walking all 96 slots covers every
-   reader. Slots nobody picked come back from OneSignal as "no subscribers" and
-   are skipped — see the `empty` count in the response.
+   snapped to the same grid there, so walking all 288 slots covers every reader.
+   The cost of a finer grid is paid here, in slots walked, not per reader — the
+   run is the same size whether ten people or ten thousand are subscribed. Slots
+   nobody picked come back from OneSignal as "no subscribers" and are skipped —
+   see the `empty` count in the response.
 
    Idempotent per day and slot, so a manual re-run can't double-send. */
 
-const STEP = 15;
+const STEP = 5; // keep in step with REMINDER_STEP in lib/reader
 const SLOTS: string[] = [];
 for (let t = 0; t < 24 * 60; t += STEP) {
   SLOTS.push(`${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`);
@@ -58,11 +62,12 @@ export async function GET(req: NextRequest) {
     image: featuredImage(latest)?.url,
   };
 
-  // 96 calls, 8 at a time — OneSignal rate-limits bursts
+  // one call per slot, 16 at a time — OneSignal rate-limits bursts, and a
+  // five-minute grid is 288 of them, so they can't go out one after another
   const results: ({ slot: string } & Awaited<ReturnType<typeof postToOneSignal>>)[] = [];
-  for (let i = 0; i < SLOTS.length; i += 8) {
+  for (let i = 0; i < SLOTS.length; i += 16) {
     const batch = await Promise.all(
-      SLOTS.slice(i, i + 8).map(async (slot) => {
+      SLOTS.slice(i, i + 16).map(async (slot) => {
         const out = await postToOneSignal({
           ...baseBody({ ...body, externalId: `reminder-${day}-${slot}` }),
           filters: [{ field: "tag", key: "reminder_time", relation: "=", value: slot }],
