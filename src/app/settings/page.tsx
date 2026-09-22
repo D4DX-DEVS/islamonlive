@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   FONTS,
   REMINDER_SLOTS,
@@ -208,6 +208,7 @@ export default function SettingsPage() {
   const [draft, setDraft] = useState(reminder.time);
   const [draftError, setDraftError] = useState<string | null>(null);
   const showCustom = custom || !isPreset;
+  const commitTimer = useRef<number | null>(null);
   const [cleared, setCleared] = useState(false);
   const [askClear, setAskClear] = useState(false);
   // undefined while the first measurement is still running
@@ -227,16 +228,52 @@ export default function SettingsPage() {
     setBusy(false);
   };
 
-  const commitDraft = () => {
-    const t = normalizeReminderTime(draft);
+  const clearCommitTimer = () => {
+    if (commitTimer.current !== null) {
+      window.clearTimeout(commitTimer.current);
+      commitTimer.current = null;
+    }
+  };
+
+  /* the box is a native time control, so what lands here is already "HH:MM" —
+     all that is left is snapping it onto the 15-minute delivery grid */
+  const commitDraft = (raw: string) => {
+    clearCommitTimer();
+    const t = normalizeReminderTime(raw);
     if (!t) {
-      setDraftError("Type a time like 7:30 or 19:45");
+      // only reachable when the control is left empty
+      setDraftError("Pick a time");
       return;
     }
     setDraftError(null);
     setDraft(t);
     if (t !== reminder.time) void applyReminder({ time: t });
   };
+
+  /* a wheel or a spinner fires change on every tick, so the tag update waits
+     for the reader to settle instead of going out on each one */
+  const scheduleCommit = (raw: string) => {
+    setDraft(raw);
+    setDraftError(null);
+    clearCommitTimer();
+    if (!normalizeReminderTime(raw)) return;
+    commitTimer.current = window.setTimeout(() => commitDraft(raw), 600);
+  };
+
+  useEffect(
+    () => () => {
+      if (commitTimer.current !== null) window.clearTimeout(commitTimer.current);
+    },
+    [],
+  );
+
+  /* the stored reminder only arrives after mount — useReminder reads
+     localStorage in an effect so the markup matches the server — so the box has
+     to follow it, or a saved custom time reopens showing the default. A pending
+     commit means the reader is mid-pick; leave their value alone. */
+  useEffect(() => {
+    if (commitTimer.current === null) setDraft(reminder.time);
+  }, [reminder.time]);
 
   // measured once on arrival so the row can say what is actually there
   useEffect(() => {
@@ -373,32 +410,39 @@ export default function SettingsPage() {
           {showCustom && (
             <div className={`border-t border-zinc-100 px-4 py-3 ${reminder.enabled ? "" : "opacity-45"}`}>
               <label htmlFor="custom-time" className="block text-xs font-semibold text-zinc-600">
-                Custom time (24-hour, e.g. 07:30 or 19:45)
+                Custom time
               </label>
+              {/* a native time control: the phone opens its own hour/minute wheel,
+                  so there is no colon to type on a number pad, and the value can
+                  never arrive half-finished. Nothing here is disabled while the
+                  tag update is in flight — that would close the wheel mid-pick. */}
               <div className="mt-2 flex gap-2">
                 <input
                   id="custom-time"
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]{1,2}:[0-9]{2}"
-                  placeholder="HH:MM"
+                  type="time"
                   value={draft}
-                  disabled={!reminder.enabled || busy}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onBlur={commitDraft}
-                  onKeyDown={(e) => e.key === "Enter" && commitDraft()}
+                  disabled={!reminder.enabled}
+                  onChange={(e) => scheduleCommit(e.target.value)}
+                  onBlur={(e) => commitDraft(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && commitDraft(e.currentTarget.value)}
                   className="min-h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-[15px] font-semibold tabular-nums outline-none transition focus-visible:border-[#693FE2] focus-visible:ring-2 focus-visible:ring-[#693FE2]/30 disabled:cursor-not-allowed"
                 />
                 <button
                   type="button"
-                  onClick={commitDraft}
-                  disabled={!reminder.enabled || busy}
+                  onClick={() => commitDraft(draft)}
+                  disabled={!reminder.enabled}
                   className="min-h-11 shrink-0 rounded-xl bg-[#693FE2] px-4 text-sm font-semibold text-white transition hover:bg-[#5a34c7] disabled:opacity-50"
                 >
                   Set
                 </button>
               </div>
-              {draftError && <p className="mt-1.5 text-xs text-red-600">{draftError}</p>}
+              {draftError ? (
+                <p className="mt-1.5 text-xs text-red-600">{draftError}</p>
+              ) : (
+                <p className="mt-1.5 text-xs text-zinc-500">
+                  {busy ? "Saving…" : `Set for ${reminderLabel(reminder.time)}`}
+                </p>
+              )}
             </div>
           )}
         </Group>
