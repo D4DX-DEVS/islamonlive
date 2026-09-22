@@ -66,6 +66,32 @@ export async function post(body: Record<string, unknown>): Promise<SendResult> {
   return { ok: false, error: JSON.stringify(json.errors ?? json) };
 }
 
+/** the tags OneSignal holds for one subscription, or null when it doesn't exist.
+    /api/reminder uses it to check a catch-up request really is the reader's own
+    subscription asking for its own slot. */
+export async function subscriptionTags(id: string): Promise<Record<string, string> | null> {
+  if (!configured()) return null;
+  const res = await fetch(`https://api.onesignal.com/players/${id}?app_id=${APP_ID}`, {
+    headers: { Authorization: `Key ${REST_KEY}` },
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  const json = (await res.json().catch(() => ({}))) as { tags?: Record<string, string> };
+  return json.tags ?? {};
+}
+
+/** stop a notification that hasn't gone out yet — a reader who moves their
+    reminder twice in a day shouldn't get the first time as well as the second */
+export async function cancel(id: string): Promise<boolean> {
+  if (!configured()) return false;
+  const res = await fetch(`https://api.onesignal.com/notifications/${id}?app_id=${APP_ID}`, {
+    method: "DELETE",
+    headers: { Authorization: `Key ${REST_KEY}` },
+    cache: "no-store",
+  });
+  return res.ok;
+}
+
 export interface Push {
   title: string;
   message: string;

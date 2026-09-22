@@ -12,7 +12,15 @@ import {
   useReminder,
   type FontKey,
 } from "@/lib/reader";
-import { disableReminder, enableReminder, notificationPermission, pushConfigured } from "@/lib/push";
+import {
+  cancelTodayNudge,
+  disableReminder,
+  enableReminder,
+  notificationPermission,
+  pushConfigured,
+  scheduleTodayNudge,
+  type NextNudge,
+} from "@/lib/push";
 import Picker from "@/components/Picker";
 import TextSizePicker from "@/components/TextSizePicker";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -209,6 +217,11 @@ export default function SettingsPage() {
   const [draftError, setDraftError] = useState<string | null>(null);
   const showCustom = custom || !isPreset;
   const commitTimer = useRef<number | null>(null);
+  // a short-lived confirmation after a commit, so pressing Set visibly does something
+  const [saved, setSaved] = useState(false);
+  const savedTimer = useRef<number | null>(null);
+  // whether today's nudge is still ahead of them, once the server has said
+  const [nudge, setNudge] = useState<NextNudge | null>(null);
   const [cleared, setCleared] = useState(false);
   const [askClear, setAskClear] = useState(false);
   // undefined while the first measurement is still running
@@ -223,8 +236,16 @@ export default function SettingsPage() {
     setReminder(merged);
     setBusy(true);
     // the toggle reflects the choice immediately; the tag catches up
-    if (merged.enabled) await enableReminder(merged.time);
-    else await disableReminder();
+    if (merged.enabled) {
+      await enableReminder(merged.time);
+      /* the daily batch was built hours ago and doesn't know about this — ask
+         for today's nudge too, so a time set now works today, not tomorrow */
+      setNudge(await scheduleTodayNudge(merged.time));
+    } else {
+      await disableReminder();
+      await cancelTodayNudge();
+      setNudge(null);
+    }
     setBusy(false);
   };
 
@@ -233,6 +254,14 @@ export default function SettingsPage() {
       window.clearTimeout(commitTimer.current);
       commitTimer.current = null;
     }
+  };
+
+  /* the confirmation waits for the tag update to finish, so "Saved" means the
+     subscription really carries the new slot — not just that a key was pressed */
+  const flashSaved = () => {
+    if (savedTimer.current !== null) window.clearTimeout(savedTimer.current);
+    setSaved(true);
+    savedTimer.current = window.setTimeout(() => setSaved(false), 3000);
   };
 
   /* the box is a native time control, so what lands here is already "HH:MM" —
@@ -247,7 +276,12 @@ export default function SettingsPage() {
     }
     setDraftError(null);
     setDraft(t);
-    if (t !== reminder.time) void applyReminder({ time: t });
+    // pressing Set on the time that is already saved still confirms it
+    if (t === reminder.time) {
+      flashSaved();
+      return;
+    }
+    void applyReminder({ time: t }).then(flashSaved);
   };
 
   /* a wheel or a spinner fires change on every tick, so the tag update waits
@@ -263,6 +297,7 @@ export default function SettingsPage() {
   useEffect(
     () => () => {
       if (commitTimer.current !== null) window.clearTimeout(commitTimer.current);
+      if (savedTimer.current !== null) window.clearTimeout(savedTimer.current);
     },
     [],
   );
@@ -431,17 +466,28 @@ export default function SettingsPage() {
                   type="button"
                   onClick={() => commitDraft(draft)}
                   disabled={!reminder.enabled}
-                  className="min-h-11 shrink-0 rounded-xl bg-[#693FE2] px-4 text-sm font-semibold text-white transition hover:bg-[#5a34c7] disabled:opacity-50"
+                  className={`min-h-11 w-[78px] shrink-0 rounded-xl px-4 text-sm font-semibold text-white transition disabled:opacity-50 ${
+                    saved ? "bg-emerald-600" : "bg-[#693FE2] hover:bg-[#5a34c7]"
+                  }`}
                 >
-                  Set
+                  {saved ? "Saved" : busy ? "Saving" : "Set"}
                 </button>
               </div>
               {draftError ? (
                 <p className="mt-1.5 text-xs text-red-600">{draftError}</p>
-              ) : (
-                <p className="mt-1.5 text-xs text-zinc-500">
-                  {busy ? "Saving…" : `Set for ${reminderLabel(reminder.time)}`}
+              ) : busy ? (
+                <p className="mt-1.5 text-xs text-zinc-500">Saving…</p>
+              ) : saved ? (
+                <p className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-emerald-700">
+                  <svg viewBox="0 0 24 24" aria-hidden className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m5 12.5 4.5 4.5L19 7.5" />
+                  </svg>
+                  {nudge
+                    ? `Saved — next nudge ${nudge.today ? "today" : "tomorrow"} at ${reminderLabel(reminder.time)}`
+                    : `Saved — reminder set for ${reminderLabel(reminder.time)}`}
                 </p>
+              ) : (
+                <p className="mt-1.5 text-xs text-zinc-500">Set for {reminderLabel(reminder.time)}</p>
               )}
             </div>
           )}
