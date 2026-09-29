@@ -20,7 +20,13 @@ export async function POST(request: Request) {
   if (contentLength > 10_000) return NextResponse.json({ error: "Analytics event is too large" }, { status: 413 });
   const event = normaliseEvent(await request.json().catch(() => null));
   if (!event) return NextResponse.json({ error: "Invalid analytics event" }, { status: 400 });
-  await recordAnalyticsEvent(event);
-  await forwardToGoogleAnalytics(event);
+  // These destinations are independent, so run them together to keep the
+  // analytics beacon quick. Local persistence remains the success gate; GA is
+  // best effort and is already isolated by its helper.
+  const [storageResult] = await Promise.allSettled([
+    recordAnalyticsEvent(event),
+    forwardToGoogleAnalytics(event),
+  ]);
+  if (storageResult.status === "rejected") throw storageResult.reason;
   return new NextResponse(null, { status: 204 });
 }
