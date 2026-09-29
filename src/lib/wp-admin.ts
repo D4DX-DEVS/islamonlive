@@ -112,12 +112,6 @@ export async function createAdminSession(username: string, password: string): Pr
   });
 }
 
-export async function clearAdminSession(): Promise<void> {
-  const store = await cookies();
-  store.set(SESSION_COOKIE, "", { httpOnly: true, expires: new Date(0), path: "/" });
-  store.set(SESSION_COOKIE, "", { httpOnly: true, expires: new Date(0), path: "/admin" });
-}
-
 export async function getAdminSession(): Promise<AdminSession | null> {
   return unpack((await cookies()).get(SESSION_COOKIE)?.value);
 }

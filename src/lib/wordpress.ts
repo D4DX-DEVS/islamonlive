@@ -249,7 +249,12 @@ export async function getTagBySlug(slug: string): Promise<WPCategory | null> {
 }
 
 export async function getPostBySlug(slug: string): Promise<WPPost | null> {
-  const posts = await wpFetch<WPPost[]>(`/posts?slug=${slugForApi(slug)}&_embed=1`, TTL.posts);
+  // Articles need the body, SEO head, author, image and terms. WordPress uses
+  // the requested HATEOAS links to populate `_embedded`, so they stay in this
+  // response; the explicit field set still avoids unrelated REST fields and
+  // makes the cached article payload smaller than a full `_embed=1` response.
+  const fields = "id,date,modified,modified_gmt,slug,link,title,excerpt,content,categories,tags,yoast_head_json,_links,_embedded";
+  const posts = await wpFetch<WPPost[]>(`/posts?slug=${slugForApi(slug)}&_embed=author,wp:featuredmedia,wp:term&_fields=${fields}`, TTL.posts);
   return posts[0] ?? null;
 }
 
