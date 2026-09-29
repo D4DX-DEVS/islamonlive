@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { readProgress, recordRead, setReadProgress, type RecentItem } from "@/lib/reader";
 
 // how long the resume keeps re-asserting the reader's place. The page streams
@@ -46,9 +46,43 @@ function targetFor(p: number): number | null {
 export default function ReadTracker({ item }: { item: Omit<RecentItem, "at" | "progress"> }) {
   const { id, href, title, img, category, date } = item;
 
+  // A random browser session id lets the admin dashboard count anonymous
+  // readers without collecting names, emails, IPs or WordPress credentials.
+  // It stays in localStorage so one reader is not counted again on every page.
+  const analyticsId = useRef<string | null>(null);
+  const startedAt = useRef(0);
+  const latestProgress = useRef(0);
+
   useEffect(() => {
     recordRead({ id, href, title, img, category, date });
   }, [id, href, title, img, category, date]);
+
+  useEffect(() => {
+    startedAt.current = Date.now();
+    latestProgress.current = 0;
+    const getAnalyticsId = (): string => {
+      if (analyticsId.current) return analyticsId.current;
+      try {
+        const existing = localStorage.getItem("iol:analytics-session");
+        if (existing && existing.length >= 12) analyticsId.current = existing;
+        else {
+          const generated = typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          localStorage.setItem("iol:analytics-session", generated);
+          analyticsId.current = generated;
+        }
+      } catch { analyticsId.current = `${Date.now()}-${Math.random().toString(36).slice(2)}`; }
+      return analyticsId.current;
+    };
+    const sendAnalytics = (type: "view" | "heartbeat" | "complete") => {
+      const payload = JSON.stringify({ articleId: id, path: href, title, type, seconds: Math.round((Date.now() - startedAt.current) / 1000), progress: latestProgress.current, sessionId: getAnalyticsId() });
+      try { void fetch("/api/analytics/event", { method: "POST", headers: { "Content-Type": "application/json" }, body: payload, keepalive: true }); } catch { /* analytics must never affect reading */ }
+    };
+    sendAnalytics("view");
+    const heartbeat = window.setInterval(() => sendAnalytics("heartbeat"), 15_000);
+    const finish = () => sendAnalytics(latestProgress.current >= 0.9 ? "complete" : "heartbeat");
+    window.addEventListener("pagehide", finish);
+    return () => { window.clearInterval(heartbeat); window.removeEventListener("pagehide", finish); finish(); };
+  }, [id, href, title]);
 
   useEffect(() => {
     // the target lives in sessionStorage for the length of the resume: the hash
@@ -103,7 +137,7 @@ export default function ReadTracker({ item }: { item: Omit<RecentItem, "at" | "p
       raf = requestAnimationFrame(() => {
         raf = 0;
         const p = measure();
-        if (p !== null) setReadProgress(id, p);
+        if (p !== null) { latestProgress.current = p; setReadProgress(id, p); }
       });
     };
     window.addEventListener("scroll", onScroll, { passive: true });

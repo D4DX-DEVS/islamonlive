@@ -24,6 +24,9 @@
 # production
 /build
 
+# first-party analytics events (keep local reader data out of git)
+/.data/
+
 # misc
 .DS_Store
 *.pem

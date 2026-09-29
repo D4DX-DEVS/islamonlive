@@ -1,5 +1,34 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Headless content admin
+
+The public site continues to read and render the existing WordPress content. A
+separate admin workspace is available at `/admin/` for users who can sign in to
+the WordPress CMS. It uses the same WordPress username and password, validates
+them server-side, and keeps the WordPress session in an HTTP-only cookie scoped
+to `/admin`. The browser never receives the CMS cookie or a CMS REST token.
+
+The workspace includes:
+
+- paginated article browsing and search;
+- article creation with draft, pending, publish and private status;
+- author creation and existing author listing;
+- searchable author/category selectors, category creation, a bordered featured-image upload with alt text, and Visual/HTML editors for article content and author bios;
+- anonymous reader views, unique readers, average reading time, completion rate
+  and top-article analytics.
+
+Copy `.env.example` to `.env.local` and set at least `WORDPRESS_API_URL`,
+`NEXT_PUBLIC_WORDPRESS_URL`, `NEXT_PUBLIC_SITE_URL`, `REVALIDATION_SECRET` and
+`ADMIN_SESSION_SECRET`. `ANALYTICS_STORE_PATH` defaults to
+`.data/analytics.ndjson`; production deployments need a persistent volume for
+that file. Optional `GA_MEASUREMENT_ID` and `GA_API_SECRET` forward the same
+events to GA4 Measurement Protocol while the local dashboard remains available.
+
+The analytics implementation stores an anonymous browser session id, article
+id/path, reading seconds and scroll progress. It does not store names, email
+addresses or IP addresses. Existing WordPress posts, users, categories and
+permalinks are not migrated or rewritten.
+
 ## Getting Started
 
 First, run the development server:
