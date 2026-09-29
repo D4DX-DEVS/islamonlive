@@ -195,6 +195,8 @@ function NewArticle({ authors, categories, editId, onCreated, onCategoryCreated 
   const [status, setStatus] = useState("draft");
   const [author, setAuthor] = useState("");
   const [category, setCategory] = useState("");
+  const [initialCategory, setInitialCategory] = useState("");
+  const [existingCategoryIds, setExistingCategoryIds] = useState<number[]>([]);
   const [newCategory, setNewCategory] = useState("");
   const [image, setImage] = useState<File | null>(null);
   const [imageAlt, setImageAlt] = useState("");
@@ -220,6 +222,8 @@ function NewArticle({ authors, categories, editId, onCreated, onCategoryCreated 
       setStatus(item.status || "draft");
       setAuthor(item.author ? String(item.author) : "");
       setCategory(item.categories?.[0] ? String(item.categories[0]) : "");
+      setInitialCategory(item.categories?.[0] ? String(item.categories[0]) : "");
+      setExistingCategoryIds(item.categories || []);
       const media = item._embedded?.["wp:featuredmedia"]?.[0];
       setExistingMediaId(Number(item.featured_media || media?.id || 0));
       setExistingImage(media?.source_url ? { url: media.source_url, alt: media.alt_text || "" } : null);
@@ -247,7 +251,9 @@ function NewArticle({ authors, categories, editId, onCreated, onCategoryCreated 
     const form = new FormData();
     form.set("title", title); form.set("content", content); form.set("excerpt", excerpt); form.set("status", status);
     if (author) form.set("author", author);
-    form.set("categories", category ? JSON.stringify([Number(category)]) : "[]");
+    const selectedCategory = category ? Number(category) : 0;
+    const preservedCategories = existingCategoryIds.filter((id) => String(id) !== initialCategory && id !== selectedCategory);
+    form.set("categories", JSON.stringify(selectedCategory ? [selectedCategory, ...preservedCategories] : preservedCategories));
     if (image) form.set("featuredImage", image);
     form.set("featuredImageAlt", imageAlt);
     if (existingMediaId) form.set("existingFeaturedMedia", String(existingMediaId));
