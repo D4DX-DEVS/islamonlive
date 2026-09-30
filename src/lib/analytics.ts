@@ -1,5 +1,6 @@
 import { appendFile, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
+import { WP_API } from "@/lib/env";
 
 export type AnalyticsEvent = {
   ts: string;
@@ -73,8 +74,21 @@ export type AnalyticsSummary = {
   averageReadingSeconds: number;
   completionRate: number;
   daily: { date: string; views: number; readers: number }[];
-  topArticles: { articleId: number; title: string; path: string; views: number; readers: number; averageReadingSeconds: number; completionRate: number }[];
+  topArticles: { articleId: number; title: string; path: string; views: number; readers: number; averageReadingSeconds: number; completionRate: number; publishedAt?: string | null }[];
 };
+
+async function getPublishDates(articleIds: number[]): Promise<Map<number, string>> {
+  const dates = new Map<number, string>();
+  if (!articleIds.length) return dates;
+  try {
+    const query = new URLSearchParams({ include: articleIds.join(","), per_page: String(articleIds.length), _fields: "id,date" });
+    const response = await fetch(`${WP_API}/posts?${query}`, { cache: "no-store", signal: AbortSignal.timeout(2500) });
+    if (!response.ok) return dates;
+    const posts = await response.json() as { id?: number; date?: string }[];
+    posts.forEach((post) => { if (Number.isInteger(post.id) && post.date) dates.set(Number(post.id), post.date); });
+  } catch { /* Analytics should still render when WordPress is slow or unavailable. */ }
+  return dates;
+}
 
 export async function getAnalyticsSummary(windowDays = 30): Promise<AnalyticsSummary> {
   const cutoff = Date.now() - windowDays * 86_400_000;
@@ -96,6 +110,8 @@ export async function getAnalyticsSummary(windowDays = 30): Promise<AnalyticsSum
     return { articleId, title: item.title, path: item.path, views: item.views, readers: item.sessions.size, averageReadingSeconds: seconds.length ? Math.round(seconds.reduce((a, b) => a + b, 0) / seconds.length) : 0, completionRate: item.sessions.size ? Math.round((item.completed.size / item.sessions.size) * 100) : 0 };
   }).sort((a, b) => b.views - a.views);
   const topArticles = articleMetrics.slice(0, 10);
+  const publishDates = await getPublishDates(topArticles.map((article) => article.articleId));
+  const topArticlesWithDates = topArticles.map((article) => ({ ...article, publishedAt: publishDates.get(article.articleId) || null }));
   const dailyMap = new Map<string, { views: number; readers: Set<string> }>();
   for (const event of views) {
     const date = event.ts.slice(0, 10);
@@ -108,7 +124,7 @@ export async function getAnalyticsSummary(windowDays = 30): Promise<AnalyticsSum
   const durations = articleMetrics.flatMap((article) => Array.from({ length: article.readers }, () => article.averageReadingSeconds));
   const completions = articleMetrics.reduce((total, article) => total + Math.round(article.readers * article.completionRate / 100), 0);
   const articleReaders = articleMetrics.reduce((total, article) => total + article.readers, 0);
-  return { windowDays, views: views.length, uniqueReaders: readers.size, averageReadingSeconds: durations.length ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : 0, completionRate: articleReaders ? Math.round((completions / articleReaders) * 100) : 0, daily, topArticles };
+  return { windowDays, views: views.length, uniqueReaders: readers.size, averageReadingSeconds: durations.length ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : 0, completionRate: articleReaders ? Math.round((completions / articleReaders) * 100) : 0, daily, topArticles: topArticlesWithDates };
 }
 
 export async function forwardToGoogleAnalytics(event: AnalyticsEvent): Promise<void> {
