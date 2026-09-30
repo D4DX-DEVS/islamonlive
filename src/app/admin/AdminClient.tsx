@@ -98,7 +98,7 @@ function Login() {
   const [loading, setLoading] = useState(false);
   async function submit(event: FormEvent) {
     event.preventDefault(); setError(""); setLoading(true);
-    const response = await fetch("/api/admin/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, password }) });
+    const response = await fetch("/api/admin/login/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, password }) });
     const body = await response.json().catch(() => ({}));
     if (!response.ok) setError(body.error || "Login failed"); else window.location.reload();
     setLoading(false);
@@ -148,7 +148,7 @@ function Articles({ authors, onNew, onEdit }: { authors: Author[]; onNew: () => 
     setLoading(true);
     setError("");
     try {
-      const response = await fetch(`/api/admin/posts?page=${nextPage}&search=${encodeURIComponent(query)}`, { cache: "no-store" });
+      const response = await fetch(`/api/admin/posts/?page=${nextPage}&search=${encodeURIComponent(query)}`, { cache: "no-store" });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) { setError(body.error || "Could not load articles"); return; }
       setItems(body.items || []);
@@ -160,7 +160,7 @@ function Articles({ authors, onNew, onEdit }: { authors: Author[]; onNew: () => 
 
   useEffect(() => {
     let cancelled = false;
-    void fetch("/api/admin/posts?page=1&search=", { cache: "no-store" }).then(async (response) => {
+    void fetch("/api/admin/posts/?page=1&search=", { cache: "no-store" }).then(async (response) => {
       const body = await response.json().catch(() => ({}));
       if (cancelled) return;
       if (response.ok) { setItems(body.items || []); setTotal(Number(body.total || 0)); setTotalPages(Math.max(1, Number(body.totalPages || 1))); }
@@ -212,7 +212,7 @@ function NewArticle({ authors, categories, editId, onCreated, onCategoryCreated 
   useEffect(() => {
     if (!editId) return;
     let cancelled = false;
-    void fetch("/api/admin/posts?id=" + editId, { cache: "no-store" }).then(async (response) => {
+    void fetch("/api/admin/posts/?id=" + editId, { cache: "no-store" }).then(async (response) => {
       const body = await response.json().catch(() => ({}));
       if (cancelled) return;
       if (!response.ok || !body.item) { setMessage(body.error || "Could not load article"); setLoadingPost(false); return; }
@@ -240,7 +240,7 @@ function NewArticle({ authors, categories, editId, onCreated, onCategoryCreated 
   async function createCategory() {
     if (!newCategory.trim()) return;
     setCreatingCategory(true); setMessage("");
-    const response = await fetch("/api/admin/categories", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newCategory.trim() }) });
+    const response = await fetch("/api/admin/categories/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newCategory.trim() }) });
     const body = await response.json().catch(() => ({}));
     if (!response.ok) setMessage(body.error || "Could not create category");
     else { await onCategoryCreated(); setCategory(String(body.item.id)); setNewCategory(""); setMessage("Category created and selected."); }
@@ -259,7 +259,7 @@ function NewArticle({ authors, categories, editId, onCreated, onCategoryCreated 
     form.set("featuredImageAlt", imageAlt);
     if (existingMediaId) form.set("existingFeaturedMedia", String(existingMediaId));
     if (removeExistingImage) form.set("removeFeaturedImage", "true");
-    const response = await fetch(editing ? "/api/admin/posts?id=" + editId : "/api/admin/posts", { method: editing ? "PUT" : "POST", body: form });
+    const response = await fetch(editing ? "/api/admin/posts/?id=" + editId : "/api/admin/posts/", { method: editing ? "PUT" : "POST", body: form });
     const body = await response.json().catch(() => ({}));
     setSaving(false);
     if (!response.ok) { setMessage(body.error || (editing ? "Could not update article" : "Could not create article")); return; }
@@ -287,18 +287,18 @@ function Authors({ authors, refresh }: { authors: Author[]; refresh: () => void 
   const [form, setForm] = useState({ name: "", username: "", email: "", password: "", description: "" }); const [message, setMessage] = useState(""); const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const visibleAuthors = authors.filter((item) => `${item.name} ${item.slug || ""} ${item.email || ""}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
-  async function submit(event: FormEvent) { event.preventDefault(); setSaving(true); setMessage(""); const response = await fetch("/api/admin/authors", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) }); const body = await response.json(); setSaving(false); if (!response.ok) { setMessage(body.error || "Could not create author"); return; } setMessage("Author created successfully."); setForm({ name: "", username: "", email: "", password: "", description: "" }); refresh(); }
+  async function submit(event: FormEvent) { event.preventDefault(); setSaving(true); setMessage(""); const response = await fetch("/api/admin/authors/", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) }); const body = await response.json(); setSaving(false); if (!response.ok) { setMessage(body.error || "Could not create author"); return; } setMessage("Author created successfully."); setForm({ name: "", username: "", email: "", password: "", description: "" }); refresh(); }
   return <div className="space-y-5 sm:space-y-6"><div><p className="pill text-xs font-bold uppercase tracking-[0.18em] text-violet-700">WordPress users</p><h1 className="mt-1 text-2xl font-extrabold sm:text-3xl">Authors and editors</h1><p className="mt-1 text-sm text-slate-500">Create author profiles without touching existing user records. Administrators and editors who can publish are included.</p></div><div className="grid gap-5 xl:grid-cols-[1fr_1.3fr]"><form onSubmit={submit} className={`${cardClass} space-y-4`}><h2 className="text-lg font-extrabold">Create author</h2>{([['name','Display name'],['username','Username'],['email','Email'],['password','Temporary password']] as const).map(([key, label]) => <label key={key} className="block text-sm font-semibold">{label}{key === "password" ? <PasswordInput value={form[key]} onChange={(value) => setForm({ ...form, [key]: value })} autoComplete="new-password" /> : <input className={`${inputClass} mt-1.5`} type={key === "email" ? "email" : "text"} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} required />}</label>)}<HtmlEditor label="Bio" value={form.description} onChange={(description) => setForm({ ...form, description })} minHeight="min-h-28 sm:min-h-36" helpText="Author bios support the same Visual and HTML modes." />{message && <p className="rounded-xl bg-violet-50 px-3 py-2 text-sm text-violet-800">{message}</p>}<button disabled={saving} className="min-h-11 w-full rounded-xl bg-violet-700 px-5 py-3 font-bold text-white hover:bg-violet-800 disabled:opacity-50 sm:w-auto">{saving ? "Creating…" : "Create author"}</button></form><section className={cardClass}><div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-lg font-extrabold">Existing authors and editors</h2><p className="mt-1 text-xs text-slate-500">{visibleAuthors.length.toLocaleString()} of {authors.length.toLocaleString()} publish-capable users</p></div><input className={`${inputClass} max-w-xs`} placeholder="Search authors" value={search} onChange={(event) => setSearch(event.target.value)} /></div><div className="mt-4 max-h-[52rem] divide-y divide-slate-100 overflow-y-auto">{visibleAuthors.map((item) => <div key={item.id} className="flex items-start justify-between gap-3 py-3 first:pt-0"><div className="min-w-0"><p className="break-words font-semibold">{item.name}</p><p className="break-all text-xs text-slate-500">@{item.slug || item.id} {item.email ? `· ${item.email}` : ""}</p></div><span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-500">{item.roles?.[0] || "user"}</span></div>)}{!visibleAuthors.length && <p className="py-6 text-sm text-slate-500">No authors match this search.</p>}</div></section></div></div>;
 }
 
 export default function AdminClient({ initialUser }: { initialUser: string | null }) {
   const [tab, setTab] = useState<Tab>("overview"); const [summary, setSummary] = useState<Summary | null>(null); const [authors, setAuthors] = useState<Author[]>([]); const [categories, setCategories] = useState<Category[]>([]); const [editingPostId, setEditingPostId] = useState<number | null>(null);
-  async function loadSummary() { const response = await fetch("/api/admin/analytics", { cache: "no-store" }); if (response.ok) setSummary(await response.json()); }
-  async function loadTaxonomies() { const [authorResponse, categoryResponse] = await Promise.all([fetch("/api/admin/authors"), fetch("/api/admin/categories")]); if (authorResponse.ok) setAuthors((await authorResponse.json()).items || []); if (categoryResponse.ok) setCategories((await categoryResponse.json()).items || []); }
+  async function loadSummary() { const response = await fetch("/api/admin/analytics/", { cache: "no-store" }); if (response.ok) setSummary(await response.json()); }
+  async function loadTaxonomies() { const [authorResponse, categoryResponse] = await Promise.all([fetch("/api/admin/authors/"), fetch("/api/admin/categories/")]); if (authorResponse.ok) setAuthors((await authorResponse.json()).items || []); if (categoryResponse.ok) setCategories((await categoryResponse.json()).items || []); }
   useEffect(() => {
     if (!initialUser) return;
     let cancelled = false;
-    void Promise.all([fetch("/api/admin/analytics", { cache: "no-store" }), fetch("/api/admin/authors"), fetch("/api/admin/categories")]).then(async ([summaryResponse, authorResponse, categoryResponse]) => {
+    void Promise.all([fetch("/api/admin/analytics/", { cache: "no-store" }), fetch("/api/admin/authors/"), fetch("/api/admin/categories/")]).then(async ([summaryResponse, authorResponse, categoryResponse]) => {
       if (cancelled) return;
       if (summaryResponse.ok) setSummary(await summaryResponse.json());
       if (authorResponse.ok) setAuthors((await authorResponse.json()).items || []);
@@ -308,5 +308,5 @@ export default function AdminClient({ initialUser }: { initialUser: string | nul
   }, [initialUser]);
   const content = useMemo(() => { if (tab === "overview") return <Overview summary={summary} refresh={loadSummary} />; if (tab === "articles") return <Articles authors={authors} onNew={() => { setEditingPostId(null); setTab("new"); }} onEdit={(id) => { setEditingPostId(id); setTab("edit"); }} />; if (tab === "new" || tab === "edit") return <NewArticle editId={tab === "edit" ? editingPostId : null} authors={authors} categories={categories} onCreated={() => { setEditingPostId(null); setTab("articles"); }} onCategoryCreated={loadTaxonomies} />; return <Authors authors={authors} refresh={loadTaxonomies} />; }, [tab, summary, authors, categories, editingPostId]);
   if (!initialUser) return <Login />;
-  return <AdminShell user={initialUser} tab={tab} setTab={setTab} onLogout={async () => { await fetch("/api/admin/logout", { method: "POST", cache: "no-store", credentials: "same-origin" }); window.location.replace("/admin/"); }}>{content}</AdminShell>;
+  return <AdminShell user={initialUser} tab={tab} setTab={setTab} onLogout={async () => { await fetch("/api/admin/logout/", { method: "POST", cache: "no-store", credentials: "same-origin" }); window.location.replace("/admin/"); }}>{content}</AdminShell>;
 }
