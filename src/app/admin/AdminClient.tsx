@@ -75,14 +75,75 @@ const toolbarButtons: { label: string; command: string; value?: string }[] = [
   { label: "S", command: "strikeThrough" }, { label: "Center", command: "justifyCenter" }, { label: "Right", command: "justifyRight" }, { label: "HR", command: "insertHorizontalRule" },
 ];
 
+const blockTags = new Set(["ADDRESS", "ARTICLE", "ASIDE", "BLOCKQUOTE", "DIV", "FIGCAPTION", "FIGURE", "FOOTER", "H1", "H2", "H3", "H4", "H5", "H6", "HEADER", "HR", "LI", "MAIN", "NAV", "OL", "P", "PRE", "SECTION", "TABLE", "UL"]);
+
+function rewriteEditorMediaUrl(value: string): string {
+  if (!value || value.trim().toLowerCase().startsWith("data:")) return value;
+  if (/^\/?wp-content\//i.test(value)) return value.startsWith("/") ? value : `/${value}`;
+  try {
+    const url = new URL(value, window.location.origin);
+    if ((url.hostname === "islamonlive.in" || url.hostname === "www.islamonlive.in" || url.hostname === "admin.islamonlive.in") && url.pathname.startsWith("/wp-content/")) return `${url.pathname}${url.search}`;
+  } catch { /* Leave malformed or non-URL values untouched. */ }
+  return value;
+}
+
+function normalizeEditorMedia(root: HTMLElement) {
+  root.querySelectorAll<HTMLElement>("img, source, video").forEach((element) => {
+    for (const attribute of ["src", "data-src", "poster"]) {
+      const value = element.getAttribute(attribute);
+      if (value) element.setAttribute(attribute, rewriteEditorMediaUrl(value));
+    }
+    for (const attribute of ["srcset", "data-srcset"]) {
+      const value = element.getAttribute(attribute);
+      if (!value) continue;
+      if (value.toLowerCase().includes("data:")) continue;
+      element.setAttribute(attribute, value.split(",").map((candidate) => {
+        const match = candidate.trim().match(/^(\S+)(\s+.*)?$/);
+        return match ? `${rewriteEditorMediaUrl(match[1])}${match[2] || ""}` : candidate;
+      }).join(", "));
+    }
+  });
+}
+
+/**
+ * Classic WordPress content often stores each paragraph as a span separated
+ * by blank lines. The public REST renderer wraps that same content in p tags,
+ * but a contentEditable element does not: whitespace collapses into one run.
+ * Add the missing block wrappers for visual editing while preserving all
+ * inline markup, images and existing block markup.
+ */
+function normalizeEditorHtml(value: string): string {
+  if (!value || typeof window === "undefined") return value;
+  const document = new DOMParser().parseFromString(value, "text/html");
+  const root = document.body;
+  normalizeEditorMedia(root);
+  if (Array.from(root.childNodes).some((node) => node.nodeType === Node.COMMENT_NODE)) return root.innerHTML;
+  if (Array.from(root.children).some((element) => blockTags.has(element.tagName))) return root.innerHTML;
+
+  const groups: ChildNode[][] = [];
+  let group: ChildNode[] = [];
+  const flush = () => { if (group.some((node) => node.nodeType !== Node.TEXT_NODE || node.textContent?.trim())) groups.push(group); group = []; };
+  root.childNodes.forEach((node) => {
+    if (node.nodeType === Node.TEXT_NODE && !node.textContent?.trim() && /\n/.test(node.textContent || "")) flush();
+    else group.push(node);
+  });
+  flush();
+  if (!groups.length) return root.innerHTML;
+  const fragment = document.createDocumentFragment();
+  groups.forEach((nodes) => { const paragraph = document.createElement("p"); nodes.forEach((node) => paragraph.appendChild(node.cloneNode(true))); fragment.appendChild(paragraph); });
+  root.replaceChildren(fragment);
+  return root.innerHTML;
+}
+
 function HtmlEditor({ label, value, onChange, minHeight = "min-h-72", helpText }: { label: string; value: string; onChange: (value: string) => void; minHeight?: string; helpText?: string }) {
   const editorRef = useRef<HTMLDivElement>(null);
   const lastValue = useRef(value);
   const [mode, setMode] = useState<"visual" | "html">("visual");
+  const displayValue = normalizeEditorHtml(value);
   useEffect(() => {
-    if (editorRef.current && editorRef.current.innerHTML !== value) editorRef.current.innerHTML = value;
-    lastValue.current = value;
-  }, [value, mode]);
+    if (editorRef.current && editorRef.current.innerHTML !== displayValue) editorRef.current.innerHTML = displayValue;
+    lastValue.current = displayValue;
+  }, [displayValue, mode]);
   function run(command: string, commandValue?: string) {
     editorRef.current?.focus();
     if (command === "createLink") { const url = window.prompt("Link URL"); if (url) document.execCommand(command, false, url); }
@@ -93,8 +154,8 @@ function HtmlEditor({ label, value, onChange, minHeight = "min-h-72", helpText }
     <div className="flex flex-wrap items-end justify-between gap-2"><span className="block text-sm font-semibold">{label}</span><div className="flex overflow-hidden rounded-lg border border-slate-200 bg-white text-xs font-semibold"><button type="button" onClick={() => setMode("visual")} className={`min-h-11 px-3 py-1.5 ${mode === "visual" ? "bg-violet-700 text-white" : "text-slate-500"}`}>Visual</button><button type="button" onClick={() => setMode("html")} className={`min-h-11 px-3 py-1.5 ${mode === "html" ? "bg-violet-700 text-white" : "text-slate-500"}`}>HTML</button></div></div>
     {mode === "visual" ? <>
       <div className="mt-1.5 flex flex-nowrap gap-1 overflow-x-auto rounded-t-xl border border-b-0 border-slate-200 bg-slate-50 p-2">{toolbarButtons.map((button) => <button type="button" key={button.label} onMouseDown={(event) => event.preventDefault()} onClick={() => run(button.command, button.value)} className="min-h-11 shrink-0 rounded-lg border border-transparent px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:border-slate-200 hover:bg-white">{button.label}</button>)}<button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => run("createLink")} className="min-h-11 shrink-0 rounded-lg border border-transparent px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:border-slate-200 hover:bg-white">Link</button><button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => run("removeFormat")} className="min-h-11 shrink-0 rounded-lg border border-transparent px-2.5 py-1.5 text-xs text-slate-500 hover:border-slate-200 hover:bg-white">Clear</button></div>
-      <div ref={editorRef} contentEditable suppressContentEditableWarning onInput={(event) => { const html = event.currentTarget.innerHTML; lastValue.current = html; onChange(html); }} className={`${minHeight} prose prose-slate prose-sm max-w-none rounded-b-xl border border-slate-200 bg-white px-4 py-3 leading-relaxed outline-none prose-headings:font-display prose-a:text-violet-700 prose-img:mx-auto prose-img:max-w-full focus:border-violet-500 focus:ring-2 focus:ring-violet-100 sm:prose-base`} />
-    </> : <textarea className={`${inputClass} mt-1.5 ${minHeight} font-mono text-xs`} value={value} onChange={(event) => onChange(event.target.value)} />}
+      <div ref={editorRef} contentEditable suppressContentEditableWarning onInput={(event) => { const html = event.currentTarget.innerHTML; lastValue.current = html; onChange(html); }} className={`${minHeight} prose prose-slate prose-sm max-w-none overflow-x-auto rounded-b-xl border border-slate-200 bg-white px-4 py-3 leading-relaxed outline-none prose-headings:font-display prose-a:text-violet-700 prose-img:mx-auto prose-img:max-w-full [&_img]:h-auto [&_img]:max-w-full focus:border-violet-500 focus:ring-2 focus:ring-violet-100 sm:prose-base`} />
+    </> : <textarea className={`${inputClass} mt-1.5 ${minHeight} font-mono text-xs`} value={displayValue} onChange={(event) => onChange(event.target.value)} />}
     {helpText && <p className="mt-1.5 text-xs text-slate-500">{helpText}</p>}
   </div>;
 }
