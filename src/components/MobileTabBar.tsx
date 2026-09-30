@@ -104,6 +104,7 @@ function ChevronIcon() {
 /* app-style bottom navigation, phones only */
 export default function MobileTabBar() {
   const pathname = usePathname();
+  const isAdmin = pathname.startsWith("/admin");
   const router = useRouter();
   // the panel is open only for the route it was opened on, so navigating anywhere
   // closes it for free — an effect that reset state on pathname change would cost
@@ -146,6 +147,8 @@ export default function MobileTabBar() {
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, [panelOpen]);
+
+  if (isAdmin) return null;
 
   const active = (t: Tab) => {
     if (t.href === "/") return pathname === "/";

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 
 type Tab = "overview" | "articles" | "new" | "edit" | "authors";
 type Author = { id: number; name: string; slug?: string; description?: string; email?: string; roles?: string[] };
@@ -67,9 +68,10 @@ function SearchableSelect({ label, value, options, placeholder, onChange, loadin
 }
 
 const toolbarButtons: { label: string; command: string; value?: string }[] = [
+  { label: "Paragraph", command: "formatBlock", value: "p" },
   { label: "B", command: "bold" }, { label: "I", command: "italic" }, { label: "U", command: "underline" },
   { label: "H2", command: "formatBlock", value: "h2" }, { label: "H3", command: "formatBlock", value: "h3" },
-  { label: "• List", command: "insertUnorderedList" }, { label: "1. List", command: "insertOrderedList" }, { label: "Quote", command: "formatBlock", value: "blockquote" },
+  { label: "• List", command: "insertUnorderedList" }, { label: "1. List", command: "insertOrderedList" }, { label: "Quote", command: "formatBlock", value: "blockquote" }, { label: "Pre", command: "formatBlock", value: "pre" },
   { label: "S", command: "strikeThrough" }, { label: "Center", command: "justifyCenter" }, { label: "Right", command: "justifyRight" }, { label: "HR", command: "insertHorizontalRule" },
 ];
 
@@ -145,12 +147,13 @@ function Login() {
   </div>;
 }
 
-function AdminShell({ user, children, tab, setTab, onLogout }: { user: string; children: React.ReactNode; tab: Tab; setTab: (tab: Tab) => void; onLogout: () => void }) {
+function AdminShell({ children, tab, setTab, onLogout }: { children: React.ReactNode; tab: Tab; setTab: (tab: Tab) => void; onLogout: () => void }) {
   const items: { key: Tab; label: string }[] = [{ key: "overview", label: "Overview" }, { key: "articles", label: "Articles" }, { key: "new", label: "New article" }, { key: "authors", label: "Authors" }];
   const activeTab = tab === "edit" ? "articles" : tab;
   return <div className="fixed inset-0 z-[100] overflow-auto bg-slate-50 text-slate-900">
-    <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur"><div className="mx-auto flex max-w-[1500px] items-center justify-between gap-3 px-3 py-2.5 sm:gap-4 sm:px-8 sm:py-3"><div className="min-w-0"><p className="pill text-[10px] font-bold uppercase tracking-[0.2em] text-violet-700">Islamonlive</p><p className="truncate text-base font-extrabold sm:text-lg">Content admin</p></div><div className="flex shrink-0 items-center gap-2 sm:gap-3"><span className="hidden text-sm text-slate-500 sm:block">{user}</span><button type="button" className="min-h-11 rounded-lg border border-slate-200 px-3 text-sm font-semibold hover:bg-slate-50" onClick={onLogout}>Log out</button></div></div></header>
-    <div className="mx-auto grid max-w-[1500px] gap-4 px-3 py-4 sm:gap-6 sm:px-8 sm:py-6 lg:grid-cols-[220px_1fr]"><nav className="-mx-1 flex snap-x gap-1 overflow-x-auto px-1 pb-1 scrollbar-none sm:gap-2 lg:mx-0 lg:block lg:space-y-1 lg:overflow-visible lg:px-0 lg:pb-0">{items.map((item) => <button key={item.key} onClick={() => setTab(item.key)} className={`min-h-11 shrink-0 snap-start whitespace-nowrap rounded-xl px-3 py-2 text-left text-xs font-semibold transition sm:px-4 sm:text-sm lg:block lg:w-full ${activeTab === item.key ? "bg-violet-700 text-white shadow-sm" : "text-slate-600 hover:bg-white hover:text-slate-900"}`}>{item.label}</button>)}</nav><main className="min-w-0">{children}</main></div>
+    <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur"><div className="mx-auto flex max-w-[1500px] items-center justify-between gap-3 px-3 py-2.5 sm:px-8 sm:py-3"><Image src="/logo.png" alt="Islamonlive" width={132} height={36} priority className="h-8 w-auto object-contain sm:h-9" /><button type="button" className="min-h-11 rounded-md border border-slate-200 px-3 text-sm font-semibold hover:bg-slate-50" onClick={onLogout}>Log out</button></div></header>
+    <div className="mx-auto grid max-w-[1500px] gap-4 px-3 py-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:gap-6 sm:px-8 sm:py-6 sm:pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:grid-cols-[220px_1fr] lg:pb-6"><nav className="hidden lg:block lg:space-y-1">{items.map((item) => <button key={item.key} aria-current={activeTab === item.key ? "page" : undefined} onClick={() => setTab(item.key)} className={`min-h-11 rounded-xl px-4 py-3 text-left text-sm font-semibold transition lg:block lg:w-full ${activeTab === item.key ? "bg-violet-700 text-white shadow-sm" : "text-slate-600 hover:bg-white hover:text-slate-900"}`}>{item.label}</button>)}</nav><main className="min-w-0">{children}</main></div>
+    <nav aria-label="Admin navigation" className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-4 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_16px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden">{items.map((item) => <button key={item.key} type="button" aria-current={activeTab === item.key ? "page" : undefined} onClick={() => setTab(item.key)} className={`min-h-16 px-1 text-[11px] font-semibold transition ${activeTab === item.key ? "text-violet-700" : "text-slate-500"}`}><span className={`mx-auto mb-1 block h-1 w-8 rounded-full ${activeTab === item.key ? "bg-violet-700" : "bg-transparent"}`} />{item.key === "new" ? "New" : item.label}</button>)}</nav>
   </div>;
 }
 
@@ -340,5 +343,5 @@ export default function AdminClient({ initialUser }: { initialUser: string | nul
   }, [initialUser]);
   const content = useMemo(() => { if (tab === "overview") return <Overview summary={summary} refresh={loadSummary} error={summaryError} />; if (tab === "articles") return <Articles authors={authors} authorsLoading={taxonomiesLoading} onNew={() => { setEditingPostId(null); setTab("new"); }} onEdit={(id) => { setEditingPostId(id); setTab("edit"); }} />; if (tab === "new" || tab === "edit") return <NewArticle editId={tab === "edit" ? editingPostId : null} authors={authors} categories={categories} taxonomiesLoading={taxonomiesLoading} onCreated={() => { setEditingPostId(null); setTab("articles"); }} onCategoryCreated={loadTaxonomies} />; return <Authors authors={authors} refresh={loadTaxonomies} loading={taxonomiesLoading} error={taxonomyError} />; }, [tab, summary, summaryError, authors, categories, editingPostId, taxonomiesLoading, taxonomyError]);
   if (!initialUser) return <Login />;
-  return <AdminShell user={initialUser} tab={tab} setTab={setTab} onLogout={async () => { await fetch("/api/admin/logout/", { method: "POST", cache: "no-store", credentials: "same-origin" }); window.location.replace("/admin/"); }}>{content}</AdminShell>;
+  return <AdminShell tab={tab} setTab={setTab} onLogout={async () => { await fetch("/api/admin/logout/", { method: "POST", cache: "no-store", credentials: "same-origin" }); window.location.replace("/admin/"); }}>{content}</AdminShell>;
 }
