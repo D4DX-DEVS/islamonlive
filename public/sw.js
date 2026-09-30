@@ -1,10 +1,11 @@
 /* ponytail: minimal offline-shell SW — network-first pages, cache-first static.
    Bump CACHE version to invalidate. */
-const CACHE = "iol-v2";
+const CACHE = "iol-v3-admin-pwa";
 const OFFLINE_URL = "/";
+const ADMIN_OFFLINE_URL = "/admin-offline.html";
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll([OFFLINE_URL, "/logo.png", "/icon-192.png"])));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll([OFFLINE_URL, ADMIN_OFFLINE_URL, "/logo.png", "/icon-192.png"])));
   self.skipWaiting();
 });
 
@@ -38,6 +39,8 @@ self.addEventListener("fetch", (e) => {
 
   // pages: network-first, offline fallback to cached shell
   if (req.mode === "navigate") {
-    e.respondWith(fetch(req).catch(() => caches.match(req).then((hit) => hit || caches.match(OFFLINE_URL))));
+    const pathname = new URL(req.url).pathname;
+    const offlineFallback = pathname === "/admin" || pathname.startsWith("/admin/") ? ADMIN_OFFLINE_URL : OFFLINE_URL;
+    e.respondWith(fetch(req).catch(() => caches.match(req).then((hit) => hit || caches.match(offlineFallback))));
   }
 });
