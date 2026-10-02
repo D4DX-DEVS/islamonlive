@@ -4,6 +4,7 @@ import { forwardToGoogleAnalytics, normaliseEvent, recordAnalyticsEvent } from "
 const attempts = new Map<string, { startedAt: number; count: number }>();
 const WINDOW_MS = 60_000;
 const MAX_EVENTS_PER_WINDOW = 120;
+let lastStorageWarning = 0;
 
 export const runtime = "nodejs";
 
@@ -27,6 +28,10 @@ export async function POST(request: Request) {
     recordAnalyticsEvent(event),
     forwardToGoogleAnalytics(event),
   ]);
-  if (storageResult.status === "rejected") throw storageResult.reason;
+  if (storageResult.status === "rejected") {
+    // A reader sends ~14 beacons per article, so say so once a minute, not once per beacon.
+    if (now - lastStorageWarning > 60_000) { lastStorageWarning = now; console.warn("[analytics] reader events are not being saved:", storageResult.reason instanceof Error ? storageResult.reason.message : storageResult.reason); }
+    return NextResponse.json({ error: "Analytics storage is unavailable" }, { status: 503 });
+  }
   return new NextResponse(null, { status: 204 });
 }

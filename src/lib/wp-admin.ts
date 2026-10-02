@@ -4,6 +4,8 @@ import { WP_URL } from "@/lib/env";
 
 const SESSION_COOKIE = "iol_admin_session_v2";
 const SESSION_TTL = 8 * 60 * 60;
+// Matches WordPress's own "Remember Me" cookie lifetime.
+const REMEMBER_TTL = 14 * 24 * 60 * 60;
 
 type AdminSession = {
   username: string;
@@ -62,12 +64,13 @@ function extractNonce(html: string): string | null {
   return match?.[1] ?? null;
 }
 
-async function wordpressLogin(username: string, password: string): Promise<AdminSession> {
+async function wordpressLogin(username: string, password: string, remember: boolean): Promise<AdminSession> {
   const testCookie = "wordpress_test_cookie=WP+Cookie+check";
   const form = new URLSearchParams({
     log: username,
     pwd: password,
     "wp-submit": "Log In",
+    ...(remember ? { rememberme: "forever" } : {}),
     redirect_to: `${WP_URL}/wp-admin/`,
     testcookie: "1",
   });
@@ -93,11 +96,11 @@ async function wordpressLogin(username: string, password: string): Promise<Admin
   const nonce = extractNonce(await admin.text());
   if (!nonce) throw new Error("WordPress did not provide a REST nonce for this account");
 
-  return { username, cookies: cookieHeader, nonce, expiresAt: Math.floor(Date.now() / 1000) + SESSION_TTL };
+  return { username, cookies: cookieHeader, nonce, expiresAt: Math.floor(Date.now() / 1000) + (remember ? REMEMBER_TTL : SESSION_TTL) };
 }
 
-export async function createAdminSession(username: string, password: string): Promise<void> {
-  const session = await wordpressLogin(username.trim(), password);
+export async function createAdminSession(username: string, password: string, remember = false): Promise<void> {
+  const session = await wordpressLogin(username.trim(), password, remember);
   const store = await cookies();
   // Clear the earlier development build's narrower cookie if one exists.
   store.set(SESSION_COOKIE, "", { httpOnly: true, expires: new Date(0), path: "/admin" });
@@ -108,7 +111,7 @@ export async function createAdminSession(username: string, password: string): Pr
     // The dashboard calls /api/admin/* as well as /admin. The cookie remains
     // HTTP-only and encrypted; root scope is required for those API requests.
     path: "/",
-    maxAge: SESSION_TTL,
+    maxAge: remember ? REMEMBER_TTL : SESSION_TTL,
   });
 }
 
@@ -116,14 +119,24 @@ export async function getAdminSession(): Promise<AdminSession | null> {
   return unpack((await cookies()).get(SESSION_COOKIE)?.value);
 }
 
-export async function wpAdminFetch(path: string, init: RequestInit = {}): Promise<Response> {
+async function signedRequest(url: string, init: RequestInit): Promise<Response> {
   const session = await getAdminSession();
   if (!session) throw new Error("Admin authentication required");
   const headers = new Headers(init.headers);
   headers.set("Cookie", session.cookies);
   headers.set("X-WP-Nonce", session.nonce);
   headers.set("Accept", "application/json");
-  return fetch(`${WP_URL}/wp-json/wp/v2${path}`, { ...init, headers, cache: "no-store" });
+  return fetch(url, { ...init, headers, cache: "no-store" });
+}
+
+/** A signed-in call to the core REST API, `path` being relative to `/wp-json/wp/v2`. */
+export function wpAdminFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  return signedRequest(`${WP_URL}/wp-json/wp/v2${path}`, init);
+}
+
+/** A signed-in call to a plugin's REST namespace, `path` starting at it: "/rsfv/v1/posts/update-video". */
+export function wpAdminRoute(path: string, init: RequestInit = {}): Promise<Response> {
+  return signedRequest(`${WP_URL}/wp-json${path}`, init);
 }
 
 export function sessionCookieName(): string {

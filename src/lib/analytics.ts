@@ -1,20 +1,7 @@
-import { appendFile, mkdir, readFile } from "node:fs/promises";
-import path from "node:path";
-import { WP_API } from "@/lib/env";
+import { loadEvents, saveEvent, storageStatus, type AnalyticsEvent, type StorageStatus } from "@/lib/analytics-store";
+import { cachedLookup, getThumbnails, idList, wpJson } from "@/lib/wp-lookup";
 
-export type AnalyticsEvent = {
-  ts: string;
-  sessionId: string;
-  articleId: number;
-  path: string;
-  title: string;
-  type: "view" | "heartbeat" | "complete";
-  seconds: number;
-  progress: number;
-};
-
-const storePath = process.env.ANALYTICS_STORE_PATH || path.join(process.cwd(), ".data", "analytics.ndjson");
-let writeQueue = Promise.resolve();
+export type { AnalyticsEvent };
 
 function clampNumber(value: unknown, min: number, max: number): number {
   const number = typeof value === "number" && Number.isFinite(value) ? value : 0;
@@ -42,57 +29,38 @@ export function normaliseEvent(input: Partial<AnalyticsEvent>): AnalyticsEvent |
   };
 }
 
-export async function recordAnalyticsEvent(event: AnalyticsEvent): Promise<void> {
-  writeQueue = writeQueue.catch(() => undefined).then(async () => {
-    await mkdir(path.dirname(storePath), { recursive: true });
-    await appendFile(storePath, `${JSON.stringify(event)}\n`, "utf8");
-  });
-  return writeQueue;
-}
+export const recordAnalyticsEvent = saveEvent;
 
-async function readEvents(): Promise<AnalyticsEvent[]> {
-  try {
-    const raw = await readFile(/* turbopackIgnore: true */ storePath, "utf8");
-    return raw.split("\n").filter(Boolean).flatMap((line) => {
-      try {
-        const parsed = JSON.parse(line) as AnalyticsEvent;
-        return parsed && typeof parsed.articleId === "number" ? [parsed] : [];
-      } catch {
-        return [];
-      }
-    });
-  } catch (error: unknown) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
-    throw error;
-  }
-}
+type Totals = { views: number; uniqueReaders: number; averageReadingSeconds: number; completionRate: number };
+type ArticleMetric = { articleId: number; title: string; path: string; views: number; readers: number; averageReadingSeconds: number; completionRate: number };
 
-export type AnalyticsSummary = {
+export type AnalyticsSummary = Totals & {
   windowDays: number;
-  views: number;
-  uniqueReaders: number;
-  averageReadingSeconds: number;
-  completionRate: number;
-  daily: { date: string; views: number; readers: number }[];
-  topArticles: { articleId: number; title: string; path: string; views: number; readers: number; averageReadingSeconds: number; completionRate: number; publishedAt?: string | null }[];
+  /** First and last UTC day of the window, YYYY-MM-DD. */
+  from: string;
+  to: string;
+  /** The window of equal length right before this one; null when it holds no events. */
+  previous: Totals | null;
+  /** One entry per day of the window, zero-filled. */
+  daily: (Totals & { date: string })[];
+  topArticles: (ArticleMetric & { publishedAt?: string | null; imageUrl?: string | null })[];
+  /** Where reader events are saved, and whether that currently works. */
+  storage?: StorageStatus;
 };
 
-async function getPublishDates(articleIds: number[]): Promise<Map<number, string>> {
-  const dates = new Map<number, string>();
-  if (!articleIds.length) return dates;
-  try {
-    const query = new URLSearchParams({ include: articleIds.join(","), per_page: String(articleIds.length), _fields: "id,date" });
-    const response = await fetch(`${WP_API}/posts?${query}`, { cache: "no-store", signal: AbortSignal.timeout(2500) });
-    if (!response.ok) return dates;
-    const posts = await response.json() as { id?: number; date?: string }[];
-    posts.forEach((post) => { if (Number.isInteger(post.id) && post.date) dates.set(Number(post.id), post.date); });
-  } catch { /* Analytics should still render when WordPress is slow or unavailable. */ }
-  return dates;
+const DAY_MS = 86_400_000;
+
+type PostMeta = { date?: string; featuredMedia: number };
+const postMetaCache: Map<number, { value: PostMeta; at: number }> = new Map();
+
+function getPostMeta(articleIds: number[]): Promise<Map<number, PostMeta>> {
+  return cachedLookup(postMetaCache, articleIds, async (missing) => {
+    const rows = await wpJson<{ id?: number; date?: string; featured_media?: number }[]>("/posts", { ...idList(missing), _fields: "id,date,featured_media" });
+    return new Map((rows ?? []).flatMap((post) => Number.isInteger(post.id) ? [[Number(post.id), { date: post.date, featuredMedia: post.featured_media ?? 0 }] as const] : []));
+  });
 }
 
-export async function getAnalyticsSummary(windowDays = 30): Promise<AnalyticsSummary> {
-  const cutoff = Date.now() - windowDays * 86_400_000;
-  const events = (await readEvents()).filter((event) => Date.parse(event.ts) >= cutoff);
+function measure(events: AnalyticsEvent[]): Totals & { articles: ArticleMetric[] } {
   const views = events.filter((event) => event.type === "view");
   const readers = new Set(views.map((event) => event.sessionId));
   const articleMap = new Map<number, { title: string; path: string; sessions: Set<string>; views: number; maxSeconds: Map<string, number>; completed: Set<string> }>();
@@ -105,26 +73,59 @@ export async function getAnalyticsSummary(windowDays = 30): Promise<AnalyticsSum
     if (event.type === "complete" || event.progress >= 0.9) current.completed.add(event.sessionId);
     articleMap.set(event.articleId, current);
   }
-  const articleMetrics = [...articleMap.entries()].map(([articleId, item]) => {
+  const articles = [...articleMap.entries()].map(([articleId, item]) => {
     const seconds = [...item.maxSeconds.values()];
     return { articleId, title: item.title, path: item.path, views: item.views, readers: item.sessions.size, averageReadingSeconds: seconds.length ? Math.round(seconds.reduce((a, b) => a + b, 0) / seconds.length) : 0, completionRate: item.sessions.size ? Math.round((item.completed.size / item.sessions.size) * 100) : 0 };
   }).sort((a, b) => b.views - a.views);
-  const topArticles = articleMetrics.slice(0, 10);
-  const publishDates = await getPublishDates(topArticles.map((article) => article.articleId));
-  const topArticlesWithDates = topArticles.map((article) => ({ ...article, publishedAt: publishDates.get(article.articleId) || null }));
-  const dailyMap = new Map<string, { views: number; readers: Set<string> }>();
-  for (const event of views) {
-    const date = event.ts.slice(0, 10);
-    const current = dailyMap.get(date) ?? { views: 0, readers: new Set() };
-    current.views += 1;
-    current.readers.add(event.sessionId);
-    dailyMap.set(date, current);
+  const durations = articles.flatMap((article) => Array.from({ length: article.readers }, () => article.averageReadingSeconds));
+  const completions = articles.reduce((total, article) => total + Math.round(article.readers * article.completionRate / 100), 0);
+  const articleReaders = articles.reduce((total, article) => total + article.readers, 0);
+  return { views: views.length, uniqueReaders: readers.size, averageReadingSeconds: durations.length ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : 0, completionRate: articleReaders ? Math.round((completions / articleReaders) * 100) : 0, articles };
+}
+
+const totalsOf = ({ views, uniqueReaders, averageReadingSeconds, completionRate }: Totals): Totals => ({ views, uniqueReaders, averageReadingSeconds, completionRate });
+
+export async function getAnalyticsSummary(windowDays = 30): Promise<AnalyticsSummary> {
+  // The window is whole UTC days ending today, so the daily series adds up to the totals.
+  const now = new Date();
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const start = today - (windowDays - 1) * DAY_MS;
+  const previousStart = start - windowDays * DAY_MS;
+  const [all, storage] = await Promise.all([loadEvents(previousStart), storageStatus()]);
+  const events = all.filter((event) => Date.parse(event.ts) >= start);
+  const previousEvents = all.filter((event) => Date.parse(event.ts) < start);
+  const current = measure(events);
+
+  const eventsByDay = new Map<string, AnalyticsEvent[]>();
+  for (const event of events) {
+    const day = event.ts.slice(0, 10);
+    eventsByDay.set(day, [...(eventsByDay.get(day) ?? []), event]);
   }
-  const daily = [...dailyMap.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, item]) => ({ date, views: item.views, readers: item.readers.size }));
-  const durations = articleMetrics.flatMap((article) => Array.from({ length: article.readers }, () => article.averageReadingSeconds));
-  const completions = articleMetrics.reduce((total, article) => total + Math.round(article.readers * article.completionRate / 100), 0);
-  const articleReaders = articleMetrics.reduce((total, article) => total + article.readers, 0);
-  return { windowDays, views: views.length, uniqueReaders: readers.size, averageReadingSeconds: durations.length ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : 0, completionRate: articleReaders ? Math.round((completions / articleReaders) * 100) : 0, daily, topArticles: topArticlesWithDates };
+  const daily = Array.from({ length: windowDays }, (_, index) => {
+    const date = new Date(start + index * DAY_MS).toISOString().slice(0, 10);
+    const day = measure(eventsByDay.get(date) ?? []);
+    return { date, ...totalsOf(day) };
+  });
+
+  // Publish dates and thumbnails come from WordPress; every lookup degrades to
+  // "nothing" so the numbers above never wait on it.
+  const topArticles = current.articles.slice(0, 10);
+  const meta = await getPostMeta(topArticles.map((article) => article.articleId));
+  const thumbnails = await getThumbnails(topArticles.flatMap((article) => meta.get(article.articleId)?.featuredMedia || []));
+
+  return {
+    windowDays,
+    from: new Date(start).toISOString().slice(0, 10),
+    to: new Date(today).toISOString().slice(0, 10),
+    ...totalsOf(current),
+    previous: previousEvents.length ? totalsOf(measure(previousEvents)) : null,
+    daily,
+    storage,
+    topArticles: topArticles.map((article) => {
+      const post = meta.get(article.articleId);
+      return { ...article, publishedAt: post?.date ?? null, imageUrl: post?.featuredMedia ? thumbnails.get(post.featuredMedia) ?? null : null };
+    }),
+  };
 }
 
 export async function forwardToGoogleAnalytics(event: AnalyticsEvent): Promise<void> {
