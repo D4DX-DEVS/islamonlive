@@ -28,6 +28,13 @@ Copy `.env.example` to `.env.local` and set at least `WORDPRESS_API_URL`,
 the same reader events to GA4 Measurement Protocol while the local dashboard
 remains available.
 
+When Cloudflare caches the public HTML, also set `CLOUDFLARE_ZONE_ID` and a
+`CLOUDFLARE_API_TOKEN` with only **Zone → Cache Purge → Purge** permission. The
+admin save API and the WordPress revalidation webhook then clear the changed
+Next.js routes and their Cloudflare copies immediately. Without these two
+variables, Next.js still invalidates its own cache, but Cloudflare can serve its
+cached HTML until the CDN TTL expires.
+
 ### Where reader events are stored
 
 - **Local development / a server with a disk:** events are appended to

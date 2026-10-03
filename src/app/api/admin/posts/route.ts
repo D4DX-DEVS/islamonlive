@@ -4,6 +4,7 @@ import { decodeEntities } from "@/lib/wordpress";
 import { invalidateAdminTaxonomyCache } from "@/lib/admin-taxonomy-cache";
 import { parsePublishDate, parseSeo, POST_STATS_CACHE, resolveTagIds } from "@/lib/admin-posts";
 import { parseVideoChange, readFeaturedVideo, saveFeaturedVideo, type VideoChange } from "@/lib/featured-video";
+import { invalidatePublicPostCache } from "@/lib/admin-public-cache";
 
 export const dynamic = "force-dynamic";
 
@@ -109,6 +110,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: data?.message || "Article could not be created" }, { status: response.status });
     }
     invalidateAdminTaxonomyCache(POST_STATS_CACHE);
+    await invalidatePublicPostCache(data);
     return NextResponse.json({ item: data, warnings: await attachVideo(Number(data.id), extras.video) }, { status: 201 });
   } catch (error: unknown) {
     if (featuredMedia) await wpAdminFetch(`/media/${featuredMedia}?force=true`, { method: "DELETE" }).catch(() => undefined);
@@ -169,6 +171,7 @@ export async function PUT(request: Request) {
       await wpAdminFetch(`/media/${existingMedia}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ alt_text: imageAlt }) }).catch(() => undefined);
     }
     invalidateAdminTaxonomyCache(POST_STATS_CACHE);
+    await invalidatePublicPostCache(data);
     return NextResponse.json({ item: data, warnings: await attachVideo(id, extras.video) });
   } catch (error: unknown) {
     if (featuredMedia) await wpAdminFetch(`/media/${featuredMedia}?force=true`, { method: "DELETE" }).catch(() => undefined);
@@ -185,6 +188,7 @@ export async function DELETE(request: Request) {
     const data = await response.json();
     if (!response.ok) return NextResponse.json({ error: data?.message || "Could not move the article to the trash" }, { status: response.status });
     invalidateAdminTaxonomyCache(POST_STATS_CACHE);
+    await invalidatePublicPostCache(data);
     return NextResponse.json({ ok: true });
   } catch (error: unknown) {
     return errorResponse(error);
