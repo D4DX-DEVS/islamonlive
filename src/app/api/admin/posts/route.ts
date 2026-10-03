@@ -69,16 +69,17 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  let featuredMedia = 0;
   try {
     const form = await request.formData();
     const title = String(form.get("title") || "").trim();
     const content = String(form.get("content") || "").trim();
     const status = String(form.get("status") || "draft");
+    const slug = String(form.get("slug") || "").trim();
     if (!title || !content) return NextResponse.json({ error: "Title and content are required" }, { status: 400 });
     if (!["draft", "publish", "pending", "private"].includes(status)) return NextResponse.json({ error: "Invalid article status" }, { status: 400 });
     const extras = readExtras(form);
     if (extras instanceof NextResponse) return extras;
-    let featuredMedia = 0;
     const image = form.get("featuredImage");
     const imageAlt = String(form.get("featuredImageAlt") || "").trim();
     if (image instanceof File && image.size > 0) {
@@ -91,6 +92,7 @@ export async function POST(request: Request) {
       if (featuredMedia && form.has("featuredImageAlt")) await wpAdminFetch(`/media/${featuredMedia}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ alt_text: imageAlt }) }).catch(() => undefined);
     }
     const payload: Record<string, unknown> = { title, content, status, excerpt: String(form.get("excerpt") || "") };
+    if (slug) payload.slug = slug;
     const author = Number(form.get("author") || 0);
     const categories = String(form.get("categories") || "[]");
     if (author) payload.author = author;
@@ -109,6 +111,7 @@ export async function POST(request: Request) {
     invalidateAdminTaxonomyCache(POST_STATS_CACHE);
     return NextResponse.json({ item: data, warnings: await attachVideo(Number(data.id), extras.video) }, { status: 201 });
   } catch (error: unknown) {
+    if (featuredMedia) await wpAdminFetch(`/media/${featuredMedia}?force=true`, { method: "DELETE" }).catch(() => undefined);
     return errorResponse(error);
   }
 }
@@ -123,6 +126,7 @@ export async function PUT(request: Request) {
     const title = String(form.get("title") || "").trim();
     const content = String(form.get("content") || "").trim();
     const status = String(form.get("status") || "draft");
+    const slug = String(form.get("slug") || "").trim();
     if (!title || !content) return NextResponse.json({ error: "Title and content are required" }, { status: 400 });
     if (!["draft", "publish", "pending", "private"].includes(status)) return NextResponse.json({ error: "Invalid article status" }, { status: 400 });
     const extras = readExtras(form);
@@ -141,6 +145,7 @@ export async function PUT(request: Request) {
     }
 
     const payload: Record<string, unknown> = { title, content, status, excerpt: String(form.get("excerpt") || "") };
+    if (slug) payload.slug = slug;
     const author = Number(form.get("author") || 0);
     const categories = String(form.get("categories") || "[]");
     if (author) payload.author = author;

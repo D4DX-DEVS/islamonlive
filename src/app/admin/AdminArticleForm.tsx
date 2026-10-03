@@ -14,6 +14,7 @@ type PostDetail = {
   content?: { raw?: string; rendered?: string };
   excerpt?: { raw?: string; rendered?: string };
   status?: string;
+  slug?: string;
   date?: string;
   author?: number;
   categories?: number[];
@@ -167,6 +168,7 @@ function PreviewDialog({ title, excerpt, content, imageUrl, onClose }: { title: 
 export default function NewArticle({ authors, categories, taxonomiesLoading, editId, publishOnOpen = false, onCreated, onCancel, onCategoryCreated }: { authors: Author[]; categories: Category[]; taxonomiesLoading: boolean; editId?: number | null; publishOnOpen?: boolean; onCreated: (notice?: string) => void; onCancel: () => void; onCategoryCreated: () => Promise<void> }) {
   const editing = Boolean(editId);
   const [title, setTitle] = useState("");
+  const [slug, setSlug] = useState("");
   const [content, setContent] = useState("");
   const [excerpt, setExcerpt] = useState("");
   const [status, setStatus] = useState("draft");
@@ -210,6 +212,7 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
       const item = body.item as PostDetail;
       const stored = item.status || "draft";
       setTitle(item.title?.raw || stripHtml(item.title?.rendered || ""));
+      setSlug(item.slug || "");
       setContent(item.content?.raw || item.content?.rendered || "");
       setExcerpt(item.excerpt?.raw || item.excerpt?.rendered || "");
       // Private and scheduled posts are both "publish" here, told apart by visibility and date.
@@ -268,7 +271,7 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
     if (currentVideoKey === "invalid") { setMessage("The featured video link must be a YouTube, Vimeo or Dailymotion address. Fix it or clear it."); return; }
     setSaving(true);
     const form = new FormData();
-    form.set("title", title); form.set("content", content); form.set("excerpt", excerpt);
+    form.set("title", title); form.set("slug", slug); form.set("content", content); form.set("excerpt", excerpt);
     // “Private” only means something once the article is published.
     form.set("status", status === "publish" && visibility === "private" ? "private" : status);
     if (dateTouched) form.set("date", `${publishDate}T${publishTime || "00:00"}:00`);
@@ -322,6 +325,7 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
         <div className="min-w-0 space-y-5">
         <div className={`${cardClass} space-y-5`}>
           <label className="block"><FieldLabel required>Title</FieldLabel><input className={`${inputClass} mt-2`} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Enter a clear and descriptive title for your article…" required /></label>
+          <label className="block"><FieldLabel>Slug</FieldLabel><p className="mt-1 text-xs text-slate-500">Leave blank to let WordPress generate it. Changing it changes the article URL.</p><input className={`${inputClass} mt-2`} value={slug} onChange={(event) => setSlug(event.target.value)} placeholder="article-url-slug" /></label>
           <div className="grid gap-4 sm:grid-cols-2">
             <SearchableSelect label="Author" icon="user" value={author} options={authorOptions} placeholder="Choose author" onChange={setAuthor} loading={taxonomiesLoading} />
             <div>
