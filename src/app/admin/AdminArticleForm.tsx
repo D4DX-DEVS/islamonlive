@@ -3,7 +3,6 @@
 import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import FeaturedVideoCard, { noVideo, videoKey, videoPayload, type VideoChoice } from "./ArticleVideo";
-import SeoCard, { keywordIdeas, type SeoFields } from "./ArticleSeo";
 import { CardTitle, FieldLabel } from "./form-parts";
 import HtmlEditor from "./HtmlEditor";
 import { Icon, type IconName } from "./icons";
@@ -19,14 +18,10 @@ type PostDetail = {
   author?: number;
   categories?: number[];
   featured_media?: number;
-  meta?: Record<string, unknown>;
   _embedded?: { "wp:featuredmedia"?: { id?: number; source_url: string; alt_text?: string }[] };
 };
 
 type FeaturedVideoInfo = { available: boolean; source: "" | "self" | "embed"; embedUrl: string; mediaId: number; url: string; message?: string };
-
-const noSeo: SeoFields = { focusKeyword: "", title: "", description: "" };
-const metaText = (meta: Record<string, unknown> | undefined, key: string) => (typeof meta?.[key] === "string" ? meta[key] as string : "");
 
 const EXCERPT_GUIDE = 300;
 const MAX_TAGS = 20;
@@ -188,8 +183,6 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
   const [existingImage, setExistingImage] = useState<{ url: string; alt: string } | null>(null);
   const [existingMediaId, setExistingMediaId] = useState(0);
   const [removeExistingImage, setRemoveExistingImage] = useState(false);
-  const [seo, setSeo] = useState<SeoFields>(noSeo);
-  const [initialSeo, setInitialSeo] = useState<SeoFields>(noSeo);
   const [video, setVideo] = useState<VideoChoice>(noVideo);
   const [initialVideoKey, setInitialVideoKey] = useState("none");
   const [videoUnavailable, setVideoUnavailable] = useState("");
@@ -229,8 +222,6 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
       setExistingMediaId(Number(item.featured_media || media?.id || 0));
       setExistingImage(media?.source_url ? { url: media.source_url, alt: media.alt_text || "" } : null);
       setImageAlt(media?.alt_text || "");
-      const loadedSeo = { focusKeyword: metaText(item.meta, "_yoast_wpseo_focuskw"), title: metaText(item.meta, "_yoast_wpseo_title"), description: metaText(item.meta, "_yoast_wpseo_metadesc") };
-      setSeo(loadedSeo); setInitialSeo(loadedSeo);
       const loadedVideo = body.featuredVideo as FeaturedVideoInfo | undefined;
       if (loadedVideo && !loadedVideo.available) setVideoUnavailable(loadedVideo.message || "The featured video could not be loaded for this article.");
       const choice: VideoChoice = loadedVideo?.source === "embed" ? { mode: "url", url: loadedVideo.embedUrl, media: null }
@@ -284,9 +275,7 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
     form.set("featuredImageAlt", imageAlt);
     if (existingMediaId) form.set("existingFeaturedMedia", String(existingMediaId));
     if (removeExistingImage) form.set("removeFeaturedImage", "true");
-    // Only what changed is sent, so saving never rewrites SEO or video settings the editor did not touch.
-    const changedSeo = Object.fromEntries((Object.keys(seo) as (keyof SeoFields)[]).filter((field) => seo[field] !== initialSeo[field]).map((field) => [field, seo[field]]));
-    if (Object.keys(changedSeo).length) form.set("seo", JSON.stringify(changedSeo));
+    // SEO metadata is intentionally left untouched; this editor focuses on WordPress editorial fields.
     const videoChange = currentVideoKey !== initialVideoKey ? videoPayload(video) : null;
     if (videoChange) form.set("featuredVideo", videoChange);
     const response = await fetch(editing ? "/api/admin/posts/?id=" + editId : "/api/admin/posts/", { method: editing ? "PUT" : "POST", body: form });
@@ -317,7 +306,7 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
       </nav>
       <p className="pill mt-4 text-xs font-bold uppercase tracking-[0.18em] text-violet-700">WordPress posts</p>
       <h1 className="mt-2 text-2xl font-extrabold text-[#12093a] sm:text-3xl">{editing ? "Edit article" : "Create article"}</h1>
-      <p className="mt-1.5 text-sm text-slate-500">{editing ? "Update the existing WordPress article while keeping its permalink and history." : "Create and publish a new article with SEO details, tags, a featured image and video."}</p>
+      <p className="mt-1.5 text-sm text-slate-500">{editing ? "Update the existing WordPress article while keeping its permalink and history." : "Create and publish a new article with tags, a featured image and video."}</p>
     </div>
 
     <form onSubmit={submit}>
@@ -346,7 +335,6 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
           <HtmlEditor label="Content" required value={content} onChange={setContent} minHeight="min-h-56 sm:min-h-72" />
           <TagInput tags={tags} onChange={setTags} />
         </div>
-        <SeoCard values={seo} ideas={keywordIdeas(title, tags, stripHtml(categories.find((item) => String(item.id) === category)?.name ?? ""))} onChange={(patch) => setSeo((current) => ({ ...current, ...patch }))} />
         </div>
 
         <div className="space-y-5">
