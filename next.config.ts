@@ -203,31 +203,13 @@ const nextConfig: NextConfig = {
         headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
       },
       {
-        /* The edge's own lifetime for pages. Next sends ISR pages out as
-           `s-maxage=60, stale-while-revalidate=31535940` — a year of SWR, from
-           the default expireTime. App Platform's CDN (Cloudflare, run by DO —
-           the apex is not proxied through our own zone, so lib/cloudflare.ts
-           cannot purge it and there is no purge API) honours that literally:
-           a page is served stale once and refreshed behind the reader, so a
-           quiet archive shows whatever the *previous* visitor triggered, which
-           was measured at 40 hours to 5 days old (2026-09-28, new posts
-           "missing" from /category/shariah/ while Next's own copy had them).
-
-           CDN-Cache-Control (RFC 9213) outranks Cache-Control at Cloudflare and
-           is ignored by browsers, so this caps only the edge: at most 60s
-           fresh + 60s stale, and revalidatePath() already expires Next's copy
-           outright, so a publish is visible within ~2 minutes. stale-if-error
-           keeps the edge answering with the last good page when the container
-           cannot reach WordPress, which the year-long SWR used to do by
-           accident. expireTime is deliberately left alone — lowering it also
-           makes Next itself re-render idle pages blocking on WordPress.
-
-           Everything the edge should keep holding is excluded: hashed build
-           assets, proxied WP media and feeds, and the /api route handlers.
-           Dynamic pages (search, reels) get the same cap: they are keyed by
-           URL and nothing in src reads cookies, so a 60s shared copy is safe. */
+        /* Keep HTML out of the shared CDN cache. Next still caches the rendered
+           route and the WordPress fetches through ISR/data-cache revalidation,
+           but the edge must not retain an error response or serve a stale HTML
+           copy after on-demand revalidation. Static assets, uploads, feeds and
+           API handlers use their own rules below or the headers they return. */
         source: "/:path((?!_next/|wp-content/|wp-includes/|api/|feed(?:/|$)|comments/feed).*)",
-        headers: [{ key: "CDN-Cache-Control", value: "max-age=60, stale-while-revalidate=60, stale-if-error=86400" }],
+        headers: [{ key: "CDN-Cache-Control", value: "no-store" }],
       },
       {
         source: "/:path*",
