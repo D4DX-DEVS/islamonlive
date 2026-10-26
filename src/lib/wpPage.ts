@@ -20,6 +20,9 @@ export function pageParagraphs(html: string): string[] {
     const [, attrs, inner] = m;
     // the breadcrumbs widget is a lone "Home" link — the site has its own nav
     if (/id=["']breadcrumbs["']/i.test(attrs)) continue;
+    // Elementor icon-box widgets that wpautop wrapped in a <p>: a sizeless
+    // inline SVG that would stretch to the card's full width
+    if (/<svg\b/i.test(inner)) continue;
     const text = inner.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").trim();
     if (!text || DROP.test(text)) continue;
     // Elementor writes inline `style="color: black"` on links, which reads as
