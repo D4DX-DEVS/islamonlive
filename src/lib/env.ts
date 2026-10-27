@@ -61,6 +61,13 @@ export const MEDIA_HOSTS: readonly string[] = [
   "i2.wp.com",
 ];
 
+/* Where content is read from while WordPress is retired
+   (docs/backend-migration-plan.md). "wordpress" until cutover; "mongo" reads the
+   migrated copy in MongoDB. Flipping back is the rollback. Server-side only: in a
+   client component this is always "wordpress", so nothing there may branch on it. */
+export type DataSource = "wordpress" | "mongo";
+export const DATA_SOURCE: DataSource = process.env.DATA_SOURCE === "mongo" ? "mongo" : "wordpress";
+
 /** Shared secret for POST /api/revalidate. Absent in dev = endpoint refuses everything. */
 export const REVALIDATION_SECRET = process.env.REVALIDATION_SECRET ?? "";
 

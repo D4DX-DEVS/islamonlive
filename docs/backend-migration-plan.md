@@ -1,0 +1,169 @@
+# Backend migration plan: WordPress → MongoDB + DigitalOcean Spaces
+
+Status: **draft, awaiting approval** · Owner: dev.d4dx · Last updated: 2026-10-27
+
+## Goal
+
+Run islamonlive.in with **no WordPress at all**. Content lives in MongoDB Atlas
+(database `islamonlive`), files in DigitalOcean Spaces behind its CDN, and the
+existing Next.js app serves both the public site and the admin panel.
+
+**Hard requirement: zero SEO loss.** Every URL, redirect, title, description,
+canonical, schema block, image URL, sitemap and feed that exists today must
+behave identically after cutover, proven by a before/after crawl diff.
+
+## Where we are
+
+| Done | Detail |
+|---|---|
+| Data migrated and verified | MongoDB `islamonlive`: posts 22,363 (all statuses), pages 38, users 2,287, categories 81, tags 3,787, media 24,406, comments, menus, blocks, settings. All counts and content hashes match live WP. |
+| Files migrated and verified | Spaces `d4dx-storage/islamonlive/wp-content/uploads/…`: 311,662 files, 6.43 GB. Every file served by the CDN with correct size/type/cache; 200/200 sample byte-identical to WP. |
+| SEO data | Every published post has its Yoast head (title, description, canonical, OG, JSON-LD); all canonicals are `islamonlive.in`. |
+
+Not yet migrated (needs the **Cloudways database export**): redirect rules
+(Yoast Premium / Redirection plugin), user password hashes, revisions, plugin
+data (view counts, form entries).
+
+## What depends on WordPress today
+
+- `src/lib/wordpress.ts`: every public read (posts, pages, categories, tags, users, search helpers).
+- `src/lib/wp-admin.ts`: admin session + `wpAdminFetch` / `wpAdminRoute` proxy used by
+  `src/app/api/admin/*` (posts CRUD, stats, duplicate, media upload/delete, categories,
+  tags, users, featured video `rsfv/v1`, profile image `mpp/v2`, overview, activity).
+- `src/lib/{wp-lookup,wpPage,search,sitemap,feed,content-status,admin-*}.ts`.
+- `next.config.ts` proxy rules to `admin.islamonlive.in`: `/wp-content/*`, `/wp-includes/*`,
+  `/feed*`, `/comments/feed`, and 301s for `/wp-admin`, `/wp-login.php`, `/xmlrpc.php`, `/wp-json/*`.
+
+## Architecture
+
+```
+Browser ──► islamonlive.in (Next.js on DO App Platform)
+              ├─ pages / API routes ──► src/lib/db/* ──► MongoDB Atlas "islamonlive"
+              ├─ /wp-content/uploads/* ──(rewrite, same URL)──► Spaces CDN
+              └─ /admin ──► own auth + src/app/api/admin/* ──► MongoDB + Spaces
+```
+
+- **No separate backend server.** The data layer is server-only modules inside Next.js.
+- **Adapter, not rewrite.** New `src/lib/db/*` functions return the **same shapes**
+  (`WPPost`, `WPCategory`, `WPUser`, …) as `wordpress.ts`, so pages and the admin UI
+  barely change.
+- **Switch:** `DATA_SOURCE=wordpress|mongo` in env. Rollback = flip and redeploy.
+- **Caching:** keep the existing ISR / tag revalidation; MongoDB Flex is shared
+  (100 ops/s), so every public read must be cached.
+
+## Phases
+
+Each task follows: tests first → implement → typecheck + tests + build →
+independent review → merge. Lanes inside a phase touch **separate files** and run
+in parallel (one agent per lane, each in its own git worktree/branch).
+
+### Phase 0: Foundations (sequential, blocks everything)
+
+| # | Task | Output |
+|---|---|---|
+| 0.1 | Move migration scripts out of the temp folder to `D:\Projects\islamonlive\migration\` (outside git; data stays there) | Re-runnable `sync-delta`, `spaces-copy`, `verify-mongo`, `cdn-check` |
+| 0.2 | Branch `feat/mongo-backend`; add Vitest + `mongodb-memory-server`; seed fixtures from the export (≈200 posts covering every category, author, status, Elementor page) | `npm test` works offline, never touches the shared cluster |
+| 0.3 | `src/lib/db/client.ts` (server-only, pooled, db `islamonlive` hard-coded), typed collections, `DATA_SOURCE` flag | Foundation for all lanes |
+| 0.4 | **SEO baseline crawl** of live site: every sitemap URL + GSC top/backlinked pages + old URL forms (`/?p=`, `/feed/`, images, `/page/N`, author, tag). Record status, redirect target, title, description, canonical, robots, OG, JSON-LD (normalised hash), H1, image URLs | `seo-baseline.jsonl`, the acceptance test for cutover |
+| 0.5 | Import the Cloudways DB export (when provided): redirects → `redirects` collection, password hashes → `users.password_hash`, Yoast primary category, view counts | Closes the "full data" gap |
+
+### Phase 1: Public site reads from MongoDB (parallel lanes)
+
+| Lane | Scope | Files |
+|---|---|---|
+| A: Posts | `getPosts`, `getPostsPage`, `getPostBySlug`, `resolvePostByPath`, featured image/author/category helpers, `content-status` | `src/lib/db/posts.ts` |
+| B: Taxonomy & people | categories, tags, `getUserBySlug`, `getUsersPage`, `searchUsers`, authors list | `src/lib/db/taxonomy.ts`, `users.ts` |
+| C: Pages, search, lookups | `wpPage` (Elementor content), search (Atlas Search index or `$text`), `wp-lookup` (`/?p=ID`, `/go/`) | `src/lib/db/pages.ts`, `search.ts`, `lookup.ts` |
+| D: Sitemaps, feeds, GEO | sitemap index + per-type + news sitemap from Mongo; **own RSS/Atom** at `/feed/`, `/feed/atom/`, `/comments/feed`; `robots.txt` AI-crawler rules; `llms.txt` | `src/lib/sitemap.ts`, `src/lib/feed.ts`, routes |
+| E: Media & redirects | `/wp-content/uploads/*` rewrite → Spaces CDN (URL unchanged for Google Images/backlinks); `imageLoader` + `remotePatterns`; DB-driven redirects from 0.5 | `next.config.ts`, `src/lib/imageLoader.ts`, middleware |
+
+**Gate 1 (all must pass):**
+1. Unit tests per lane, `tsc`, `eslint`, `next build`.
+2. Deploy to **staging** with `DATA_SOURCE=mongo`; re-crawl; diff vs `seo-baseline.jsonl` = **0 unexplained differences**.
+3. Spot-check rendering (Playwright screenshots of home, category, article, author, tag, search, mobile).
+4. Performance no worse than today (TTFB, LCP on 10 key pages).
+5. Independent code + security review.
+
+### Phase 2: Admin panel writes to MongoDB (parallel lanes)
+
+| Lane | Scope |
+|---|---|
+| F: Auth | Login against `users` (verify WP phpass/bcrypt hashes, re-hash on login), sessions (reuse `createAdminSession` cookie), roles/capabilities, password reset email, rate limit + lockout |
+| G: Posts | list/query/stats/duplicate/create/update/delete; slug uniqueness; path from primary category; HTML sanitisation; **scheduled posts** (cron publishes `future` posts); Yoast-equivalent SEO fields editable |
+| H: Media | Upload to Spaces (`islamonlive/wp-content/uploads/YYYY/MM/…`, public-read, immutable cache), media records, delete; featured image |
+| I: Taxonomy, authors, extras | categories/tags/users routes, featured video (replaces `rsfv/v1`), profile image (replaces `mpp/v2`), overview + activity |
+| J: Side effects | cache revalidation on every write, push notification hook, sitemap/news-sitemap freshness |
+
+**Gate 2:** Playwright e2e on staging (login → create → upload → publish →
+appears on site, sitemap and feed → edit → delete), security review (auth,
+uploads, injection), tests/typecheck/build green.
+
+### Phase 3: Cutover
+
+1. Announce a short **content freeze** on WordPress.
+2. Run `sync-delta` + `spaces-copy` + `verify-mongo` (all checks pass).
+3. Production: `DATA_SOURCE=mongo`, deploy.
+4. Re-crawl production; diff vs baseline = 0.
+5. Replace WP proxy rules in `next.config.ts` (`/wp-admin`, `/wp-login.php`, `/xmlrpc.php`, `/wp-json/*` → 410 or home).
+6. Monitor 2–4 weeks: Search Console (coverage, 404s, rankings), server 404 log, Mongo ops/s.
+7. Keep WordPress **read-only** for those weeks (rollback = flip flag). Then retire it.
+
+### Phase 4: Cleanup and hardening
+
+Remove WordPress code paths and env vars; rotate/remove `WP_ADMIN_*`; delete
+web shells `sh.php` / `mul.php` on the old server before retiring; clean D1/R2
+leftovers; confirm Mongo backups; alerts for 5xx/404 spikes; consider a dedicated
+Atlas M10 if traffic grows (Flex is shared with ~15 apps).
+
+## SEO / GEO checklist (applies to every phase)
+
+- [ ] Same URL for every post, page, category, tag, author, pagination
+- [ ] All existing 301s kept (`next.config.ts` + WP redirect rules from DB export)
+- [ ] `/?p=ID`, `/feed/`, `/:path/feed`, `/amp` variants, `/wp-content/uploads/*` keep working
+- [ ] Title, description, canonical, robots, OG/Twitter, JSON-LD identical
+- [ ] Sitemaps at the same URLs, `lastmod` correct, news sitemap fresh
+- [ ] RSS/Atom feeds valid
+- [ ] `robots.txt` + `llms.txt` unchanged or improved; AI crawlers allowed
+- [ ] Server-rendered HTML (no client-only content)
+- [ ] Core Web Vitals not worse
+- [ ] Search Console monitored after cutover
+
+## Decisions (2026-10-27)
+
+- **Staging:** local production build during development; a **Vercel** preview
+  (password-protected, `noindex`) for the final pre-cutover check.
+- **Logins:** only 2–3 admin/editor accounts. Passwords are set with a CLI
+  script; no email provider, no password-reset flow, no old hashes needed.
+  Other users stay as author profiles only.
+- **Scheduled posts are used:** `future` posts count as published once their
+  time passes (query-level), plus a cron hitting a protected route to revalidate
+  pages, sitemaps and the news sitemap on time.
+- **Yoast SEO Premium is active:** its redirect rules must be imported from the
+  DB export before Gate 1. **IndexNow plugin is active:** the new backend pings
+  IndexNow on publish/update, and the key file stays served.
+- **Caching:** MongoDB reads go through `unstable_cache` with the existing
+  `wp` / `wp:*` tags so `/api/revalidate` keeps working unchanged.
+
+## Phase 0 status
+
+Done: toolkit in `D:\Projects\islamonlive\migration\`, branch `feat/mongo-backend`,
+`src/lib/db/{client,types}.ts`, `DATA_SOURCE` flag, Vitest + throwaway mongod,
+fixtures (`src/lib/db/__fixtures__`, from `migration/make-fixtures.mjs`).
+Running: SEO baseline crawl (`migration/seo/baseline.jsonl`, 29,123 URLs).
+Waiting on the team: DB export (0.5), GSC exports.
+
+## Needed from the team
+
+1. **Cloudways database export** (.sql), needed before Gate 1 for Yoast Premium redirects.
+2. **Google Search Console** exports to `D:\Projects\islamonlive\gsc\`:
+   Links → Top linked pages, and Pages (indexing) → Export.
+
+## Risks
+
+| Risk | Mitigation |
+|---|---|
+| Shared Flex cluster throttles under spikes | Cache all reads (ISR); move to dedicated cluster if needed |
+| Hidden URL forms with backlinks we don't know about | GSC links export + WP redirect table + 404 monitoring after cutover |
+| Content published on WP during the build | `sync-delta` before staging tests and at cutover |
+| Elementor page markup differs | Pages are rendered from stored HTML; covered by crawl diff |
+| Old password hashes unavailable | Password-reset flow; DB export removes the need |
