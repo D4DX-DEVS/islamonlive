@@ -58,10 +58,14 @@ export const MEDIA_PREFIX = "/wp-content";
 // not tied to DATA_SOURCE: that is server-only, and client components build image URLs too
 export const MEDIA_ORIGIN = (process.env.NEXT_PUBLIC_MEDIA_ORIGIN ?? "").replace(/\/+$/, "");
 
+/** The WordPress host stored content and Yoast data name, whatever WORDPRESS_API_URL points at today. */
+export const LEGACY_WP_HOST = "admin.islamonlive.in";
+
 /** Hosts whose /wp-content URLs are ours to rewrite onto MEDIA_PREFIX. */
 export const MEDIA_HOSTS: readonly string[] = [
   new URL(SITE_URL).host,
   new URL(WP_URL).host,
+  LEGACY_WP_HOST,
   // Jetpack/Photon mirrors WP uploads; the live theme emits these on some posts
   "i0.wp.com",
   "i1.wp.com",

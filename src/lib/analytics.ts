@@ -1,5 +1,7 @@
 import { loadEvents, saveEvent, storageStatus, type AnalyticsEvent, type StorageStatus } from "@/lib/analytics-store";
-import { cachedLookup, getThumbnails, idList, wpJson } from "@/lib/wp-lookup";
+import { collection } from "@/lib/db/client";
+import { DATA_SOURCE } from "@/lib/env";
+import { cachedLookup, fromMongo, getThumbnails, idList, wpJson } from "@/lib/wp-lookup";
 
 export type { AnalyticsEvent };
 
@@ -55,7 +57,9 @@ const postMetaCache: Map<number, { value: PostMeta; at: number }> = new Map();
 
 function getPostMeta(articleIds: number[]): Promise<Map<number, PostMeta>> {
   return cachedLookup(postMetaCache, articleIds, async (missing) => {
-    const rows = await wpJson<{ id?: number; date?: string; featured_media?: number }[]>("/posts", { ...idList(missing), _fields: "id,date,featured_media" });
+    const rows = DATA_SOURCE === "mongo"
+      ? await fromMongo(async () => (await (await collection("posts")).find({ _id: { $in: missing } }, { projection: { date: 1, featured_media_id: 1 } }).toArray()).map((doc) => ({ id: doc._id, date: doc.date, featured_media: doc.featured_media_id ?? 0 })))
+      : await wpJson<{ id?: number; date?: string; featured_media?: number }[]>("/posts", { ...idList(missing), _fields: "id,date,featured_media" });
     return new Map((rows ?? []).flatMap((post) => Number.isInteger(post.id) ? [[Number(post.id), { date: post.date, featuredMedia: post.featured_media ?? 0 }] as const] : []));
   });
 }
@@ -107,8 +111,8 @@ export async function getAnalyticsSummary(windowDays = 30): Promise<AnalyticsSum
     return { date, ...totalsOf(day) };
   });
 
-  // Publish dates and thumbnails come from WordPress; every lookup degrades to
-  // "nothing" so the numbers above never wait on it.
+  // Publish dates and thumbnails come from the content source (WordPress or
+  // MongoDB); every lookup degrades to "nothing" so the numbers above never wait on it.
   const topArticles = current.articles.slice(0, 10);
   const meta = await getPostMeta(topArticles.map((article) => article.articleId));
   const thumbnails = await getThumbnails(topArticles.flatMap((article) => meta.get(article.articleId)?.featuredMedia || []));

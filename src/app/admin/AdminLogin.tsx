@@ -62,7 +62,7 @@ function DashboardIllustration() {
     </g>
     <circle cx="44" cy="78" r="4" fill="#c4b5fd" /><rect x="56" y="75" width="22" height="6" rx="3" fill="#ddd6fe" />
     <g clipPath="url(#login-window-clip)"><rect x="22" y="94" width="72" height="188" fill="#2b2352" /></g>
-    <circle cx="58" cy="116" r="12" fill="#6d28d9" /><text x="58" y="121" textAnchor="middle" fontFamily="Georgia, serif" fontSize="14" fontWeight="700" fill="#fff">W</text>
+    <circle cx="58" cy="116" r="12" fill="#6d28d9" /><path d="M55 110.5l7.5 5.5-7.5 5.5z" fill="#fff" strokeLinejoin="round" />
     {[146, 170, 194, 218].map((y) => <g key={y}><rect x="36" y={y} width="9" height="9" rx="3" fill="#7c6bb5" /><rect x="52" y={y + 2} width="30" height="5" rx="2.5" fill="#4b3f84" /></g>)}
     <rect x="110" y="110" width="76" height="8" rx="4" fill="#ddd6fe" /><rect x="110" y="124" width="44" height="6" rx="3" fill="#ede9fe" />
     <path d="M110 205c24-6 30-34 56-30s34 28 58 8 32-34 56-22" fill="none" stroke="#7c3aed" strokeWidth="3" strokeLinecap="round" />
@@ -71,7 +71,7 @@ function DashboardIllustration() {
     <circle cx="316" cy="124" r="11" fill="none" stroke="#ddd6fe" strokeWidth="3" />
 
     <circle cx="440" cy="52" r="36" fill="#4c1d95" stroke="#fff" strokeOpacity=".9" strokeWidth="5" />
-    <text x="440" y="66" textAnchor="middle" fontFamily="Georgia, serif" fontSize="42" fontWeight="700" fill="#fff">W</text>
+    <path d="M430 35l24 17-24 17z" fill="#fff" stroke="#fff" strokeWidth="4" strokeLinejoin="round" />
 
     <g filter="url(#login-shadow)">
       <rect x="330" y="112" width="170" height="64" rx="14" fill="#f5f3ff" />

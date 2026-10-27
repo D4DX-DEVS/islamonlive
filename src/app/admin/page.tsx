@@ -15,5 +15,6 @@ export const metadata: Metadata = {
 export default async function AdminPage() {
   const session = await getAdminSession();
   const lostPasswordUrl = DATA_SOURCE === "mongo" ? "mongodb" : `${WP_URL}/wp-login.php?action=lostpassword`;
-  return <><AdminClient initialUser={session?.username ?? null} lostPasswordUrl={lostPasswordUrl} /><InstallBanner /></>;
+  // links into wp-admin only mean something while WordPress is the backend
+  return <><AdminClient initialUser={session?.username ?? null} lostPasswordUrl={lostPasswordUrl} wordpressAdmin={DATA_SOURCE !== "mongo"} /><InstallBanner /></>;
 }

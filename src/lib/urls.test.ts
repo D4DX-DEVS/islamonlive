@@ -119,6 +119,60 @@ describe("URL rewriting", () => {
     });
   });
 
+  /* Share images must stay on the public host whatever the copy points at:
+     the Yoast og:image fallback is the featured image, which mongo mode already
+     moved onto the CDN, and stored Yoast data still names the old admin host. */
+  describe("CDN and legacy hosts map back to the public site", () => {
+    const CDN = "https://d4dx-storage.blr1.cdn.digitaloceanspaces.com/islamonlive";
+    beforeEach(() => {
+      process.env.NEXT_PUBLIC_MEDIA_ORIGIN = CDN;
+    });
+    afterEach(() => {
+      delete process.env.NEXT_PUBLIC_MEDIA_ORIGIN;
+      delete process.env.WORDPRESS_API_URL;
+    });
+
+    it("rewrites a CDN upload URL to the site", async () => {
+      const { rewriteUrl, mediaUrl } = await import("@/lib/urls");
+      const url = `${CDN}/wp-content/uploads/2026/10/hamv-scaled.avif`;
+      expect(rewriteUrl(url, true)).toBe("https://islamonlive.in/wp-content/uploads/2026/10/hamv-scaled.avif");
+      expect(mediaUrl(url)).toBe("https://islamonlive.in/wp-content/uploads/2026/10/hamv-scaled.avif");
+    });
+
+    it("keeps a CDN URL on the CDN for next/image", async () => {
+      const { mediaOriginUrl } = await import("@/lib/urls");
+      const url = `${CDN}/wp-content/uploads/2026/10/a.jpg`;
+      expect(mediaOriginUrl(url)).toBe(url);
+    });
+
+    it("leaves other objects in the same bucket alone", async () => {
+      const { rewriteUrl } = await import("@/lib/urls");
+      const other = "https://d4dx-storage.blr1.cdn.digitaloceanspaces.com/another-site/wp-content/uploads/a.jpg";
+      expect(rewriteUrl(other, true)).toBe(other);
+    });
+
+    it("treats a CDN upload as internal, so JSON-LD rewriting reaches it", async () => {
+      const { isInternalUrl } = await import("@/lib/urls");
+      expect(isInternalUrl(`${CDN}/wp-content/uploads/2026/10/a.jpg`)).toBe(true);
+      expect(isInternalUrl("https://d4dx-storage.blr1.cdn.digitaloceanspaces.com/another-site/a.jpg")).toBe(false);
+    });
+
+    it("moves admin.islamonlive.in article links onto the site whatever WORDPRESS_API_URL names", async () => {
+      process.env.WORDPRESS_API_URL = "https://wp-backend.example.com/wp-json/wp/v2";
+      const { rewriteUrl, isInternalUrl } = await import("@/lib/urls");
+      expect(isInternalUrl("https://admin.islamonlive.in/opinion/foo/")).toBe(true);
+      expect(rewriteUrl("https://admin.islamonlive.in/opinion/foo/")).toBe("/opinion/foo/");
+      expect(rewriteUrl("https://admin.islamonlive.in/opinion/foo/", true)).toBe("https://islamonlive.in/opinion/foo/");
+    });
+
+    it("rewrites admin.islamonlive.in even when WORDPRESS_API_URL names another host", async () => {
+      process.env.WORDPRESS_API_URL = "https://wp-backend.example.com/wp-json/wp/v2";
+      const { rewriteUrl } = await import("@/lib/urls");
+      const url = "https://admin.islamonlive.in/wp-content/uploads/2026/08/comst-scaled.jpeg";
+      expect(rewriteUrl(url, true)).toBe("https://islamonlive.in/wp-content/uploads/2026/08/comst-scaled.jpeg");
+    });
+  });
+
   describe("percent-encoding edge cases", () => {
     beforeEach(() => {
       delete process.env.NEXT_PUBLIC_MEDIA_ORIGIN;

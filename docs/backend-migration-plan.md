@@ -106,7 +106,9 @@ uploads, injection), tests/typecheck/build green.
 4. Re-crawl production; diff vs baseline = 0.
 5. Replace WP proxy rules in `next.config.ts` (`/wp-admin`, `/wp-login.php`, `/xmlrpc.php`, `/wp-json/*` → 410 or home).
 6. Monitor 2–4 weeks: Search Console (coverage, 404s, rankings), server 404 log, Mongo ops/s.
-7. Keep WordPress **read-only** for those weeks (rollback = flip flag). Then retire it.
+7. Keep WordPress **read-only** for those weeks (rollback = flip flag). Then retire it,
+   leaving a Cloudflare rule that 301s `admin.islamonlive.in/wp-content/*` to
+   `https://islamonlive.in/wp-content/*` (the live site's images are indexed on that host).
 
 ### Phase 4: Cleanup and hardening
 
@@ -161,18 +163,34 @@ the deployed site is unchanged until the flag flips). Verified locally:
   - Authors with no photo show the placeholder icon. Live wrongly shows the
     article's image.
   - About 25 posts edited on WordPress since the export. `sync-delta` closes this.
-- **End to end:** `scripts/e2e-local.mjs` passes 44/44 checks. It runs the
-  full editor journey against a throwaway database and a fake Spaces:
-  login rules, uploads, publish, sitemaps and feed, `?p=` links, edits,
-  rename → 301, drafts, scheduling + cron, trash, `/go/` privacy.
-- **Admin UI** checked in a real browser: login, dashboard, editor, category list.
+- **End to end:** `scripts/e2e-local.mjs` passes 46/46 checks. It runs the
+  full editor journey against a throwaway database, a fake Spaces and a fake
+  WordPress that fails the run if any request reaches it: login rules,
+  uploads, publish, sitemaps and feed, `?p=` links, edits, rename → 301,
+  drafts, scheduling + cron, trash, `/go/` privacy, reader analytics.
+- **Browser check (2026-10-27):** 15 page types compared live vs local
+  MongoDB in Chromium: same status, title, H1, canonical, robots,
+  description, og/twitter image, JSON-LD and first-page article lists; no
+  broken images once Photon has fetched each file. The whole admin (login,
+  dashboard, create with image, publish, edit + rename, duplicate, trash,
+  create author, phone width) made zero WordPress requests.
+- **Fixed by that check:** 91 pages whose og:image/twitter:image pointed at
+  the CDN or `admin.islamonlive.in` instead of `islamonlive.in` (the crawl diff
+  compared upload paths, not hosts), and the dashboard's most-read list,
+  which still asked WordPress for dates and thumbnails.
+- **Real Spaces:** `migration/spaces-probe.mjs` uploads a file with the admin's
+  settings, reads it from the CDN and through Photon, and deletes it.
 
 Known gaps:
+
 - **No restore-from-trash** in the admin UI (WordPress offered it in wp-admin).
   A trashed article can be restored only in the database.
-- The authors screen's "Open in WordPress" link just lands on `/admin/`.
 - New uploads are stored without WordPress's resized copies. Pages use
   next/image and Photon, so nothing reads the sizes.
+- In-article images load from the CDN (live loads them from
+  `admin.islamonlive.in`). After cutover, `admin.islamonlive.in/wp-content/*`
+  should 301 to `https://islamonlive.in/wp-content/*` (a Cloudflare redirect
+  rule) so old image links and Google Images keep resolving.
 
 Waiting on the team: Cloudways DB export (Yoast Premium redirects) and GSC
 exports; then cutover (Phase 3).

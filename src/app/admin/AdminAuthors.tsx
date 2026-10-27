@@ -81,7 +81,7 @@ function download(name: string, text: string) {
   URL.revokeObjectURL(link.href);
 }
 
-export default function Authors({ authors, refresh, loading, error, onViewArticles }: { authors: Author[]; refresh: () => void; loading: boolean; error?: string; onViewArticles: (authorId: number) => void }) {
+export default function Authors({ authors, refresh, loading, error, wordpressAdmin, onViewArticles }: { authors: Author[]; refresh: () => void; loading: boolean; error?: string; wordpressAdmin: boolean; onViewArticles: (authorId: number) => void }) {
   const [form, setForm] = useState(emptyForm);
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoProblem, setPhotoProblem] = useState("");
@@ -169,7 +169,7 @@ export default function Authors({ authors, refresh, loading, error, onViewArticl
   function menuFor(item: Author): MenuEntry[] {
     const entries: MenuEntry[] = [{ label: "View articles", icon: "doc", onSelect: () => onViewArticles(item.id) }];
     if (item.email) entries.push({ label: "Copy email", icon: "copy", onSelect: () => void copyEmails([item]) });
-    entries.push({ label: "Open in WordPress", icon: "external", href: `/wp-admin/user-edit.php?user_id=${item.id}` });
+    if (wordpressAdmin) entries.push({ label: "Open in WordPress", icon: "external", href: `/wp-admin/user-edit.php?user_id=${item.id}` });
     return entries;
   }
 

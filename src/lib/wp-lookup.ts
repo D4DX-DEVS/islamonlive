@@ -46,7 +46,7 @@ export async function cachedLookup<T>(store: CacheStore<T>, ids: number[], load:
 }
 
 /** The MongoDB counterpart of wpJson's promise: nothing found rather than an error. */
-async function fromMongo<T>(load: () => Promise<T>): Promise<T | null> {
+export async function fromMongo<T>(load: () => Promise<T>): Promise<T | null> {
   try { return await load(); } catch { return null; }
 }
 

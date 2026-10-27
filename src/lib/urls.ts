@@ -1,4 +1,4 @@
-import { MEDIA_HOSTS, MEDIA_PREFIX, SITE_URL, WP_URL, MEDIA_ORIGIN } from "@/lib/env";
+import { LEGACY_WP_HOST, MEDIA_HOSTS, MEDIA_PREFIX, SITE_URL, WP_URL, MEDIA_ORIGIN } from "@/lib/env";
 
 /* Turning a WordPress URL into one of ours, without changing a single byte that
    Google has indexed.
@@ -21,6 +21,13 @@ import { MEDIA_HOSTS, MEDIA_PREFIX, SITE_URL, WP_URL, MEDIA_ORIGIN } from "@/lib
 
 const WP_HOST = new URL(WP_URL).host;
 const SITE_HOST = new URL(SITE_URL).host;
+const isWordPressHost = (host: string) => host === WP_HOST || host === LEGACY_WP_HOST;
+/* The CDN copy of the uploads (mongo mode): its URLs map back to the public
+   /wp-content path like WordPress's do, so a featured image the copy already
+   points at the CDN still surfaces as https://islamonlive.in/wp-content/... */
+const CDN = MEDIA_ORIGIN
+  ? { host: new URL(MEDIA_ORIGIN).host, path: new URL(MEDIA_ORIGIN).pathname.replace(/\/+$/, "") }
+  : null;
 
 /* One byte form for the encoded Malayalam slugs.
 
@@ -50,10 +57,17 @@ export function withTrailingSlash(path: string): string {
  * (…-650x366.jpg), so ?resize=/?w= only ever came from Photon.
  */
 function mediaPath(u: URL): string | null {
-  if (!MEDIA_HOSTS.includes(u.host)) return null;
-  // Photon (i0.wp.com/islamonlive.in/wp-content/...) nests the real path one
-  // segment deep; everything else already starts at /wp-content
-  const path = u.host.endsWith(".wp.com") ? u.pathname.replace(/^\/[^/]+/, "") : u.pathname;
+  let path: string;
+  if (CDN && u.host === CDN.host && u.pathname.startsWith(`${CDN.path}${MEDIA_PREFIX}/`)) {
+    // our copy on the CDN: the same /wp-content path, under the bucket folder
+    path = u.pathname.slice(CDN.path.length);
+  } else if (MEDIA_HOSTS.includes(u.host)) {
+    // Photon (i0.wp.com/islamonlive.in/wp-content/...) nests the real path one
+    // segment deep; everything else already starts at /wp-content
+    path = u.host.endsWith(".wp.com") ? u.pathname.replace(/^\/[^/]+/, "") : u.pathname;
+  } else {
+    return null;
+  }
   return path.startsWith(`${MEDIA_PREFIX}/`) ? lowerHex(path) : null;
 }
 
@@ -121,10 +135,10 @@ function parse(url: string): URL | null {
   }
 }
 
-/** True when the URL points at our own site or the WordPress backend behind it. */
+/** True when the URL points at our own site, the WordPress backend behind it, or our uploads on the CDN. */
 export function isInternalUrl(url: string): boolean {
   const u = parse(url);
-  return !!u && (u.host === WP_HOST || u.host === SITE_HOST || MEDIA_HOSTS.includes(u.host));
+  return !!u && (isWordPressHost(u.host) || u.host === SITE_HOST || MEDIA_HOSTS.includes(u.host) || mediaPath(u) !== null);
 }
 
 /**
@@ -158,7 +172,7 @@ export function rewriteUrl(url: string, absolute = false): string {
   const media = mediaPath(u);
   if (media) return `${SITE_URL}${media}`;
 
-  if (u.host === WP_HOST || u.host === SITE_HOST) {
+  if (isWordPressHost(u.host) || u.host === SITE_HOST) {
     const path = lowerHex(withTrailingSlash(u.pathname)) + u.search + u.hash;
     return absolute ? `${SITE_URL}${path}` : path;
   }

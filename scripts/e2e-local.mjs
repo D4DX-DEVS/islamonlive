@@ -15,8 +15,10 @@
  */
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes, scrypt } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { EJSON } from "bson";
@@ -69,6 +71,16 @@ const s3 = createServer((req, res) => {
   } else if (req.method === "HEAD") res.writeHead(objects.has(key) ? 200 : 404).end();
   else if (req.method === "DELETE") res.writeHead(204).end(void objects.delete(key));
   else res.writeHead(405).end();
+});
+
+/* ---------- fake WordPress ----------
+   Every WordPress setting points here (overriding .env.local, which next start
+   would otherwise read), so any request that still reaches WordPress is caught. */
+const wpHits = [];
+const wp = createServer((req, res) => {
+  wpHits.push(`${req.method} ${req.url}`);
+  if (KEEP) console.log(`WORDPRESS HIT ${req.method} ${req.url}`); // during a --keep browser check too
+  res.writeHead(503).end();
 });
 
 /* ---------- database ---------- */
@@ -188,6 +200,10 @@ async function journey({ db, categories }) {
   check("its <title> and canonical are right", html.includes(`<link rel="canonical" href="${SITE}${path}"/>`) && /<title>[^<]*ഇ2ഇ/.test(html));
   check("the custom meta description is used", html.includes('content="A custom meta description written by the editor for this e2e article."'));
   check("it carries Article JSON-LD and an og:image", html.includes('"@type":"Article"') && /property="og:image"/.test(html));
+  // share images and structured data name the public site, as on WordPress: never the CDN, the backend or the WordPress host
+  const metaImages = [...html.matchAll(/<meta (?:property="og:image"|name="twitter:image") content="([^"]+)"/g)].map((m) => m[1]);
+  const jsonLd = [...html.matchAll(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)].map((m) => m[1]).join("");
+  check("og:image, twitter:image and JSON-LD stay on islamonlive.in", metaImages.length >= 2 && metaImages.every((u) => u.startsWith(`${SITE}/wp-content/uploads/`)) && !/digitaloceanspaces\.com|admin\.islamonlive\.in|127\.0\.0\.1/.test(jsonLd), `${metaImages.join(" ")} ${(jsonLd.match(/https?:\/\/(?:[^"/]*digitaloceanspaces\.com|admin\.islamonlive\.in|127\.0\.0\.1)[^"]*/) ?? [""])[0]}`);
 
   const inSitemap = await eventually(async () => ({ ok: (await text("/post-sitemap.xml")).includes(`${SITE}${path}`) }));
   check("it appears in post-sitemap.xml", inSitemap.ok);
@@ -201,13 +217,20 @@ async function journey({ db, categories }) {
   check("its /?p=ID link 301s to the article", legacy.status === 301 && (legacy.headers.get("location") ?? "").endsWith(path));
   check("the category page lists it", (await eventually(async () => ({ ok: (await text(pathOf(catA.link))).includes(path) }))).ok);
 
+  // reader analytics: the dashboard's most-read list takes each article's date and thumbnail from the database
+  const beacon = await fetch(`${BASE}/api/analytics/event/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ articleId: post.id, sessionId: "e2e-reader-session-1", path, title, type: "view", seconds: 30, progress: 0.5 }) });
+  const top = (await (await ad("/api/admin/overview/?days=30")).json()).reader?.topArticles?.find((a) => a.articleId === post.id);
+  check("reader analytics list the article with its date and thumbnail", beacon.status === 204 && top?.publishedAt === doc.date && Boolean(top?.imageUrl), `${beacon.status} ${JSON.stringify(top)}`);
+
   // edit: categories change keeps the URL; slug change moves it with a redirect
   const edit = (fields) => ed(`/api/admin/posts/?id=${post.id}`, { method: "PUT", body: articleForm({ title, content: "<p>Edited body.</p>", status: "publish", categories: [catB._id], excerpt: "", ...fields }) });
+  // dates are kept to whole seconds, as WordPress keeps them: an edit inside the publishing second cannot move modified
+  await sleep(1100);
   const e1 = await edit({});
   const afterEdit = await db.collection("posts").findOne({ _id: post.id });
   check("editing body and categories keeps the published URL", e1.status === 200 && afterEdit.path === path, `${e1.status} ${afterEdit?.path}`);
   check("editing never moves the publish time", afterEdit.published_at.getTime() === doc.published_at.getTime());
-  check("editing updates modified (sitemap lastmod)", afterEdit.modified_gmt > doc.modified_gmt || afterEdit.updated_at > doc.updated_at);
+  check("editing updates modified (sitemap lastmod)", afterEdit.modified_gmt > doc.modified_gmt, `${doc.modified_gmt} -> ${afterEdit.modified_gmt}`);
   const e2 = await edit({ slug: "e2e-renamed" });
   const renamed = await db.collection("posts").findOne({ _id: post.id });
   check("renaming the slug moves the URL and remembers the old one", e2.status === 200 && renamed.path.endsWith("/e2e-renamed/") && renamed.old_paths?.includes(path), JSON.stringify({ path: renamed?.path, old: renamed?.old_paths }));
@@ -226,7 +249,10 @@ async function journey({ db, categories }) {
   const later = (await (await ed("/api/admin/posts/", { method: "POST", body: articleForm({ title: "E2E scheduled", content: "<p>scheduled body</p>", status: "publish", date: ist(Date.now() + 86_400_000), categories: [catA._id], excerpt: "" }) })).json()).item;
   const laterDoc = await db.collection("posts").findOne({ _id: later?.id });
   check("a future date makes it scheduled, not live", laterDoc?.status === "future" && (await page(laterDoc.path)).status === 404, `${laterDoc?.status}`);
-  await db.collection("posts").updateOne({ _id: later.id }, { $set: { published_at: new Date(Date.now() - 1000) } }); // its time has come
+  // its time has come: move the instant and both clocks together, as if a day had passed
+  const due = new Date(Math.floor(Date.now() / 1000) * 1000 - 1000);
+  const clock = (d) => d.toISOString().slice(0, 19);
+  await db.collection("posts").updateOne({ _id: later.id }, { $set: { published_at: due, date_gmt: clock(due), date: clock(new Date(due.getTime() + 5.5 * 3600_000)) } });
   check("the cron route refuses a wrong secret", (await fetch(`${BASE}/api/cron/publish/`, { headers: { Authorization: "Bearer wrong-secret-value" } })).status === 401);
   const cron = await (await fetch(`${BASE}/api/cron/publish/`, { headers: { Authorization: `Bearer ${process.env.E2E_CRON_SECRET}` } })).json();
   check("the cron publishes it once its time comes", cron.published?.includes(later.id) && (await db.collection("posts").findOne({ _id: later.id }))?.status === "publish", JSON.stringify(cron));
@@ -270,6 +296,8 @@ if (await fetch(`${BASE}/`, { signal: AbortSignal.timeout(3000) }).then(() => tr
 const mongod = await MongoMemoryServer.create();
 const seeded = await seed(mongod.getUri());
 await new Promise((r) => s3.listen(0, "127.0.0.1", r));
+await new Promise((r) => wp.listen(0, "127.0.0.1", r));
+const WP_FAKE = `http://127.0.0.1:${wp.address().port}`;
 process.env.E2E_CRON_SECRET = randomBytes(24).toString("base64url");
 const env = {
   ...process.env,
@@ -287,6 +315,24 @@ const env = {
   DO_SPACES_SECRET: "e2e",
   INDEXNOW_KEY: "",
   NEXT_TELEMETRY_DISABLED: "1",
+  WORDPRESS_API_URL: `${WP_FAKE}/wp-json/wp/v2`,
+  NEXT_PUBLIC_WORDPRESS_URL: WP_FAKE,
+  /* Nothing outside this machine: next start would fill any variable left
+     undefined from .env.local, so every outbound service is switched off here.
+     Reader events go to a throwaway file, never the real Redis or Google
+     Analytics; publishing never purges the real Cloudflare cache or pushes. */
+  ANALYTICS_STORE_PATH: join(tmpdir(), `iol-e2e-analytics-${process.pid}.ndjson`),
+  UPSTASH_REDIS_REST_URL: "",
+  UPSTASH_REDIS_REST_TOKEN: "",
+  KV_REST_API_URL: "",
+  KV_REST_API_TOKEN: "",
+  GA_MEASUREMENT_ID: "",
+  GA_API_SECRET: "",
+  CLOUDFLARE_ZONE_ID: "",
+  CLOUDFLARE_API_TOKEN: "",
+  ONESIGNAL_REST_API_KEY: "",
+  NOTIFY_SECRET: "",
+  IG_ACCESS_TOKEN: "",
 };
 // next's own entry point under this node, no npx and no shell: the pid is the server itself, so stopping it cannot orphan it
 const NEXT_BIN = fileURLToPath(new URL("../node_modules/next/dist/bin/next", import.meta.url));
@@ -300,6 +346,8 @@ async function stop() {
   if (process.platform === "win32" && server.pid) spawnSync(`${process.env.SystemRoot ?? "C:/Windows"}/System32/taskkill.exe`, ["/pid", String(server.pid), "/T", "/F"], { stdio: "ignore" });
   else server.kill();
   s3.close();
+  wp.close();
+  rmSync(env.ANALYTICS_STORE_PATH, { force: true });
   await seeded.client.close();
   await mongod.stop();
 }
@@ -313,6 +361,7 @@ try {
 } catch (error) {
   check("journey completed without throwing", false, error?.stack ?? String(error));
 }
+check("no request reached WordPress", wpHits.length === 0, wpHits.slice(0, 5).join(", "));
 console.log(`\n${results.length - failures}/${results.length} checks passed`);
 if (failures) console.log(`server log (last 3000 chars):\n${serverLog.slice(-3000)}`);
 if (KEEP) {
