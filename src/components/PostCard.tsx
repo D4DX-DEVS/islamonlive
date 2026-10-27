@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { WPPost, featuredImage, postPath, primaryCategory, authorName, authorAvatar, formatDate, stripHtml } from "@/lib/wordpress";
+import { WPPost, featuredImage, postPath, primaryCategory, authorName, authorAvatar, formatDate, stripHtml } from "@/lib/wp-model";
 import Byline from "@/components/Byline";
 
 export default function PostCard({ post, showExcerpt = false }: { post: WPPost; showExcerpt?: boolean }) {

@@ -1,16 +1,8 @@
+import type { FeedQuery } from "@/lib/feed-query";
 import { normalizeSearch, searchPosts } from "@/lib/search";
 import { getPosts, type WPPost } from "@/lib/wordpress";
 
-/* "which list am I looking at?", small enough to hand to a client component and
-   hand back with every load-more call. The listing pages resolve slugs to ids
-   server-side, so the browser only ever carries ids — never a slug lookup. */
-export type FeedQuery =
-  | { kind: "category"; ids: number[] }
-  | { kind: "author"; id: number }
-  | { kind: "tag"; id: number }
-  | { kind: "search"; q: string };
-
-export const FEED_PER_PAGE = 12;
+export { FEED_PER_PAGE, type FeedQuery } from "@/lib/feed-query";
 
 // WP itself 400s past the last page; these are belt-and-braces ceilings on input
 // that arrives from the browser

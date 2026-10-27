@@ -13,7 +13,7 @@ const FIXTURE_DIR = fileURLToPath(new URL("../lib/db/__fixtures__/", import.meta
 const NAMES = ["posts", "pages", "media", "users", "categories", "tags"] as const satisfies readonly (keyof Collections)[];
 
 export function loadFixture<K extends keyof Collections>(name: K): Collections[K][] {
-  return BSON.EJSON.parse(readFileSync(`${FIXTURE_DIR}${name}.json`, "utf8"), { relaxed: false }) as Collections[K][];
+  return BSON.EJSON.parse(readFileSync(`${FIXTURE_DIR}${name}.json`, "utf8"), { relaxed: true }) as Collections[K][];
 }
 
 /** Empty the test database and load every fixture collection. */

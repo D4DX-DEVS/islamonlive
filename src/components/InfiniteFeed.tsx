@@ -6,9 +6,9 @@ import Image from "next/image";
 import PostCard from "@/components/PostCard";
 import { Skel, SkelCard } from "@/components/Skeleton";
 import { loadMorePosts } from "@/lib/actions";
-import { FEED_PER_PAGE, type FeedQuery } from "@/lib/feed";
+import { FEED_PER_PAGE, type FeedQuery } from "@/lib/feed-query";
 import { pagePath } from "@/lib/paging";
-import { featuredImage, postPath, type WPPost } from "@/lib/wordpress";
+import { featuredImage, postPath, type WPPost } from "@/lib/wp-model";
 
 type Variant = "cards" | "infographics";
 type Status = "idle" | "loading" | "error" | "end";
