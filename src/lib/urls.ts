@@ -1,4 +1,4 @@
-import { MEDIA_HOSTS, MEDIA_PREFIX, SITE_URL, WP_URL } from "@/lib/env";
+import { MEDIA_HOSTS, MEDIA_PREFIX, SITE_URL, WP_URL, MEDIA_ORIGIN } from "@/lib/env";
 
 /* Turning a WordPress URL into one of ours, without changing a single byte that
    Google has indexed.
@@ -74,9 +74,12 @@ export function mediaUrl(url: string): string {
  * A media URL on the origin that actually stores the file.
  *
  * This is what next/image needs. The optimizer never exposes this address — the
- * browser only ever sees /_next/image?url=… — so pointing it at WordPress
- * costs nothing in SEO and avoids two failure modes that a site-relative or
- * self-referencing src walks straight into:
+ * browser only ever sees /_next/image?url=… — so pointing it at an external
+ * storage origin costs nothing in SEO.
+ *
+ * When NEXT_PUBLIC_MEDIA_ORIGIN is set (CDN in mongo mode), uses that; otherwise
+ * points at WordPress (wordpress mode). Both avoid two failure modes that a
+ * site-relative or self-referencing src walks straight into:
  *
  *   - A relative "/wp-content/..." src makes the optimizer treat the file as a
  *     local asset and resolve it internally, where the external rewrite's
@@ -90,7 +93,12 @@ export function mediaUrl(url: string): string {
 export function mediaOriginUrl(url: string): string {
   const u = parse(url);
   const media = u && mediaPath(u);
-  return media ? `${WP_URL}${media}` : url;
+  if (!media) return url;
+
+  /* MEDIA_ORIGIN is set in mongo mode, pointing to the CDN. Otherwise, use
+     WordPress as the origin (wordpress mode). */
+  const origin = MEDIA_ORIGIN || WP_URL;
+  return `${origin}${media}`;
 }
 
 /* Absolute http(s) only, and deliberately so.

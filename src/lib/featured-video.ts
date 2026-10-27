@@ -1,3 +1,4 @@
+import { DATA_SOURCE } from "@/lib/env";
 import { wpAdminRoute } from "@/lib/wp-admin";
 import { parseEmbed } from "@/lib/video-embed";
 
@@ -29,10 +30,10 @@ function failure(status: number, message?: string): string {
   return message || `The featured video plugin answered ${status}.`;
 }
 
-/** The video attached to a post. The plugin can only list posts, so the post is found by searching its title. */
+/** The video attached to a post. The plugin can only list posts, so the post is found by searching its title (the MongoDB backend also honours `include`). */
 export async function readFeaturedVideo(postId: number, title: string): Promise<FeaturedVideo> {
   try {
-    const response = await wpAdminRoute(`/rsfv/v1/posts?${new URLSearchParams({ post_type: "post", search: title.slice(0, 200), per_page: "100" })}`);
+    const response = await wpAdminRoute(`/rsfv/v1/posts?${new URLSearchParams({ post_type: "post", search: title.slice(0, 200), per_page: "100", ...(DATA_SOURCE === "mongo" ? { include: String(postId) } : {}) })}`);
     const rows = await response.json().catch(() => null);
     if (!response.ok) return { ...none, available: false, message: failure(response.status, rows?.message) };
     const row = (rows as { id: number; video_source?: string; video_id?: number; video_url?: string; embed_url?: string }[]).find((entry) => entry.id === postId);

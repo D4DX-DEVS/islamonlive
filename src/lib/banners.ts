@@ -1,9 +1,12 @@
-import { WP_URL } from "@/lib/env";
+import { WP_URL, DATA_SOURCE } from "@/lib/env";
 import { mediaOriginUrl, rewriteUrl } from "@/lib/urls";
+import { collection } from "@/lib/db/client";
+import { cached } from "@/lib/db/cache";
+import { TTL } from "@/lib/cache";
 
 // The promo strip between the video playlist and the reels feed is an Elementor
 // image widget on the WordPress homepage. Editors swap it there, so read it from
-// the rendered page rather than hard-coding the artwork.
+// the rendered page (WordPress mode) or from the database (MongoDB mode).
 export interface Banner {
   href: string;
   img: string;
@@ -21,7 +24,7 @@ function attr(tag: string, name: string): string | null {
   return m ? decode(m[1]) : null;
 }
 
-export async function getHomeBanners(): Promise<Banner[]> {
+async function getHomeBannersFromWordPress(): Promise<Banner[]> {
   /* WP_URL, not the public site.
 
      This reads the *WordPress-rendered* home page for an Elementor widget. Once
@@ -57,4 +60,34 @@ export async function getHomeBanners(): Promise<Banner[]> {
     });
   }
   return out;
+}
+
+async function getHomeBannersFromMongo(): Promise<Banner[]> {
+  /* Read banners from the MongoDB "banners" collection. The documents are
+     stored with rewritten (public-site) URLs, so they can be used directly
+     for HTML content and next/image srcs. */
+  const coll = await collection("banners");
+  const docs = await coll.find({}).sort({ _id: 1 }).toArray();
+  // the same http(s)/relative rule as the scraped path: no javascript: or data: links on the home page
+  return docs.filter((doc) => /^(https?:\/\/|\/)/i.test(doc.href)).map((doc) => ({
+    href: doc.href,
+    img: mediaOriginUrl(doc.img), // Ensure next/image uses the right origin
+    width: doc.width,
+    height: doc.height,
+    alt: doc.alt,
+  }));
+}
+
+/* Cached MongoDB read for banners, same TTL as WordPress fetches. */
+const getCachedMongobanners = cached(
+  "home-banners",
+  getHomeBannersFromMongo,
+  { revalidate: TTL.media, tags: ["banners"] }
+);
+
+export async function getHomeBanners(): Promise<Banner[]> {
+  if (DATA_SOURCE === "mongo") {
+    return getCachedMongobanners();
+  }
+  return getHomeBannersFromWordPress();
 }

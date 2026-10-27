@@ -1,5 +1,8 @@
 import { TTL } from "@/lib/cache";
-import { WP_API } from "@/lib/env";
+import { DATA_SOURCE, WP_API } from "@/lib/env";
+import { collection } from "@/lib/db/client";
+import { publicFilter } from "@/lib/db/posts";
+import { authorsWithPublishedPosts } from "@/lib/db/users";
 import { toSiteUrl } from "@/lib/urls";
 
 /* Resolver for WordPress's pre-permalink URLs.
@@ -17,20 +20,43 @@ import { toSiteUrl } from "@/lib/urls";
 
 export const revalidate = 86400;
 
-const COLLECTIONS = { post: "posts", page: "pages", category: "categories", tag: "tags", author: "users" } as const;
-
-type Kind = keyof typeof COLLECTIONS;
+const COLLECTIONS: Record<string, "posts" | "pages" | "categories" | "tags" | "users"> = {
+  post: "posts",
+  page: "pages",
+  category: "categories",
+  tag: "tags",
+  author: "users",
+} as const;
 
 export async function GET(_request: Request, ctx: { params: Promise<{ type: string; id: string }> }): Promise<Response> {
   const { type, id } = await ctx.params;
 
-  if (!(type in COLLECTIONS) || !/^\d+$/.test(id)) {
+  // own keys only: `in` would also accept "constructor" and friends
+  if (!Object.hasOwn(COLLECTIONS, type) || !/^\d+$/.test(id)) {
     return new Response("Not found", { status: 404 });
   }
 
-  const collection = COLLECTIONS[type as Kind];
-  const res = await fetch(`${WP_API}/${collection}/${id}?_fields=link`, {
-    next: { revalidate: TTL.taxonomy, tags: ["wp", `wp:${collection}`] },
+  const collectionName = COLLECTIONS[type];
+  const numId = Number(id);
+
+  if (DATA_SOURCE === "mongo") {
+    /* Only what WordPress would show an anonymous visitor: the collections
+       also hold drafts, private and trashed posts and every user account. A
+       draft's link is /?p=ID, which the proxy sends back here — answering it
+       would loop as well as leak its headline. */
+    const visible =
+      collectionName === "posts" ? publicFilter() : collectionName === "pages" ? { status: "publish" } : collectionName === "users" ? { _id: { $in: await authorsWithPublishedPosts() } } : {};
+    const col = await collection(collectionName);
+    // $and, not a spread: `visible` may constrain _id too, and a spread would replace the id asked for
+    const doc = (await col.findOne({ $and: [{ _id: numId }, visible] } as Record<string, unknown>, { projection: { link: 1 } })) as { _id?: number; link?: string } | null;
+
+    if (!doc?.link) return new Response("Not found", { status: 404 });
+
+    return Response.redirect(toSiteUrl(doc.link), 301);
+  }
+
+  const res = await fetch(`${WP_API}/${collectionName}/${id}?_fields=link`, {
+    next: { revalidate: TTL.taxonomy, tags: ["wp", `wp:${collectionName}`] },
   });
 
   if (!res.ok) return new Response("Not found", { status: 404 });

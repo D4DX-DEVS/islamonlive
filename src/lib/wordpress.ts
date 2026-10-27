@@ -74,7 +74,8 @@ async function wpFetchPage<T>(path: string, revalidate: number = TTL.posts): Pro
     total: Number(res.headers.get("X-WP-Total") ?? 0),
     totalPages: Number(res.headers.get("X-WP-TotalPages") ?? 0),
   };
-}
+}
+
 
 function postQuery(opts: PostQuery): URLSearchParams {
   const p = new URLSearchParams({
@@ -142,7 +143,8 @@ export async function getPostsPage(opts: PostQuery = {}): Promise<WPPage_<WPPost
   if (DATA_SOURCE === "mongo") return mongo.getPostsPage(opts);
   const page = await wpFetchPage<WPPost>(`/posts?${postQuery(opts)}`);
   return { ...page, items: page.items.map(slim) };
-}
+}
+
 
 export async function getPageBySlug(slug: string): Promise<WPPage | null> {
   if (DATA_SOURCE === "mongo") return mongo.getPageBySlug(slug);
@@ -150,7 +152,8 @@ export async function getPageBySlug(slug: string): Promise<WPPage | null> {
   // adds ~50% to the payload the data cache has to hold
   const pages = await wpFetch<WPPage[]>(`/pages?slug=${slugForApi(slug)}`, TTL.page);
   return pages[0] ?? null;
-}
+}
+
 
 export async function getUserBySlug(slug: string): Promise<WPUser | null> {
   if (DATA_SOURCE === "mongo") return mongo.getUserBySlug(slug);
@@ -192,10 +195,12 @@ export async function getPostBySlug(slug: string): Promise<WPPost | null> {
   const fields = "id,date,modified,modified_gmt,slug,link,title,excerpt,content,categories,tags,yoast_head_json,_links,_embedded";
   const posts = await wpFetch<WPPost[]>(`/posts?slug=${slugForApi(slug)}&_embed=author,wp:featuredmedia,wp:term&_fields=${fields}`, TTL.posts);
   return posts[0] ?? null;
-}
+}
+
 
 export async function resolvePostByPath(requestPath: string, slug: string): Promise<ResolvedPost | null> {
-  const post = await getPostBySlug(slug);
+  // a renamed post answers at its old URL with exact=false, which the article route turns into a 301
+  const post = (await getPostBySlug(slug)) ?? (DATA_SOURCE === "mongo" ? await mongo.getPostByOldPath(requestPath) : null);
   if (!post) return null;
   const canonical = postPath(post);
   return { post, canonical, exact: decodePath(canonical) === decodePath(requestPath) };
@@ -243,4 +248,5 @@ export async function getCategoryBySlug(slug: string): Promise<WPCategory | null
     TTL.taxonomy
   );
   return cats[0] ?? null;
-}
+}
+

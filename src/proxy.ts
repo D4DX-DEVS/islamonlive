@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SITE_URL } from "@/lib/env";
+import { DATA_SOURCE, SITE_URL } from "@/lib/env";
+import { movedTo } from "@/lib/db/old-paths";
 
 /* Two jobs, in this order: send every non-canonical host to the apex, then
    answer legacy WordPress query URLs in one hop.
@@ -33,7 +34,14 @@ import { SITE_URL } from "@/lib/env";
    query string onto the destination, and the search page would be handed
    `?s=…&q=…`.
 
-   Only the site root is matched for those — nothing else on the site pays. */
+   Only the site root is matched for those — nothing else on the site pays.
+
+   --- Renamed posts (MongoDB backend) ---
+
+   A post whose slug an editor changed answers at its old URL with a 301 to
+   the new one, as WordPress's old-slug redirect did. See lib/db/old-paths.ts
+   for why this happens here and not in the (cached) article route. Only
+   article-shaped paths (two or more segments) look it up. */
 
 const LOOKUPS: [param: string, type: "post" | "page" | "category"][] = [
   ["p", "post"],
@@ -44,7 +52,7 @@ const LOOKUPS: [param: string, type: "post" | "page" | "category"][] = [
 /** Hosts that serve this app but are not the address readers are given. */
 const FOREIGN_HOST = /\.ondigitalocean\.app$/i;
 
-export default function proxy(request: NextRequest): NextResponse {
+export default async function proxy(request: NextRequest): Promise<NextResponse> {
   const host = request.headers.get("host") ?? "";
   if (FOREIGN_HOST.test(host)) {
     /* Built by assigning onto a URL that is already the apex, never by handing
@@ -67,8 +75,19 @@ export default function proxy(request: NextRequest): NextResponse {
     return res;
   }
 
+  const { pathname } = request.nextUrl;
+  if (DATA_SOURCE === "mongo" && /^\/[^/]+\/[^?]+$/.test(pathname)) {
+    const moved = await movedTo(pathname);
+    if (moved) {
+      const target = new URL(SITE_URL);
+      target.pathname = moved;
+      target.search = request.nextUrl.search;
+      return NextResponse.redirect(target, 301);
+    }
+  }
+
   // everything below is the site root only
-  if (request.nextUrl.pathname !== "/") return NextResponse.next();
+  if (pathname !== "/") return NextResponse.next();
 
   const { searchParams } = request.nextUrl;
 

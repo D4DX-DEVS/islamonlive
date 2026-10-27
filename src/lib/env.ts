@@ -45,11 +45,18 @@ export const WP_API = process.env.WORDPRESS_API_URL?.includes("/wp-json")
 
    Google Images has 22k+ articles' worth of https://islamonlive.in/wp-content/
    URLs indexed. Rather than redirect every one of them to the backend,
-   next.config rewrites /wp-content/* straight through to WP — so the URL a
-   reader (and Googlebot) sees never changes, and the bytes still come from
-   WordPress. Content and featured-image URLs are rewritten onto this prefix by
-   rewriteUrl() in lib/urls.ts. */
+   next.config rewrites /wp-content/* straight through to the origin — so the
+   URL a reader (and Googlebot) sees never changes. The origin can be WordPress
+   (always), or the CDN when NEXT_PUBLIC_MEDIA_ORIGIN is set. Content and
+   featured-image URLs are rewritten onto this prefix by rewriteUrl() in
+   lib/urls.ts. */
 export const MEDIA_PREFIX = "/wp-content";
+
+/** CDN origin for media, e.g. https://d4dx-storage.blr1.cdn.digitaloceanspaces.com/islamonlive.
+   When set, next/image and the /wp-content rewrite use the CDN instead of WordPress.
+   When unset, behaviour is unchanged (WordPress origin). */
+// not tied to DATA_SOURCE: that is server-only, and client components build image URLs too
+export const MEDIA_ORIGIN = (process.env.NEXT_PUBLIC_MEDIA_ORIGIN ?? "").replace(/\/+$/, "");
 
 /** Hosts whose /wp-content URLs are ours to rewrite onto MEDIA_PREFIX. */
 export const MEDIA_HOSTS: readonly string[] = [

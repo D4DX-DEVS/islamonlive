@@ -144,13 +144,38 @@ Atlas M10 if traffic grows (Flex is shared with ~15 apps).
 - **Caching:** MongoDB reads go through `unstable_cache` with the existing
   `wp` / `wp:*` tags so `/api/revalidate` keeps working unchanged.
 
-## Phase 0 status
+## Status (2026-10-27)
 
-Done: toolkit in `D:\Projects\islamonlive\migration\`, branch `feat/mongo-backend`,
-`src/lib/db/{client,types}.ts`, `DATA_SOURCE` flag, Vitest + throwaway mongod,
-fixtures (`src/lib/db/__fixtures__`, from `migration/make-fixtures.mjs`).
-Running: SEO baseline crawl (`migration/seo/baseline.jsonl`, 29,123 URLs).
-Waiting on the team: DB export (0.5), GSC exports.
+Phases 0–2 are built on `main` behind `DATA_SOURCE` (default `wordpress`, so
+the deployed site is unchanged until the flag flips). Verified locally:
+
+- **Unit tests:** 280 passing (`npm test`), against a throwaway mongod with the
+  fixture slice. Feeds are byte-compared to the live feeds, and sitemaps to the
+  WordPress path.
+- **SEO crawl diff:** live site vs a local MongoDB-mode production build, over
+  28.4k shared URLs (`migration/seo-diff.mjs`). Title, description, robots,
+  canonical, OG, Twitter and JSON-LD are identical except for:
+  - 20 tag pages that live 404s (a slug-encoding bug on live; MongoDB serves them).
+  - WordPress-only endpoints that now 301 to `/admin/` or answer 410.
+  - Feeds served directly (live 301s them to the WordPress host).
+  - Authors with no photo show the placeholder icon. Live wrongly shows the
+    article's image.
+  - About 25 posts edited on WordPress since the export. `sync-delta` closes this.
+- **End to end:** `scripts/e2e-local.mjs` passes 44/44 checks. It runs the
+  full editor journey against a throwaway database and a fake Spaces:
+  login rules, uploads, publish, sitemaps and feed, `?p=` links, edits,
+  rename → 301, drafts, scheduling + cron, trash, `/go/` privacy.
+- **Admin UI** checked in a real browser: login, dashboard, editor, category list.
+
+Known gaps:
+- **No restore-from-trash** in the admin UI (WordPress offered it in wp-admin).
+  A trashed article can be restored only in the database.
+- The authors screen's "Open in WordPress" link just lands on `/admin/`.
+- New uploads are stored without WordPress's resized copies. Pages use
+  next/image and Photon, so nothing reads the sizes.
+
+Waiting on the team: Cloudways DB export (Yoast Premium redirects) and GSC
+exports; then cutover (Phase 3).
 
 ## Needed from the team
 

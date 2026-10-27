@@ -1,6 +1,10 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
-import { WP_URL } from "@/lib/env";
+import { DATA_SOURCE, WP_URL } from "@/lib/env";
+import { verifyPassword } from "@/lib/auth/password";
+import { collection } from "@/lib/db/client";
+import { adminRest } from "@/lib/admin-rest";
+import type { AdminUser } from "@/lib/admin-rest/http";
 
 const SESSION_COOKIE = "iol_admin_session_v2";
 const SESSION_TTL = 8 * 60 * 60;
@@ -9,9 +13,12 @@ const REMEMBER_TTL = 14 * 24 * 60 * 60;
 
 type AdminSession = {
   username: string;
-  cookies: string;
-  nonce: string;
+  userId: number;
+  role: string;
   expiresAt: number;
+  // WordPress mode only:
+  cookies?: string;
+  nonce?: string;
 };
 
 function sessionSecret(): string {
@@ -64,6 +71,44 @@ function extractNonce(html: string): string | null {
   return match?.[1] ?? null;
 }
 
+async function mongoLogin(username: string, password: string): Promise<AdminSession> {
+  // Look up by username or email, case-insensitive
+  const usersCol = await collection("users");
+  const user = await usersCol.findOne({
+    $or: [
+      { username: { $regex: `^${escapeRegex(username)}$`, $options: "i" } },
+      { email: { $regex: `^${escapeRegex(username)}$`, $options: "i" } },
+    ],
+  });
+
+  // Always perform the hashing work to prevent timing attacks, even if user doesn't exist
+  // verifyPassword runs a dummy scrypt for a missing or legacy hash, so an unknown username costs the same
+  const verified = await verifyPassword(password, user?.password_hash ?? "");
+
+  if (!verified || !user) {
+    throw new Error("Incorrect username or password");
+  }
+
+  // Check if user is active
+  if (!user.is_active) {
+    throw new Error("Incorrect username or password");
+  }
+
+  // Check if user has required role
+  const hasRequiredRole = user.role === "administrator" || user.role === "editor" || (user.roles && user.roles.some((r) => r === "administrator" || r === "editor"));
+
+  if (!hasRequiredRole) {
+    throw new Error("Incorrect username or password");
+  }
+
+  return {
+    username: user.username ?? "",
+    userId: user._id,
+    role: user.role,
+    expiresAt: Math.floor(Date.now() / 1000) + SESSION_TTL,
+  };
+}
+
 async function wordpressLogin(username: string, password: string, remember: boolean): Promise<AdminSession> {
   const testCookie = "wordpress_test_cookie=WP+Cookie+check";
   const form = new URLSearchParams({
@@ -96,11 +141,29 @@ async function wordpressLogin(username: string, password: string, remember: bool
   const nonce = extractNonce(await admin.text());
   if (!nonce) throw new Error("WordPress did not provide a REST nonce for this account");
 
-  return { username, cookies: cookieHeader, nonce, expiresAt: Math.floor(Date.now() / 1000) + (remember ? REMEMBER_TTL : SESSION_TTL) };
+  return {
+    username,
+    userId: 0, // WordPress sessions don't have userId in the cookie; it's in the cookies themselves
+    role: "unknown", // WordPress sessions carry role in the nonce validation
+    cookies: cookieHeader,
+    nonce,
+    expiresAt: Math.floor(Date.now() / 1000) + (remember ? REMEMBER_TTL : SESSION_TTL),
+  };
+}
+
+function escapeRegex(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 export async function createAdminSession(username: string, password: string, remember = false): Promise<void> {
-  const session = await wordpressLogin(username.trim(), password, remember);
+  const trimmedUsername = username.trim();
+  const session = DATA_SOURCE === "mongo" ? await mongoLogin(trimmedUsername, password) : await wordpressLogin(trimmedUsername, password, remember);
+
+  // In mongo mode, adjust TTL for remember flag
+  if (DATA_SOURCE === "mongo" && remember) {
+    session.expiresAt = Math.floor(Date.now() / 1000) + REMEMBER_TTL;
+  }
+
   const store = await cookies();
   // Clear the earlier development build's narrower cookie if one exists.
   store.set(SESSION_COOKIE, "", { httpOnly: true, expires: new Date(0), path: "/admin" });
@@ -116,27 +179,69 @@ export async function createAdminSession(username: string, password: string, rem
 }
 
 export async function getAdminSession(): Promise<AdminSession | null> {
-  return unpack((await cookies()).get(SESSION_COOKIE)?.value);
+  const session = unpack((await cookies()).get(SESSION_COOKIE)?.value);
+
+  // In mongo mode, reject old WordPress sessions (those without userId, which means
+  // they were created before the mongo migration)
+  if (session && DATA_SOURCE === "mongo" && !session.userId) {
+    return null;
+  }
+
+  return session;
 }
 
-async function signedRequest(url: string, init: RequestInit): Promise<Response> {
+async function mongoSignedRequest(path: string, init: RequestInit): Promise<Response> {
+  const session = await getAdminSession();
+  if (!session) throw new Error("Admin authentication required");
+
+  // Re-load user from MongoDB to check they're still active and have the required role
+  const usersCol = await collection("users");
+  const user = await usersCol.findOne({ _id: session.userId });
+
+  if (!user || !user.is_active) {
+    throw new Error("Admin authentication required");
+  }
+
+  const hasRequiredRole = user.role === "administrator" || user.role === "editor" || (user.roles && user.roles.some((r) => r === "administrator" || r === "editor"));
+
+  if (!hasRequiredRole) {
+    throw new Error("Admin authentication required");
+  }
+
+  // Call the in-process adminRest function
+  const adminUser: AdminUser = {
+    id: user._id,
+    username: user.username ?? "",
+    role: user.role,
+  };
+
+  return adminRest(path, init, adminUser);
+}
+
+async function wordpressSignedRequest(url: string, init: RequestInit): Promise<Response> {
   const session = await getAdminSession();
   if (!session) throw new Error("Admin authentication required");
   const headers = new Headers(init.headers);
-  headers.set("Cookie", session.cookies);
-  headers.set("X-WP-Nonce", session.nonce);
+  headers.set("Cookie", session.cookies!);
+  headers.set("X-WP-Nonce", session.nonce!);
   headers.set("Accept", "application/json");
   return fetch(url, { ...init, headers, cache: "no-store" });
 }
 
 /** A signed-in call to the core REST API, `path` being relative to `/wp-json/wp/v2`. */
-export function wpAdminFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  return signedRequest(`${WP_URL}/wp-json/wp/v2${path}`, init);
+export async function wpAdminFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  if (DATA_SOURCE === "mongo") {
+    return mongoSignedRequest(`/wp/v2${path}`, init);
+  }
+  return wordpressSignedRequest(`${WP_URL}/wp-json/wp/v2${path}`, init);
 }
 
 /** A signed-in call to a plugin's REST namespace, `path` starting at it: "/rsfv/v1/posts/update-video". */
-export function wpAdminRoute(path: string, init: RequestInit = {}): Promise<Response> {
-  return signedRequest(`${WP_URL}/wp-json${path}`, init);
+export async function wpAdminRoute(path: string, init: RequestInit = {}): Promise<Response> {
+  if (DATA_SOURCE === "mongo") {
+    return mongoSignedRequest(path, init);
+  }
+  return wordpressSignedRequest(`${WP_URL}/wp-json${path}`, init);
 }
 
 export function sessionCookieName(): string {

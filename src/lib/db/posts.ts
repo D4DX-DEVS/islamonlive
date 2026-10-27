@@ -134,3 +134,20 @@ async function postBySlug(slug: string): Promise<WPPost | null> {
 }
 
 export const getPostBySlug = cached("posts:slug", postBySlug, { revalidate: TTL.posts, tags: POST_TAGS });
+
+/* A URL a post left when an editor renamed it (admin-rest/posts.ts keeps them
+   in old_paths). WordPress's wp_old_slug_redirect did the same job; returning
+   the post lets the article route 301 to where it lives now. */
+async function postByOldPath(path: string): Promise<WPPost | null> {
+  const segments = path.replace(/^\/+|\/+$/g, "").split("/");
+  const encoded = `/${segments.map((s) => encodeURIComponent(safeDecode(s)).toLowerCase()).join("/")}/`;
+  const decoded = `/${segments.map(safeDecode).join("/")}/`;
+  const doc = await (await collection("posts")).findOne(
+    { ...publicFilter(), old_paths: { $in: [...new Set([encoded, decoded, path])] } },
+    { projection: { content_raw: 0, password: 0, content_sha256: 0 }, sort: NEWEST_FIRST }
+  );
+  if (!doc) return null;
+  return toWPPost(doc, await loadRefs([doc]), true);
+}
+
+export const getPostByOldPath = cached("posts:old-path", postByOldPath, { revalidate: TTL.posts, tags: POST_TAGS });

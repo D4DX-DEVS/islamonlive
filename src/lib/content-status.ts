@@ -1,4 +1,5 @@
-import { WP_URL } from "@/lib/env";
+import { WP_URL, DATA_SOURCE } from "@/lib/env";
+import { siteTimezone, wallClock } from "@/lib/admin-rest/site-time";
 import { countPosts } from "@/lib/admin-posts";
 import { decodeEntities } from "@/lib/wordpress";
 import { wpAdminFetch } from "@/lib/wp-admin";
@@ -28,10 +29,18 @@ async function getSiteOffsetMs(): Promise<number> {
   if (siteOffset && Date.now() - siteOffset.at < 3_600_000) return siteOffset.ms;
   let ms = siteOffset?.ms ?? 0;
   try {
-    const response = await fetch(`${WP_URL}/wp-json/`, { cache: "no-store", signal: AbortSignal.timeout(2500) });
-    const hours = response.ok ? Number((await response.json() as { gmt_offset?: number }).gmt_offset) : NaN;
-    if (Number.isFinite(hours)) ms = hours * 3_600_000;
-  } catch { /* fall back to the last known offset, or UTC */ }
+    if (DATA_SOURCE === "mongo") {
+      // the stored WordPress timezone, read the same way the admin writes dates
+      const now = new Date();
+      ms = Date.parse(`${wallClock(now, await siteTimezone())}Z`) - Math.floor(now.getTime() / 1000) * 1000;
+    } else {
+      const response = await fetch(`${WP_URL}/wp-json/`, { cache: "no-store", signal: AbortSignal.timeout(2500) });
+      const hours = response.ok ? Number((await response.json() as { gmt_offset?: number }).gmt_offset) : NaN;
+      if (Number.isFinite(hours)) ms = hours * 3_600_000;
+    }
+  } catch {
+    /* fall back to the last known offset, or UTC */
+  }
   siteOffset = { ms, at: Date.now() };
   return ms;
 }

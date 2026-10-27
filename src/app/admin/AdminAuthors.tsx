@@ -181,7 +181,7 @@ export default function Authors({ authors, refresh, loading, error, onViewArticl
   return <div className="space-y-5 sm:space-y-6">
     <div>
       <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-slate-500"><span>Authors</span><Icon name="chevronRight" className="h-3.5 w-3.5" strokeWidth={2} /><span className="font-medium text-slate-900">Create author</span></nav>
-      <p className="pill mt-4 text-xs font-bold uppercase tracking-[0.18em] text-violet-700">WordPress users</p>
+      <p className="pill mt-4 text-xs font-bold uppercase tracking-[0.18em] text-violet-700">Authors</p>
       <h1 className="mt-2 text-2xl font-extrabold text-[#12093a] sm:text-3xl">Authors and editors</h1>
       <p className="mt-1.5 text-sm text-slate-500">Create author profiles without touching existing user records. Administrators and editors who can publish are included.</p>
     </div>
@@ -193,7 +193,7 @@ export default function Authors({ authors, refresh, loading, error, onViewArticl
           <PhotoPicker file={photo} problem={photoProblem} onChange={choosePhoto} />
           <div className="space-y-4">
             <label className="block"><FieldLabel required>Display name</FieldLabel><input className={`${inputClass} mt-2`} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Enter display name" required /></label>
-            <label className="block"><FieldLabel required>Username</FieldLabel><input className={`${inputClass} mt-2`} value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} placeholder="Enter username" autoComplete="off" required /><span className="mt-1.5 block text-xs text-slate-500">This will be used to login to WordPress.</span></label>
+            <label className="block"><FieldLabel required>Username</FieldLabel><input className={`${inputClass} mt-2`} value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} placeholder="Enter username" autoComplete="off" required /><span className="mt-1.5 block text-xs text-slate-500">A unique user name for the author.</span></label>
             <IconField label="Email" icon="mail"><input className={`${inputClass} pl-10`} type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="example@mail.com" autoComplete="off" required /></IconField>
           </div>
         </div>
@@ -204,7 +204,7 @@ export default function Authors({ authors, refresh, loading, error, onViewArticl
         <HtmlEditor compact label="Bio" placeholder="Write a short bio about the author…" value={form.description} onChange={(description) => setForm({ ...form, description })} minHeight="min-h-28 sm:min-h-32" />
         {message && <p role={message.kind === "error" ? "alert" : "status"} className={`rounded-xl px-3 py-2 text-sm ${messageStyle[message.kind]}`}>{message.text}</p>}
         <div className="flex flex-col gap-3 rounded-xl bg-violet-50/70 p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-          <div className="flex items-start gap-3 text-xs leading-snug text-slate-600"><Icon name="info" className="mt-0.5 h-[18px] w-[18px] shrink-0 text-violet-600" /><p><span className="block font-medium text-slate-800">A WordPress user account will be created with the role Author.</span>The author can log in and manage their own articles.</p></div>
+          <div className="flex items-start gap-3 text-xs leading-snug text-slate-600"><Icon name="info" className="mt-0.5 h-[18px] w-[18px] shrink-0 text-violet-600" /><p><span className="block font-medium text-slate-800">An author profile will be created with the role Author.</span>The author can log in and manage their own articles.</p></div>
           <button disabled={saving} className="flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[linear-gradient(90deg,#7c3aed,#6d28d9)] px-5 text-sm font-bold text-white shadow-[0_10px_22px_-10px_rgba(109,40,217,0.8)] transition hover:brightness-110 disabled:opacity-60"><Icon name="users" className="h-[18px] w-[18px]" />{saving ? "Creating…" : "Create author"}</button>
         </div>
       </form>

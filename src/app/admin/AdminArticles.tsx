@@ -157,7 +157,7 @@ export default function Articles({ initialSearch, initialStatus, initialAuthor =
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error || "Could not move the article to the trash");
       run({ ...query, page: items.length === 1 && query.page > 1 ? query.page - 1 : query.page });
-      setNotice(`“${rowTitle(post)}” was moved to the trash. You can restore it from WordPress.`);
+      setNotice(`“${rowTitle(post)}” was moved to the trash.`);
       loadStats();
     } catch (failure) { setError(failure instanceof Error ? failure.message : "Could not move the article to the trash"); }
     finally { setBusyId(null); }
@@ -193,7 +193,7 @@ export default function Articles({ initialSearch, initialStatus, initialAuthor =
 
   return <div className="space-y-5 sm:space-y-6">
     <div className="flex flex-wrap items-start justify-between gap-3">
-      <div><p className="pill text-xs font-bold uppercase tracking-[0.18em] text-violet-700">WordPress posts</p><h1 className="mt-2 text-2xl font-extrabold text-[#12093a] sm:text-3xl">Articles</h1><p className="mt-1.5 text-sm text-slate-500">Search, edit and publish existing articles without leaving this dashboard.</p></div>
+      <div><p className="pill text-xs font-bold uppercase tracking-[0.18em] text-violet-700">Articles</p><h1 className="mt-2 text-2xl font-extrabold text-[#12093a] sm:text-3xl">Articles</h1><p className="mt-1.5 text-sm text-slate-500">Search, edit and publish existing articles without leaving this dashboard.</p></div>
       <button type="button" onClick={onNew} className="flex min-h-11 items-center gap-2 rounded-xl bg-[linear-gradient(90deg,#7c3aed,#6d28d9)] px-5 text-sm font-bold text-white shadow-[0_10px_22px_-10px_rgba(109,40,217,0.8)] transition hover:brightness-110"><Icon name="plus" className="h-[18px] w-[18px]" strokeWidth={2.2} />New article</button>
     </div>
 
@@ -203,7 +203,7 @@ export default function Articles({ initialSearch, initialStatus, initialAuthor =
         <span className="block text-sm text-slate-500">{card.label}</span>
         {card.value === undefined ? <Skeleton className="mt-2 h-7 w-20" /> : <span className="mt-0.5 block text-[26px] font-extrabold leading-tight text-[#12093a]">{card.value.toLocaleString()}</span>}
         <span className="mt-1 block text-xs text-slate-500">
-          {card.key === "trash" ? "Recoverable in WordPress" : card.recent === undefined ? " " : card.recent > 0
+          {card.key === "trash" ? "Out of public view" : card.recent === undefined ? " " : card.recent > 0
             ? <><span className="inline-flex items-center gap-0.5 font-semibold text-emerald-600"><Icon name="arrowUp" className="h-3.5 w-3.5" strokeWidth={2.2} />{card.recent.toLocaleString()}</span> new in last 30 days</>
             : "None new in last 30 days"}
         </span>
@@ -276,6 +276,6 @@ export default function Articles({ initialSearch, initialStatus, initialAuthor =
       </div>
     </div>
 
-    <ConfirmDialog open={Boolean(trashTarget)} title="Move to trash?" body={trashTarget ? `“${rowTitle(trashTarget)}” will be taken off the site. You can restore it from the WordPress trash.` : ""} confirmLabel="Move to trash" destructive onConfirm={() => void moveToTrash()} onCancel={() => setTrashTarget(null)} />
+    <ConfirmDialog open={Boolean(trashTarget)} title="Move to trash?" body={trashTarget ? `“${rowTitle(trashTarget)}” will be taken off the site.` : ""} confirmLabel="Move to trash" destructive onConfirm={() => void moveToTrash()} onCancel={() => setTrashTarget(null)} />
   </div>;
 }

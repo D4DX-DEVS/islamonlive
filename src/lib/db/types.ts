@@ -52,6 +52,18 @@ export interface PostDoc {
   modified_gmt: string;
   published_at: Date | null;
   updated_at: Date | null;
+  /** Previous paths when slug changed (for redirects) */
+  old_paths?: string[];
+  /** Yoast SEO meta fields (title, description, keywords) */
+  meta?: Record<string, string>;
+  /** Original slug before trash, for untrash restoration */
+  desired_slug?: string;
+  /** Status before trash (_wp_trash_meta_status) */
+  trashed_from?: PostStatus;
+  /** The excerpt as the editor typed it; "" for an auto-excerpt. Absent on migrated posts. */
+  excerpt_raw?: string;
+  /** A draft whose date was never set: publishing it stamps the publish time, as WordPress does. */
+  date_floating?: boolean;
 }
 
 export interface PageDoc {
@@ -111,6 +123,8 @@ export interface MediaDoc {
   date: string;
   modified: string;
   uploaded_at: Date | null;
+  /** Uploader, for files added through the admin after the migration. */
+  author_id?: number;
 }
 
 export interface UserDoc {
@@ -155,6 +169,28 @@ export interface CategoryDoc extends TermDoc {
 
 export type TagDoc = TermDoc;
 
+export interface BannerDoc {
+  _id: string;
+  /** Promo link destination (relative or absolute URL). */
+  href: string;
+  /** Image URL (must be rewritable media URL or external). */
+  img: string;
+  /** Image natural width in pixels. */
+  width: number;
+  /** Image natural height in pixels. */
+  height: number;
+  /** Alt text for accessibility. */
+  alt: string;
+  /** When this banner was created/updated; used for cache invalidation. */
+  updated_at?: Date;
+}
+
+export interface SettingsDoc {
+  _id: "site";
+  default_category?: number;
+  [key: string]: unknown;
+}
+
 export interface Collections {
   posts: PostDoc;
   pages: PageDoc;
@@ -162,4 +198,6 @@ export interface Collections {
   users: UserDoc;
   categories: CategoryDoc;
   tags: TagDoc;
+  banners: BannerDoc;
+  settings: SettingsDoc;
 }

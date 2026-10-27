@@ -128,7 +128,7 @@ export default function AdminLogin({ lostPasswordUrl }: { lostPasswordUrl: strin
             <Image src="/logo-white.png" alt="Islamonlive" width={350} height={95} priority className="h-10 w-auto self-start object-contain md:h-11" />
             <div className="mt-5 h-0.5 w-14 rounded-full bg-violet-400" />
             <h2 className="mt-5 text-3xl font-extrabold tracking-tight sm:text-4xl">Welcome back!</h2>
-            <p className="mt-2 max-w-sm text-base leading-relaxed text-violet-100/90">Access your WordPress admin workspace to manage your content and media.</p>
+            <p className="mt-2 max-w-sm text-base leading-relaxed text-violet-100/90">Access your admin workspace to manage your content and media.</p>
             <div className="my-6 hidden flex-1 items-center justify-center md:flex"><DashboardIllustration /></div>
             <ul className="mt-auto hidden grid-cols-4 gap-3 md:grid">
               {features.map(({ label, Icon }) => <li key={label.join(" ")} className="flex flex-col items-center gap-2 text-center">
@@ -142,16 +142,16 @@ export default function AdminLogin({ lostPasswordUrl }: { lostPasswordUrl: strin
         <section className="flex flex-col justify-center p-6 sm:p-10 lg:p-14">
           <p className="pill text-xs font-bold uppercase tracking-[0.3em] text-violet-700">Islamonlive</p>
           <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-slate-950 sm:text-4xl">Admin workspace</h1>
-          <p className="mt-3 text-base leading-relaxed text-slate-500">Sign in with your existing WordPress admin account to continue.</p>
+          <p className="mt-3 text-base leading-relaxed text-slate-500">Sign in with your admin account to continue.</p>
 
           <form onSubmit={submit} className="mt-8 space-y-5">
-            <label className="block text-sm font-semibold text-slate-900">WordPress username
+            <label className="block text-sm font-semibold text-slate-900">Username
               <span className="relative mt-2 block">
                 <UserIcon className={fieldIconClass} />
                 <input className={fieldClass} value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" placeholder="Enter your username" autoCapitalize="none" spellCheck={false} required />
               </span>
             </label>
-            <label className="block text-sm font-semibold text-slate-900">WordPress password
+            <label className="block text-sm font-semibold text-slate-900">Password
               <span className="relative mt-2 block">
                 <LockIcon className={fieldIconClass} />
                 <input className={`${fieldClass} pr-12`} type={showPassword ? "text" : "password"} value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" placeholder="Enter your password" required />
@@ -163,7 +163,11 @@ export default function AdminLogin({ lostPasswordUrl }: { lostPasswordUrl: strin
 
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
               <label className="flex min-h-8 items-center gap-2.5 text-sm text-slate-700"><input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} className="h-5 w-5 rounded-md border-slate-300 accent-violet-700" />Remember me</label>
-              <a href={lostPasswordUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-violet-700 underline underline-offset-4 hover:text-violet-900">Forgot password?</a>
+              {lostPasswordUrl === "mongodb" ? (
+                <span className="text-sm text-slate-500">Ask an administrator to reset your password</span>
+              ) : (
+                <a href={lostPasswordUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-violet-700 underline underline-offset-4 hover:text-violet-900">Forgot password?</a>
+              )}
             </div>
 
             {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
@@ -175,7 +179,7 @@ export default function AdminLogin({ lostPasswordUrl }: { lostPasswordUrl: strin
 
           <div className="mt-6 flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3.5">
             <LockIcon className="mt-0.5 h-5 w-5 shrink-0 text-violet-500" />
-            <p className="text-xs leading-relaxed text-slate-500">Your credentials are sent only to the WordPress origin through this server. They are not stored in the browser.</p>
+            <p className="text-xs leading-relaxed text-slate-500">Your credentials are checked by this server and are not stored in the browser.</p>
           </div>
         </section>
       </div>

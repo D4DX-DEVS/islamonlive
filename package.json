@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1157.0",
     "mongodb": "^6.21.0",
     "next": "16.3.0",
     "react": "19.2.8",

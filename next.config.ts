@@ -14,6 +14,18 @@ const WP_HOST = new URL(WP_URL).hostname;
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://islamonlive.in").replace(/\/+$/, "");
 
+/* CDN origin for media files when NEXT_PUBLIC_MEDIA_ORIGIN is set.
+   E.g. https://d4dx-storage.blr1.cdn.digitaloceanspaces.com/islamonlive
+   When set, /wp-content rewrites point here (mongo mode); when unset, to WordPress.
+   The URL stays unchanged for Google Images + backlinks. */
+const MEDIA_ORIGIN = (process.env.NEXT_PUBLIC_MEDIA_ORIGIN ?? "").replace(/\/+$/, "");
+const MEDIA_HOST = MEDIA_ORIGIN ? new URL(MEDIA_ORIGIN).hostname : "";
+
+/* Content source: "wordpress" (default) or "mongo" (MongoDB reads).
+   When mongo, feed and wp-json routes come from our own API handlers instead
+   of proxying to WordPress. Matches the check in lib/env.ts. */
+const DATA_SOURCE: "wordpress" | "mongo" = process.env.DATA_SOURCE === "mongo" ? "mongo" : "wordpress";
+
 /* Until the DNS for admin.islamonlive.in exists, a checkout can still be
    pointed at the apex — and then WordPress and the frontend share a host. Every
    proxy rule below would fold onto itself (/wp-content -> /wp-content, wp-json
@@ -60,16 +72,17 @@ const nextConfig: NextConfig = {
     /* Unused while the loader is custom — Next only consults remotePatterns in
        its own optimizer — but kept as the record of which hosts may appear in
        an <Image src>, and what the config must be if the loader is ever
-       dropped. */
+       dropped. MEDIA_HOST is empty when NEXT_PUBLIC_MEDIA_ORIGIN is unset. */
     remotePatterns: [
-      { protocol: "https", hostname: "islamonlive.in" },
-      { protocol: "https", hostname: "*.islamonlive.in" },
-      { protocol: "https", hostname: WP_HOST },
-      { protocol: "https", hostname: "i0.wp.com" },
-      { protocol: "https", hostname: "i1.wp.com" },
-      { protocol: "https", hostname: "i2.wp.com" },
-      { protocol: "https", hostname: "secure.gravatar.com" },
-      { protocol: "https", hostname: "i.ytimg.com" },
+      { protocol: "https" as const, hostname: "islamonlive.in" },
+      { protocol: "https" as const, hostname: "*.islamonlive.in" },
+      { protocol: "https" as const, hostname: WP_HOST },
+      ...(MEDIA_HOST ? [{ protocol: "https" as const, hostname: MEDIA_HOST }] : []),
+      { protocol: "https" as const, hostname: "i0.wp.com" },
+      { protocol: "https" as const, hostname: "i1.wp.com" },
+      { protocol: "https" as const, hostname: "i2.wp.com" },
+      { protocol: "https" as const, hostname: "secure.gravatar.com" },
+      { protocol: "https" as const, hostname: "i.ytimg.com" },
     ],
     /* Fewer, wider-apart breakpoints than Next's defaults (8 device widths +
        8 image widths). Every distinct width is a separate rendition Photon has
@@ -93,22 +106,57 @@ const nextConfig: NextConfig = {
       /* beforeFiles so /wp-content never reaches a dynamic route.
 
          Media: every indexed image URL is /wp-content/uploads/… on the apex.
-         WordPress now lives on another host, so the apex proxies those paths
-         through, unchanged. Image search rankings, hot-linked images and the
-         URLs inside 22,000 article bodies all keep working with nothing
-         rewritten. Feeds likewise: RSS subscribers keep their address. */
+         The origin can be WordPress (always) or a CDN when NEXT_PUBLIC_MEDIA_ORIGIN
+         is set. Either way, the URL a reader sees is unchanged, so Google Images
+         rankings and hot-linked images keep working. Feeds likewise: RSS
+         subscribers keep their address. */
       beforeFiles: [
-        ...(SPLIT_HOSTS
+        // in mongo mode media and feeds are ours whatever WP_URL says, so never depend on the host split
+        ...(SPLIT_HOSTS || DATA_SOURCE === "mongo"
           ? [
-              { source: "/wp-content/:path*", destination: `${WP_URL}/wp-content/:path*` },
-              { source: "/wp-includes/:path*", destination: `${WP_URL}/wp-includes/:path*` },
-              // the site feed and its variants (/feed/atom/, /category/x/feed/ is
-              // handled by the article-feed redirect below because it is per-post)
-              { source: "/feed", destination: `${WP_URL}/feed` },
-              { source: "/feed/:path*", destination: `${WP_URL}/feed/:path*` },
-              { source: "/comments/feed", destination: `${WP_URL}/comments/feed` },
+              {
+                source: "/wp-content/:path*",
+                /* When MEDIA_ORIGIN is set (mongo mode), proxy to CDN; otherwise to WordPress.
+                   The destination URL is fixed at build time, so redeploy with different
+                   NEXT_PUBLIC_MEDIA_ORIGIN to switch origins. */
+                destination: MEDIA_ORIGIN
+                  ? `${MEDIA_ORIGIN}/wp-content/:path*`
+                  : `${WP_URL}/wp-content/:path*`,
+              },
+              ...(SPLIT_HOSTS ? [{ source: "/wp-includes/:path*", destination: `${WP_URL}/wp-includes/:path*` }] : []),
+              /* Feed routing: when DATA_SOURCE=mongo, feeds come from our own
+                 API handlers; otherwise proxy to WordPress. */
+              ...(DATA_SOURCE === "mongo"
+                ? [
+                    { source: "/feed", destination: "/api/feed" },
+                    { source: "/feed/", destination: "/api/feed" },
+                    { source: "/feed/atom", destination: "/api/feed/atom" },
+                    { source: "/feed/atom/", destination: "/api/feed/atom" },
+                    { source: "/feed/rss2", destination: "/api/feed" }, // RSS2 is the main feed
+                    { source: "/feed/rss2/", destination: "/api/feed" },
+                    { source: "/feed/rss", destination: "/api/feed" }, // alias
+                    { source: "/feed/rss/", destination: "/api/feed" },
+                    { source: "/feed/rdf", destination: "/api/feed" }, // RDF is also RSS 1.0
+                    { source: "/feed/rdf/", destination: "/api/feed" },
+                    { source: "/comments/feed", destination: "/api/feed/comments" },
+                    { source: "/comments/feed/", destination: "/api/feed/comments" },
+                    /* XML-RPC and the REST API are gone for good: 410, answered at
+                       the same URL, tells clients to stop rather than re-probe a 404. */
+                    { source: "/xmlrpc.php", destination: "/api/gone" },
+                    { source: "/wp-json", destination: "/api/gone" },
+                    { source: "/wp-json/:path*", destination: "/api/gone" },
+                  ]
+                : [
+                    { source: "/feed", destination: `${WP_URL}/feed` },
+                    { source: "/feed/:path*", destination: `${WP_URL}/feed/:path*` },
+                    { source: "/comments/feed", destination: `${WP_URL}/comments/feed` },
+                  ]),
             ]
           : []),
+
+        /* IndexNow accepts URLs only under the folder its key file sits in, so
+           the key is served from the root (lib/indexnow.ts names this URL). */
+        { source: "/indexnow-key.txt", destination: "/api/indexnow-key" },
 
         // Yoast's sitemap URLs, answered by the route handler
         { source: "/sitemap_index.xml", destination: "/api/sitemap" },
@@ -139,16 +187,28 @@ const nextConfig: NextConfig = {
 
   async redirects() {
     return [
-      /* The CMS moved hosts. Anyone (or anything) still hitting wp-admin on the
-         apex is sent to it rather than shown the reader's 404. 301, like every
-         redirect here — a 302 would leave Google indexing the old address. */
-      ...(SPLIT_HOSTS
+      /* WordPress admin endpoints. In wordpress mode, redirect to the backend
+         (when it is on another host). In mongo mode there is no backend, so
+         they go to the internal admin panel or answer Gone whatever the hosts. */
+      ...(SPLIT_HOSTS || DATA_SOURCE === "mongo"
         ? [
-            { source: "/wp-admin/:path*", destination: `${WP_URL}/wp-admin/:path*`, statusCode: 301 as const },
-            { source: "/wp-login.php", destination: `${WP_URL}/wp-login.php`, statusCode: 301 as const },
-            { source: "/wp-signup.php", destination: `${WP_URL}/wp-signup.php`, statusCode: 301 as const },
-            { source: "/xmlrpc.php", destination: `${WP_URL}/xmlrpc.php`, statusCode: 301 as const },
-            { source: "/wp-json/:path*", destination: `${WP_URL}/wp-json/:path*`, statusCode: 301 as const },
+            ...(DATA_SOURCE === "mongo"
+              ? [
+                  /* MongoDB mode: admin panel is at /admin on this server.
+                     /wp-admin and /wp-login.php on the apex are 301 to /admin/. */
+                  { source: "/wp-admin/:path*", destination: "/admin/", statusCode: 301 as const },
+                  { source: "/wp-login.php", destination: "/admin/", statusCode: 301 as const },
+                  { source: "/wp-signup.php", destination: "/admin/", statusCode: 301 as const },
+                  // /xmlrpc.php and /wp-json answer 410 in place: see the beforeFiles rewrites
+                ]
+              : [
+                  /* WordPress mode: redirect to the backend (original behaviour). */
+                  { source: "/wp-admin/:path*", destination: `${WP_URL}/wp-admin/:path*`, statusCode: 301 as const },
+                  { source: "/wp-login.php", destination: `${WP_URL}/wp-login.php`, statusCode: 301 as const },
+                  { source: "/wp-signup.php", destination: `${WP_URL}/wp-signup.php`, statusCode: 301 as const },
+                  { source: "/xmlrpc.php", destination: `${WP_URL}/xmlrpc.php`, statusCode: 301 as const },
+                  { source: "/wp-json/:path*", destination: `${WP_URL}/wp-json/:path*`, statusCode: 301 as const },
+                ]),
           ]
         : []),
 

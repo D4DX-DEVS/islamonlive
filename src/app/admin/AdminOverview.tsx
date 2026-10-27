@@ -281,7 +281,7 @@ export function Overview({ data, loading, error, days, onDaysChange, onRefresh, 
         </div>
       </div>
       {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
-      {errors.content && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">Publishing activity could not be loaded from WordPress: {errors.content}</p>}
+      {errors.content && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">Publishing activity could not be loaded: {errors.content}</p>}
 
       {content && <>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

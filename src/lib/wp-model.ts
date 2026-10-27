@@ -16,10 +16,13 @@ export interface WPPost {
   link: string;
   /** Edit time in UTC without an offset ("2026-03-10T11:36:44") — see modifiedIso() */
   modified_gmt?: string;
+  status?: string;
+  author?: number;
   title: { rendered: string };
   excerpt: { rendered: string };
   content: { rendered: string };
   categories: number[];
+  tags?: number[];
   /** Yoast's precomputed head: titles, canonical, robots, OG and the JSON-LD graph */
   yoast_head_json?: YoastHead;
   _embedded?: {
@@ -51,7 +54,7 @@ export interface WPPage_<T> {
   items: T[];
   total: number;
   totalPages: number;
-}
+}
 
 export interface PostQuery {
   page?: number;
@@ -62,7 +65,7 @@ export interface PostQuery {
   search?: string;
   author?: number;
   tags?: number[];
-}
+}
 
 export interface WPPage {
   id: number;
@@ -72,7 +75,7 @@ export interface WPPage {
   title: { rendered: string };
   content: { rendered: string };
   yoast_head_json?: YoastHead;
-}
+}
 
 export interface WPUser {
   id: number;
@@ -84,7 +87,7 @@ export interface WPUser {
   /** Metronet Profile Picture sizes, or an {errors} object when the user has none */
   mpp_avatar?: Record<string, unknown>;
   yoast_head_json?: YoastHead;
-}
+}
 
 /* WP matches a post on its slug alone, so /literally-anything/that-slug/ would
    render the article at a 200 — an unlimited supply of duplicate URLs for Google
@@ -97,7 +100,7 @@ export interface ResolvedPost {
   canonical: string;
   /** True when the requested path already is the canonical one. */
   exact: boolean;
-}
+}
 
 // helpers
 // WP stores pre-scaled variants; card thumbnails must not pull the multi-MB original.
@@ -191,8 +194,20 @@ const ENTITIES: Record<string, string> = {
   "&#8220;": "“", "&#8221;": "”", "&#8211;": "–", "&#8212;": "—", "&#039;": "'", "&quot;": '"',
 };
 
+/* For text only: every caller renders the result as text (React escapes it),
+   never as HTML. Numeric entities beyond the table — wptexturize's &#8230;,
+   &#038; and friends — decode too, so they stop showing up literally. */
 export function decodeEntities(s: string): string {
-  return s.replace(/&[#\w]+;/g, (m) => ENTITIES[m] ?? m).replace(/\[…\]|\[&hellip;\]/g, "…");
+  return s
+    .replace(/&[#\w]+;/g, (m) => ENTITIES[m] ?? numericEntity(m) ?? m)
+    .replace(/\[…\]|\[&hellip;\]/g, "…");
+}
+
+function numericEntity(m: string): string | null {
+  const hex = /^&#x([\da-f]+);$/i.exec(m);
+  const dec = /^&#(\d+);$/.exec(m);
+  const code = hex ? parseInt(hex[1], 16) : dec ? Number(dec[1]) : NaN;
+  return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : null;
 }
 
 export function stripHtml(html: string): string {
@@ -220,4 +235,4 @@ export function userAvatar(user: WPUser): string | null {
   const m = a as Record<string, string>;
   const url = m["full"] ?? m["300"] ?? m["150"] ?? m["96"] ?? null;
   return url ? mediaOriginUrl(url) : null;
-}
+}

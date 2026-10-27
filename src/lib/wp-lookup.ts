@@ -1,6 +1,8 @@
-import { WP_API } from "@/lib/env";
+import { DATA_SOURCE, WP_API } from "@/lib/env";
+import { collection } from "@/lib/db/client";
 import { decodeEntities } from "@/lib/wordpress";
 import { mediaOriginUrl } from "@/lib/urls";
+import { toWPUser } from "@/lib/db/adapt";
 
 /*
  * Small, failure-tolerant lookups against WordPress's public REST API for the
@@ -43,10 +45,29 @@ export async function cachedLookup<T>(store: CacheStore<T>, ids: number[], load:
   return found;
 }
 
+/** The MongoDB counterpart of wpJson's promise: nothing found rather than an error. */
+async function fromMongo<T>(load: () => Promise<T>): Promise<T | null> {
+  try { return await load(); } catch { return null; }
+}
+
 export const idList = (ids: number[]) => ({ include: ids.join(","), per_page: String(Math.min(ids.length, 100)) });
 
 /** Small image URL for each featured-media id. */
 export function getThumbnails(mediaIds: number[]): Promise<Map<number, string>> {
+  if (DATA_SOURCE === "mongo") {
+    return cachedLookup(thumbnailCache, mediaIds.filter((id) => id > 0), async (missing) => {
+      const docs = (await fromMongo(async () => (await collection("media")).find({ _id: { $in: missing } }, { projection: { source_url: 1, sizes: 1 } }).toArray())) ?? [];
+      return new Map(docs.flatMap((doc) => {
+        const url = doc.sizes?.thumbnail?.file
+          ? `${doc.source_url.slice(0, doc.source_url.lastIndexOf("/") + 1)}${doc.sizes.thumbnail.file}`
+          : doc.sizes?.medium?.file
+            ? `${doc.source_url.slice(0, doc.source_url.lastIndexOf("/") + 1)}${doc.sizes.medium.file}`
+            : doc.source_url;
+        return [[doc._id, url] as const];
+      }));
+    });
+  }
+
   return cachedLookup(thumbnailCache, mediaIds.filter((id) => id > 0), async (missing) => {
     const rows = await wpJson<{ id?: number; source_url?: string; media_details?: { sizes?: Record<string, { source_url?: string }> } }[]>("/media", { ...idList(missing), _fields: "id,source_url,media_details" });
     return new Map((rows ?? []).flatMap((row) => {
@@ -58,7 +79,9 @@ export function getThumbnails(mediaIds: number[]): Promise<Map<number, string>> 
 
 export function getCategoryNames(ids: number[]): Promise<Map<number, string>> {
   return cachedLookup(categoryNameCache, ids, async (missing) => {
-    const rows = await wpJson<{ id?: number; name?: string }[]>("/categories", { ...idList(missing), _fields: "id,name" });
+    const rows = DATA_SOURCE === "mongo"
+      ? await fromMongo(async () => (await (await collection("categories")).find({ _id: { $in: missing } }, { projection: { name: 1 } }).toArray()).map((doc) => ({ id: doc._id, name: doc.name })))
+      : await wpJson<{ id?: number; name?: string }[]>("/categories", { ...idList(missing), _fields: "id,name" });
     return new Map((rows ?? []).flatMap((row) => Number.isInteger(row.id) && row.name ? [[Number(row.id), decodeEntities(row.name)] as const] : []));
   });
 }
@@ -70,7 +93,10 @@ export function getCategoryNames(ids: number[]): Promise<Map<number, string>> {
  */
 export function getAuthorProfiles(ids: number[]): Promise<Map<number, AuthorProfile>> {
   return cachedLookup(authorCache, ids, async (missing) => {
-    const rows = await wpJson<{ id?: number; name?: string; mpp_avatar?: unknown }[]>("/users", { ...idList(missing), _fields: "id,name,mpp_avatar" });
+    // MongoDB rows go through the public site's own adapter, so mpp_avatar means exactly what WordPress meant
+    const rows = DATA_SOURCE === "mongo"
+      ? await fromMongo(async () => (await (await collection("users")).find({ _id: { $in: missing } }, { projection: { name: 1, slug: 1, description: 1, avatars: 1 } }).toArray()).map((doc) => toWPUser(doc)))
+      : await wpJson<{ id?: number; name?: string; mpp_avatar?: unknown }[]>("/users", { ...idList(missing), _fields: "id,name,mpp_avatar" });
     return new Map((rows ?? []).flatMap((row) => {
       if (!Number.isInteger(row.id) || !row.name) return [];
       const sizes = row.mpp_avatar && typeof row.mpp_avatar === "object" ? row.mpp_avatar as Record<string, unknown> : {};

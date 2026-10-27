@@ -304,9 +304,9 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
         <button type="button" onClick={onCancel} className="flex items-center gap-1 rounded-md hover:text-violet-700"><Icon name="chevronLeft" className="h-4 w-4" strokeWidth={2} />Articles</button>
         <Icon name="chevronRight" className="h-3.5 w-3.5" strokeWidth={2} /><span className="font-medium text-slate-900">{editing ? "Edit article" : "New article"}</span>
       </nav>
-      <p className="pill mt-4 text-xs font-bold uppercase tracking-[0.18em] text-violet-700">WordPress posts</p>
+      <p className="pill mt-4 text-xs font-bold uppercase tracking-[0.18em] text-violet-700">Articles</p>
       <h1 className="mt-2 text-2xl font-extrabold text-[#12093a] sm:text-3xl">{editing ? "Edit article" : "Create article"}</h1>
-      <p className="mt-1.5 text-sm text-slate-500">{editing ? "Update the existing WordPress article while keeping its permalink and history." : "Create and publish a new article with tags, a featured image and video."}</p>
+      <p className="mt-1.5 text-sm text-slate-500">{editing ? "Update the existing article while keeping its permalink and history." : "Create and publish a new article with tags, a featured image and video."}</p>
     </div>
 
     <form onSubmit={submit}>
@@ -314,7 +314,7 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
         <div className="min-w-0 space-y-5">
         <div className={`${cardClass} space-y-5`}>
           <label className="block"><FieldLabel required>Title</FieldLabel><input className={`${inputClass} mt-2`} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Enter a clear and descriptive title for your article…" required /></label>
-          <label className="block"><FieldLabel>Slug</FieldLabel><p className="mt-1 text-xs text-slate-500">Leave blank to let WordPress generate it. Changing it changes the article URL.</p><input className={`${inputClass} mt-2`} value={slug} onChange={(event) => setSlug(event.target.value)} placeholder="article-url-slug" /></label>
+          <label className="block"><FieldLabel>Slug</FieldLabel><p className="mt-1 text-xs text-slate-500">Leave blank to generate it from the title. Changing it changes the article URL.</p><input className={`${inputClass} mt-2`} value={slug} onChange={(event) => setSlug(event.target.value)} placeholder="article-url-slug" /></label>
           <div className="grid gap-4 sm:grid-cols-2">
             <SearchableSelect label="Author" icon="user" value={author} options={authorOptions} placeholder="Choose author" onChange={setAuthor} loading={taxonomiesLoading} />
             <div>
@@ -353,7 +353,7 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
                 <input type="date" aria-label="Publish date" value={publishDate} onChange={(event) => { setPublishDate(event.target.value); setDateTouched(true); }} className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none" />
                 <input type="time" aria-label="Publish time" value={publishTime} onChange={(event) => { setPublishTime(event.target.value); setDateTouched(true); }} className="w-24 bg-transparent py-2 text-sm outline-none" />
               </div>
-              <p className="mt-1.5 text-xs text-slate-500">Leave empty to publish right away. Times use the WordPress site time zone.</p>
+              <p className="mt-1.5 text-xs text-slate-500">Leave empty to publish right away. Times use the site time zone (IST).</p>
               {status === "draft" && editing && <p className="mt-1.5 text-xs text-slate-500">This article stays hidden until you choose “Publish”.</p>}
             </div>
           </section>

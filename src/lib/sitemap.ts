@@ -1,5 +1,6 @@
 import { TTL } from "@/lib/cache";
-import { SITE_URL, WP_API } from "@/lib/env";
+import { DATA_SOURCE, SITE_URL, WP_API } from "@/lib/env";
+import { restList } from "@/lib/db/rest-list";
 import { toSiteUrl } from "@/lib/urls";
 import { getStaticPage } from "@/lib/wpPage";
 
@@ -127,6 +128,9 @@ async function wpList(
   // widened: TTL is `as const`, so the default alone would pin this to 3600
   revalidateFor: number = TTL.taxonomy
 ): Promise<{ items: Entry[]; total: number }> {
+  // MongoDB answers the same REST queries in the same shape (lib/db/rest-list.ts),
+  // so everything below — order, filters, lastmod — is shared by both sources
+  if (DATA_SOURCE === "mongo") return restList(path, params, revalidateFor);
   const q = new URLSearchParams(params);
   const res = await fetch(`${WP_API}/${path}?${q}`, {
     next: { revalidate: revalidateFor, tags: ["wp", `wp:${path}`, "sitemap"] },
