@@ -43,6 +43,34 @@ function normalizeEditorMedia(root: HTMLElement) {
  * Add the missing block wrappers for visual editing while preserving all
  * inline markup, images and existing block markup.
  */
+/** The caret as a count of text characters from the start of `root`, or null when it is elsewhere. */
+function caretOffset(root: HTMLElement): number | null {
+  const selection = document.getSelection();
+  if (!selection?.rangeCount || !root.contains(selection.focusNode)) return null;
+  const range = document.createRange();
+  range.selectNodeContents(root);
+  range.setEnd(selection.focusNode!, selection.focusOffset);
+  return range.toString().length;
+}
+
+/** Collapse the selection `offset` text characters into `root` (the end when the text is shorter). */
+function placeCaret(root: HTMLElement, offset: number) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const range = document.createRange();
+  let left = offset;
+  let node: Node | null;
+  range.selectNodeContents(root);
+  range.collapse(false);
+  while ((node = walker.nextNode())) {
+    const length = node.textContent?.length ?? 0;
+    if (left <= length) { range.setStart(node, left); range.collapse(true); break; }
+    left -= length;
+  }
+  const selection = document.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+}
+
 function normalizeEditorHtml(value: string): string {
   if (!value || typeof window === "undefined") return value;
   const document = new DOMParser().parseFromString(value, "text/html");
@@ -138,7 +166,16 @@ export default function HtmlEditor({ label, value, onChange, minHeight = "min-h-
   const displayValue = normalizeEditorHtml(value);
   const { words, characters } = countText(value);
   useEffect(() => {
-    if (editorRef.current && editorRef.current.innerHTML !== displayValue) editorRef.current.innerHTML = displayValue;
+    const editor = editorRef.current;
+    if (editor && editor.innerHTML !== displayValue) {
+      /* Tidying what the editor is typing into (the first keystroke in an empty
+         editor is bare text that becomes a <p>) replaces its nodes, which drops
+         the caret at the start: "Test" came out as "estT". Put it back at the
+         same character, since tidying never changes the text itself. */
+      const caret = document.activeElement === editor ? caretOffset(editor) : null;
+      editor.innerHTML = displayValue;
+      if (caret !== null) placeCaret(editor, caret);
+    }
     lastValue.current = displayValue;
   }, [displayValue, mode]);
   useEffect(() => {

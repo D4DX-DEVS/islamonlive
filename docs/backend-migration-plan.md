@@ -180,6 +180,17 @@ the deployed site is unchanged until the flag flips). Verified locally:
   which still asked WordPress for dates and thumbnails.
 - **Real Spaces:** `migration/spaces-probe.mjs` uploads a file with the admin's
   settings, reads it from the CDN and through Photon, and deletes it.
+- **Visible walkthrough (19 steps):** login, articles, new article with
+  inline image, tags, featured image and video, SEO, publish, edit + rename,
+  schedule, duplicate, trash, create author, logout. It found two editor bugs,
+  both fixed: the SEO card (Yoast title, description, focus keyword) had been
+  left out of the form, which would have left no way to edit them once
+  wp-admin is gone; and the first letter typed into an empty editor jumped to
+  the end ("Test" → "estT").
+- **Data check:** published articles 22,343, pages 28, categories 81 and tags
+  3,787 match live WordPress exactly.
+- **Home promo banner:** live shows none (the Elementor block is gone from the
+  WordPress home page), so there is nothing to import.
 
 Known gaps:
 
