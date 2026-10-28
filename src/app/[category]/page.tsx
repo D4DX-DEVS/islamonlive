@@ -6,6 +6,7 @@ import { seoMetadata, seoSchema } from "@/lib/seo";
 import { breadcrumbSchema, graph, webPageSchema } from "@/lib/schema";
 import { siteUrl } from "@/lib/env";
 import JsonLd from "@/components/JsonLd";
+import PageView from "@/components/PageView";
 
 export const revalidate = 3600;
 
@@ -42,6 +43,7 @@ export default async function WPPageRoute({ params }: { params: Promise<{ catego
 
   return (
     <div className="mx-auto max-w-4xl">
+      <PageView kind="page" />
       <JsonLd
         data={
           seoSchema(page.seo) ??

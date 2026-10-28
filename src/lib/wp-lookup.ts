@@ -105,3 +105,29 @@ export function getAuthorProfiles(ids: number[]): Promise<Map<number, AuthorProf
     }));
   });
 }
+
+export type ArticleMeta = { title: string; path: string; date: string | null; categories: number[]; featuredMedia: number };
+const articleCache: CacheStore<ArticleMeta> = new Map();
+
+/** Title, path, publish date, categories and featured image of each post id, for the analytics reports. */
+export function getArticleMeta(ids: number[]): Promise<Map<number, ArticleMeta>> {
+  return cachedLookup(articleCache, ids.filter((id) => id > 0), async (missing) => {
+    const found = new Map<number, ArticleMeta>();
+    if (DATA_SOURCE === "mongo") {
+      const docs = (await fromMongo(async () => (await collection("posts")).find({ _id: { $in: missing } }, { projection: { title: 1, path: 1, date: 1, categories: 1, featured_media_id: 1 } }).toArray())) ?? [];
+      for (const doc of docs) found.set(doc._id, { title: decodeEntities(doc.title ?? ""), path: doc.path, date: doc.date ?? null, categories: doc.categories ?? [], featuredMedia: doc.featured_media_id ?? 0 });
+      return found;
+    }
+    // WordPress pages its answers at 100
+    for (let i = 0; i < missing.length; i += 100) {
+      const rows = await wpJson<{ id?: number; title?: { rendered?: string }; link?: string; date?: string; categories?: number[]; featured_media?: number }[]>("/posts", { ...idList(missing.slice(i, i + 100)), _fields: "id,title,link,date,categories,featured_media" });
+      for (const row of rows ?? []) {
+        if (!Number.isInteger(row.id) || !row.link) continue;
+        let path = row.link;
+        try { path = new URL(row.link).pathname; } catch { /* keep the link */ }
+        found.set(Number(row.id), { title: decodeEntities(row.title?.rendered ?? ""), path, date: row.date ?? null, categories: row.categories ?? [], featuredMedia: row.featured_media ?? 0 });
+      }
+    }
+    return found;
+  });
+}

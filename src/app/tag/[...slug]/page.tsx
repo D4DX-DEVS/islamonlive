@@ -8,6 +8,7 @@ import { seoMetadata, seoSchema, termSeo } from "@/lib/seo";
 import { breadcrumbSchema, collectionPageSchema, graph, siteNodes } from "@/lib/schema";
 import { siteUrl } from "@/lib/env";
 import { pagePath, splitPage } from "@/lib/paging";
+import PageView from "@/components/PageView";
 
 export const revalidate = 60;
 
@@ -61,6 +62,7 @@ export default async function TagPage({ params }: { params: Promise<{ slug: stri
 
   return (
     <div>
+      <PageView kind="tag" />
       <JsonLd
         data={
           seoSchema(tag.yoast_head_json) ??

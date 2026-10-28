@@ -159,6 +159,20 @@ export function toSiteUrl(wpUrl: string): string {
 }
 
 /**
+ * Article HTML from the admin's editor, with its site-relative upload addresses
+ * made full again. The editor shows uploads as /wp-content/… so they load through
+ * the admin's own origin, and hands that HTML back; stored as-is, the RSS feed
+ * would carry addresses a feed reader cannot resolve. Every migrated article
+ * stores https://islamonlive.in/wp-content/…, as WordPress did, and so does this.
+ */
+export function absoluteUploads(html: string): string {
+  return html.replace(/(\s(?:src|href|poster|data-src|srcset|data-srcset)=)(["'])([^"']*)\2/gi, (attr, name: string, quote: string, value: string) =>
+    value.includes("/wp-content/")
+      ? `${name}${quote}${value.replace(/(^|,\s*)\/wp-content\//g, `$1${SITE_URL}/wp-content/`)}${quote}`
+      : attr);
+}
+
+/**
  * Rewrite one URL found in WordPress content or metadata so a reader never sees
  * the backend: uploads move onto the public site's /wp-content (answered by the
  * proxy in next.config, so the address Google indexed is unchanged), other

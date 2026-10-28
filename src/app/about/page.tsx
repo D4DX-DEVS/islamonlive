@@ -6,6 +6,7 @@ import { trimDescription } from "@/lib/seo";
 import { siteUrl } from "@/lib/env";
 import { breadcrumbSchema, graph, ORG_ID, siteNodes, webPageSchema } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
+import PageView from "@/components/PageView";
 
 export const revalidate = 3600;
 
@@ -36,6 +37,7 @@ export default async function AboutPage() {
 
   return (
     <div className="mx-auto max-w-5xl">
+      <PageView kind="page" />
       <JsonLd
         data={graph(
           webPageSchema(url, stripHtml(page.title), { type: "AboutPage", description: stripHtml(body[0] ?? "").slice(0, 200), mainEntity: { "@id": ORG_ID } }),

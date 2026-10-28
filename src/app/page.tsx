@@ -16,6 +16,7 @@ import { getEpisodes } from "@/lib/podcast";
 import { getHomeBanners } from "@/lib/banners";
 import { graph, organizationSchema, websiteSchema } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
+import PageView from "@/components/PageView";
 
 export const revalidate = 60;
 
@@ -267,6 +268,7 @@ export default async function Home() {
 
   return (
     <div className="space-y-8 sm:space-y-12">
+      <PageView kind="home" />
       {/* Organization, WebSite and the SearchAction that earns a sitelinks
           search box, declared once on the front page. Article pages carry their
           own copies inside Yoast's graph, so repeating them in the layout would

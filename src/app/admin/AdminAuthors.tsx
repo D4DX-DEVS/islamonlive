@@ -27,7 +27,13 @@ const roleOf = (author: Author) => roleRank.find((role) => author.roles?.include
 const roleLabel = (role: string) => `${role[0].toUpperCase()}${role.slice(1)}`;
 
 type Activity = { days: number; active: Set<number> };
-const emptyForm = { name: "", username: "", email: "", password: "", description: "" };
+const emptyForm = { name: "", username: "", email: "", password: "", description: "", role: "author" };
+/** What each role can do here; only editors and administrators can sign in to this admin. */
+const roleNotes: Record<string, string> = {
+  author: "Shown as the byline, with photo and bio, on their articles. Authors cannot sign in to this admin.",
+  editor: "Can sign in to this admin and write, edit and publish every article.",
+  administrator: "Can sign in to this admin with full access, including creating accounts.",
+};
 type Filters = { search: string; role: string; status: string; sort: string; page: number };
 const emptyFilters: Filters = { search: "", role: "", status: "", sort: "name", page: 1 };
 
@@ -120,7 +126,7 @@ export default function Authors({ authors, refresh, loading, error, wordpressAdm
       const response = await fetch("/api/admin/authors/", { method: "POST", body: data });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) { setMessage({ kind: "error", text: body.error || "Could not create author" }); return; }
-      setMessage(body.warning ? { kind: "warn", text: body.warning } : { kind: "ok", text: "Author created successfully." });
+      setMessage(body.warning ? { kind: "warn", text: body.warning } : { kind: "ok", text: form.role === "author" ? "Author created successfully." : `${roleLabel(form.role)} account created. They can sign in with the temporary password.` });
       setForm(emptyForm); setPhoto(null); setShowPassword(false);
       refresh();
     } catch { setMessage({ kind: "error", text: "Could not reach the author service." }); }
@@ -198,14 +204,24 @@ export default function Authors({ authors, refresh, loading, error, wordpressAdm
           </div>
         </div>
         <IconField label="Temporary password" icon="lock">
-          <input className={`${inputClass} pl-10 pr-11`} type={showPassword ? "text" : "password"} value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} placeholder="Enter temporary password" autoComplete="new-password" required />
+          <input className={`${inputClass} pl-10 pr-11`} type={showPassword ? "text" : "password"} value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} placeholder="Enter temporary password" autoComplete="new-password" minLength={8} required />
           <button type="button" aria-label={showPassword ? "Hide password" : "Show password"} title={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword((current) => !current)} className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-500 transition hover:text-violet-700"><Icon name={showPassword ? "eyeOff" : "eye"} className="h-5 w-5" /></button>
         </IconField>
+        <label className="block"><FieldLabel required>Role</FieldLabel>
+          <span className="relative mt-2 block">
+            <Icon name="users" className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-500" />
+            <select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })} className={`${inputClass} appearance-none pl-10 pr-9`}>
+              <option value="author">Author</option><option value="editor">Editor</option><option value="administrator">Administrator</option>
+            </select>
+            <Icon name="chevronDown" className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" strokeWidth={2} />
+          </span>
+          <span className="mt-1.5 block text-xs text-slate-500">{roleNotes[form.role]}</span>
+        </label>
         <HtmlEditor compact label="Bio" placeholder="Write a short bio about the author…" value={form.description} onChange={(description) => setForm({ ...form, description })} minHeight="min-h-28 sm:min-h-32" />
         {message && <p role={message.kind === "error" ? "alert" : "status"} className={`rounded-xl px-3 py-2 text-sm ${messageStyle[message.kind]}`}>{message.text}</p>}
         <div className="flex flex-col gap-3 rounded-xl bg-violet-50/70 p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-          <div className="flex items-start gap-3 text-xs leading-snug text-slate-600"><Icon name="info" className="mt-0.5 h-[18px] w-[18px] shrink-0 text-violet-600" /><p><span className="block font-medium text-slate-800">An author profile will be created with the role Author.</span>The author can log in and manage their own articles.</p></div>
-          <button disabled={saving} className="flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[linear-gradient(90deg,#7c3aed,#6d28d9)] px-5 text-sm font-bold text-white shadow-[0_10px_22px_-10px_rgba(109,40,217,0.8)] transition hover:brightness-110 disabled:opacity-60"><Icon name="users" className="h-[18px] w-[18px]" />{saving ? "Creating…" : "Create author"}</button>
+          <div className="flex items-start gap-3 text-xs leading-snug text-slate-600"><Icon name="info" className="mt-0.5 h-[18px] w-[18px] shrink-0 text-violet-600" /><p><span className="block font-medium text-slate-800">The account will be created with the role {roleLabel(form.role)}.</span>{form.role === "author" ? "A byline profile; it cannot sign in." : "Share the temporary password with them privately."}</p></div>
+          <button disabled={saving} className="flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[linear-gradient(90deg,#7c3aed,#6d28d9)] px-5 text-sm font-bold text-white shadow-[0_10px_22px_-10px_rgba(109,40,217,0.8)] transition hover:brightness-110 disabled:opacity-60"><Icon name="users" className="h-[18px] w-[18px]" />{saving ? "Creating…" : `Create ${form.role === "author" ? "author" : roleLabel(form.role).toLowerCase()}`}</button>
         </div>
       </form>
 

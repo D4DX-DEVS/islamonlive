@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3600",
+    "dev": "node ../migration/next-mongo.mjs dev -p 3600 --dist .next",
     "build": "next build",
     "start": "next start",
     "start:local": "next start -p 3600",
@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1157.0",
+    "@radix-ui/react-select": "^2.4.1",
     "mongodb": "^6.21.0",
     "next": "16.3.0",
     "react": "19.2.8",

@@ -2,11 +2,16 @@ import { collection } from "@/lib/db/client";
 import { nextId } from "@/lib/admin-rest/ids";
 import { SITE_URL } from "@/lib/env";
 import { sanitizeTitle, uniqueSlug } from "@/lib/admin-rest/slug";
+import { hashPassword } from "@/lib/auth/password";
+import { splitAvatars } from "@/lib/db/adapt";
 import { json, wpError, list, readJson, pickFields, paging, pastTheEnd, forbidden, escapeRegex } from "@/lib/admin-rest/http";
 import type { UserDoc } from "@/lib/db/types";
 import type { AdminRequest } from "@/lib/admin-rest/http";
 
 /* /wp/v2/users — see admin-rest/index.ts. Returns null for requests it does not own. */
+
+/** The roles this site uses; WordPress refuses any other with rest_user_invalid_role. */
+const ROLES = ["administrator", "editor", "author"];
 
 export async function handleUsers(req: AdminRequest): Promise<Response | null> {
   if (!req.route.startsWith("/wp/v2/users")) return null;
@@ -88,6 +93,8 @@ async function handleCreate(req: AdminRequest): Promise<Response> {
 
   const username = String(body.username || "").trim();
   if (!username) return wpError("rest_missing_callback_param", "Missing parameter(s): username", 400);
+  const roles = Array.isArray(body.roles) && body.roles.length > 0 ? body.roles.map(String) : ["author"];
+  if (!roles.every((role) => ROLES.includes(role))) return wpError("rest_user_invalid_role", "Sorry, you are not allowed to give users that role.", 400);
 
   const col = await collection("users");
 
@@ -127,10 +134,11 @@ async function handleCreate(req: AdminRequest): Promise<Response> {
     last_name: String(body.last_name || "").trim() || null,
     nickname: String(body.nickname || username).trim(),
     locale: String(body.locale || "en_US").trim(),
-    roles: Array.isArray(body.roles) ? (body.roles as string[]) : ["author"],
-    role: Array.isArray(body.roles) && body.roles.length > 0 ? String(body.roles[0]) : "author",
+    roles,
+    role: roles[0],
     registered_at: now,
-    password_hash: null,
+    // stored only as a hash, in the format the admin login verifies
+    password_hash: typeof body.password === "string" && body.password ? await hashPassword(body.password) : null,
     is_active: true,
     seo: null,
   };
@@ -193,7 +201,8 @@ function formatUser(doc: UserDoc, includeEmail: boolean): Record<string, unknown
         .filter(([key]) => ["24", "48", "96"].includes(key))
         .filter(([, value]) => typeof value === "string" && !String(value).includes("gravatar"))
     ),
-    mpp_avatar: Object.keys(doc.avatars || {}).length > 3 ? doc.avatars : undefined,
+    // the uploaded photo only: Gravatar's grey placeholder and WP's "no profile picture" error are not photos
+    mpp_avatar: splitAvatars(doc.avatars).mpp_avatar,
   };
 
   if (includeEmail) {

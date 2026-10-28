@@ -48,6 +48,40 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# test output
+/test-results/
+/playwright-report/
+/blob-report/
+
+# logs
+*.log
+logs/
+
+# secrets / credentials (never commit)
+*.key
+*.p12
+*.pfx
+*.crt
+id_rsa*
+credentials*.json
+service-account*.json
+*.sqlite
+*.db
+
+# db dumps / backups
+*.dump
+*.bson
+*.sql
+*.sql.gz
+/dump/
+/backups/
+
+# editors / OS
+.idea/
+.vscode/
+Thumbs.db
+*.swp
+
 # local junk
 *.stackdump
 .playwright-mcp/

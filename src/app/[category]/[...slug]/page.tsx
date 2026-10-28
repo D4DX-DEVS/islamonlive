@@ -12,6 +12,7 @@ import ShareRow from "@/components/ShareRow";
 import ShareCard from "@/components/ShareCard";
 import SaveButton from "@/components/SaveButton";
 import ReadTracker from "@/components/ReadTracker";
+import PageView from "@/components/PageView";
 import ReadingPrefsButton from "@/components/ReadingPrefsButton";
 
 export const revalidate = 60;
@@ -198,6 +199,7 @@ export default async function PostPage({ params }: { params: Params }) {
   const tracker = (
     <>
       <ReadTracker item={record} />
+      <PageView kind="article" articleId={post.id} categories={post.categories} />
       <JsonLd data={jsonLd} />
     </>
   );

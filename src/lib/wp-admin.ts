@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { DATA_SOURCE, WP_URL } from "@/lib/env";
 import { verifyPassword } from "@/lib/auth/password";
@@ -71,6 +71,18 @@ function extractNonce(html: string): string | null {
   return match?.[1] ?? null;
 }
 
+/* The administrator named in the environment (ADMIN_USER / ADMIN_PASSWORD) signs in
+   with that password, so editing the two variables and restarting changes the login.
+   It opens only that account, and only while it is an active administrator; the
+   account's database password, if it has one, works too. An empty password turns it off. */
+function matchesEnvAdmin(username: string, password: string): boolean {
+  const name = process.env.ADMIN_USER?.trim() ?? "";
+  const secret = process.env.ADMIN_PASSWORD?.trim() ?? "";
+  if (!name || !secret || name.toLowerCase() !== username.toLowerCase()) return false;
+  // equal-length digests, so the comparison takes the same time whatever was typed
+  return timingSafeEqual(createHash("sha256").update(password).digest(), createHash("sha256").update(secret).digest());
+}
+
 async function mongoLogin(username: string, password: string): Promise<AdminSession> {
   // Look up by username or email, case-insensitive
   const usersCol = await collection("users");
@@ -83,7 +95,10 @@ async function mongoLogin(username: string, password: string): Promise<AdminSess
 
   // Always perform the hashing work to prevent timing attacks, even if user doesn't exist
   // verifyPassword runs a dummy scrypt for a missing or legacy hash, so an unknown username costs the same
-  const verified = await verifyPassword(password, user?.password_hash ?? "");
+  const fromEnv = matchesEnvAdmin(username, password);
+  // the right password for a name nobody has: say why on the server, not to the visitor
+  if (fromEnv && !user) console.warn(`[admin] ADMIN_USER "${username}" is not a user in the database. Set it to an administrator's username (scripts/admin-user.mjs list).`);
+  const verified = (await verifyPassword(password, user?.password_hash ?? "")) || fromEnv;
 
   if (!verified || !user) {
     throw new Error("Incorrect username or password");
@@ -98,6 +113,11 @@ async function mongoLogin(username: string, password: string): Promise<AdminSess
   const hasRequiredRole = user.role === "administrator" || user.role === "editor" || (user.roles && user.roles.some((r) => r === "administrator" || r === "editor"));
 
   if (!hasRequiredRole) {
+    throw new Error("Incorrect username or password");
+  }
+
+  // the environment's password opens an administrator, never an editor
+  if (fromEnv && !(user.role === "administrator" || user.roles?.includes("administrator"))) {
     throw new Error("Incorrect username or password");
   }
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { collection } from "@/lib/db/client";
 import { hashPassword } from "@/lib/auth/password";
 import { seedFixtures } from "@/test/fixtures";
@@ -295,6 +295,51 @@ describe("MongoDB admin authentication (mongo mode)", () => {
       await expect(
         createAdminSession("testadmin", password, true)
       ).resolves.not.toThrow();
+    });
+  });
+
+  describe("the administrator named by ADMIN_USER / ADMIN_PASSWORD", () => {
+    const setUser = async (over: Record<string, unknown> = {}) => (await collection("users")).updateOne(
+      { _id: 1 },
+      { $set: { username: "siteadmin", email: "site@example.com", password_hash: null, is_active: true, role: "administrator", roles: ["administrator"], ...over } },
+    );
+    afterEach(() => {
+      delete process.env.ADMIN_USER;
+      delete process.env.ADMIN_PASSWORD;
+    });
+
+    it("signs in with the password from the environment, so changing it there changes the login", async () => {
+      await setUser();
+      process.env.ADMIN_USER = "siteadmin";
+      process.env.ADMIN_PASSWORD = "first-long-password";
+      await expect(createAdminSession("siteadmin", "first-long-password")).resolves.not.toThrow();
+      process.env.ADMIN_PASSWORD = "second-long-password ";
+      await expect(createAdminSession("siteadmin", "first-long-password")).rejects.toThrow("Incorrect username or password");
+      // the name is matched case-insensitively; stray spaces around the value in .env are ignored
+      await expect(createAdminSession("SiteAdmin", "second-long-password")).resolves.not.toThrow();
+    });
+
+    it("accepts a short password, is off while the password is empty, and opens only an active administrator", async () => {
+      process.env.ADMIN_USER = "siteadmin";
+      process.env.ADMIN_PASSWORD = "short1";
+      await setUser();
+      await expect(createAdminSession("siteadmin", "short1")).resolves.not.toThrow();
+      process.env.ADMIN_PASSWORD = "  ";
+      await expect(createAdminSession("siteadmin", "")).rejects.toThrow("Incorrect username or password");
+      process.env.ADMIN_PASSWORD = "a-long-enough-password";
+      await setUser({ is_active: false });
+      await expect(createAdminSession("siteadmin", "a-long-enough-password")).rejects.toThrow("Incorrect username or password");
+      await setUser({ role: "editor", roles: ["editor"] });
+      await expect(createAdminSession("siteadmin", "a-long-enough-password")).rejects.toThrow("Incorrect username or password");
+    });
+
+    it("does not open any other account", async () => {
+      await setUser({ password_hash: await hashPassword("the-database-password") });
+      process.env.ADMIN_USER = "someone-else";
+      process.env.ADMIN_PASSWORD = "a-long-enough-password";
+      await expect(createAdminSession("siteadmin", "a-long-enough-password")).rejects.toThrow("Incorrect username or password");
+      // the account's own database password still works
+      await expect(createAdminSession("siteadmin", "the-database-password")).resolves.not.toThrow();
     });
   });
 

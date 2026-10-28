@@ -25,6 +25,8 @@ import {
 import Picker from "@/components/Picker";
 import TextSizePicker from "@/components/TextSizePicker";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import PageView from "@/components/PageView";
+import { useAnalyticsChoice } from "@/lib/analytics/use-analytics-choice";
 
 /* Laid out like a phone's own Settings app: a titled group per area, each with
    its own tinted glyph, and inside it a white card of rows — icon, label and
@@ -185,6 +187,7 @@ const ICON = {
     </>
   ),
   trash: <path d="M4 7h16M9.5 7V5h5v2M6.5 7l.8 12.1a1 1 0 0 0 1 .9h7.4a1 1 0 0 0 1-.9L17.5 7M10 11v5M14 11v5" />,
+  stats: <path d="M4 20h16M6.5 16.5V12M11 16.5V7.5M15.5 16.5v-6M20 16.5V4.5" />,
   info: (
     <>
       <circle cx="12" cy="12" r="9" />
@@ -210,6 +213,7 @@ const GEAR_ICON = (
 export default function SettingsPage() {
   const prefs = useReadingPrefs();
   const reminder = useReminder();
+  const [analyticsChoice, setAnalyticsChoice] = useAnalyticsChoice();
   const [busy, setBusy] = useState(false);
   // the custom box: what's typed, and whether the picker is on "Custom"
   const isPreset = (REMINDER_SLOTS as readonly string[]).includes(reminder.time);
@@ -359,6 +363,7 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-xl">
+      <PageView kind="other" />
       {/* On a phone the title sits in a coloured band that curves into the page,
           the way a native settings screen opens. The dome and crescent behind it
           are decoration only. On wider screens it goes back to a plain heading,
@@ -505,6 +510,9 @@ export default function SettingsPage() {
             >
               {cleared ? "Cleared" : "Clear"}
             </button>
+          </Row>
+          <Row icon={ICON.stats} label="Share anonymous reading statistics" hint={analyticsChoice === "browser" ? "Off: your browser asks sites not to track you" : "Which pages are read and for how long. No name, email or IP address is kept."}>
+            <Switch label="Share anonymous reading statistics" checked={analyticsChoice === "on"} disabled={analyticsChoice === null || analyticsChoice === "browser"} onChange={() => setAnalyticsChoice(analyticsChoice !== "on")} />
           </Row>
           <Row icon={ICON.info} label="App version" hint="Islamonlive for the web">
             <span className="pill shrink-0 text-sm font-semibold text-zinc-500">{process.env.NEXT_PUBLIC_APP_VERSION}</span>

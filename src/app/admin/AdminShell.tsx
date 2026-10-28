@@ -9,11 +9,12 @@ const iconProps = { "aria-hidden": true, viewBox: "0 0 24 24", fill: "none", str
 function NavIcon({ tab, className = "h-[22px] w-[22px]" }: { tab: Tab; className?: string }) {
   if (tab === "overview") return <svg {...iconProps} className={className}><path d="M3.5 11.2L12 4l8.5 7.2V19a1.5 1.5 0 01-1.5 1.5h-4v-5.5h-6v5.5H5A1.5 1.5 0 013.5 19z" /></svg>;
   if (tab === "articles") return <svg {...iconProps} className={className}><rect x="4.5" y="3.5" width="15" height="17" rx="2.5" /><path d="M8.5 8h7M8.5 12h7M8.5 16h4" /></svg>;
+  if (tab === "analytics") return <svg {...iconProps} className={className}><path d="M4 20h16" /><rect x="5.5" y="11" width="3" height="6.5" rx="1" /><rect x="10.5" y="6.5" width="3" height="11" rx="1" /><rect x="15.5" y="13.5" width="3" height="4" rx="1" /></svg>;
   if (tab === "new") return <svg {...iconProps} className={className}><circle cx="12" cy="12" r="8.5" /><path d="M12 8v8M8 12h8" /></svg>;
   return <svg {...iconProps} className={className}><circle cx="9" cy="8.5" r="3.2" /><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5M16 5.6a3.2 3.2 0 010 5.8M18 14.8c1.8.7 3 2.4 3 5.2" /></svg>;
 }
 
-const items: { key: Tab; label: string }[] = [{ key: "overview", label: "Overview" }, { key: "articles", label: "Articles" }, { key: "new", label: "New article" }, { key: "authors", label: "Authors" }];
+const allItems: { key: Tab; label: string }[] = [{ key: "overview", label: "Overview" }, { key: "analytics", label: "Analytics" }, { key: "articles", label: "Articles" }, { key: "new", label: "New article" }, { key: "authors", label: "Authors" }];
 
 function UserMenu({ username, onLogout }: { username: string; onLogout: () => void }) {
   const [open, setOpen] = useState(false);
@@ -55,8 +56,10 @@ function SearchBar({ onSearch }: { onSearch: (query: string) => void }) {
   </form>;
 }
 
-export default function AdminShell({ children, tab, setTab, username, onLogout, onSearch }: { children: React.ReactNode; tab: Tab; setTab: (tab: Tab) => void; username: string; onLogout: () => void; onSearch: (query: string) => void }) {
+export default function AdminShell({ children, tab, setTab, username, onLogout, onSearch, analytics = false }: { children: React.ReactNode; tab: Tab; setTab: (tab: Tab) => void; username: string; onLogout: () => void; onSearch: (query: string) => void; analytics?: boolean }) {
   const activeTab = tab === "edit" ? "articles" : tab;
+  // reader analytics are for administrators only
+  const items = analytics ? allItems : allItems.filter((item) => item.key !== "analytics");
   return <div className="fixed inset-0 z-[100] flex bg-[#f7f6fc] text-slate-900">
     <aside className="relative z-30 hidden w-64 shrink-0 flex-col overflow-y-auto bg-white shadow-[10px_0_32px_-14px_rgba(76,29,149,0.3)] lg:flex">
       <div className="flex h-[68px] shrink-0 items-center border-b border-slate-200/70 px-6"><Image src="/logo.png" alt="Islamonlive" width={132} height={36} priority className="h-9 w-auto object-contain" /></div>
@@ -94,7 +97,7 @@ export default function AdminShell({ children, tab, setTab, username, onLogout, 
       </main>
     </div>
 
-    <nav aria-label="Admin navigation" className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-4 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_16px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden">
+    <nav aria-label="Admin navigation" className={`fixed inset-x-0 bottom-0 z-50 grid ${items.length === 5 ? "grid-cols-5" : "grid-cols-4"} border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_16px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden`}>
       {items.map((item) => <button key={item.key} type="button" aria-current={activeTab === item.key ? "page" : undefined} onClick={() => setTab(item.key)} className={`flex min-h-16 flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-semibold transition ${activeTab === item.key ? "text-violet-700" : "text-slate-500"}`}><span className="flex h-6 items-center justify-center"><NavIcon tab={item.key} className="h-5 w-5" /></span><span>{item.key === "new" ? "New" : item.label}</span><span className={`mt-0.5 block h-1 w-8 rounded-full ${activeTab === item.key ? "bg-violet-700" : "bg-transparent"}`} /></button>)}
     </nav>
   </div>;

@@ -180,13 +180,16 @@ async function journey({ db, categories }) {
   const title = "ഇ2ഇ പരിശോധന: Q&A - it's live";
   const created = await ed("/api/admin/posts/", {
     method: "POST",
-    body: articleForm({ title, content: "<p>ആദ്യ ഖണ്ഡിക. First paragraph of the e2e article.</p><p>Second.</p>", status: "publish", categories: [catA._id], tags: ["e2e tag", "ടെസ്റ്റ്"], excerpt: "", seo: { description: "A custom meta description written by the editor for this e2e article." }, featuredVideo: { source: "self", mediaId: video?.id } }, JPEG),
+    body: articleForm({ title, content: "<p>ആദ്യ ഖണ്ഡിക. First paragraph of the e2e article.</p><p><img src=\"/wp-content/uploads/2026/10/e2e-inline.jpg\" alt=\"inline\"></p><p>Second.</p>", status: "publish", categories: [catA._id], tags: ["e2e tag", "ടെസ്റ്റ്"], excerpt: "", seo: { description: "A custom meta description written by the editor for this e2e article." }, featuredVideo: { source: "self", mediaId: video?.id } }, JPEG),
   });
   const post = (await created.json()).item ?? {};
   check("editor publishes an article with a featured image, tags, SEO and video", created.status === 201 && post.status === "publish", JSON.stringify(post).slice(0, 300));
   const doc = await db.collection("posts").findOne({ _id: post.id });
   if (!doc) throw new Error("the article was not created; the remaining checks depend on it");
   const path = doc.path;
+  // the editor hands back /wp-content/… paths; they are stored as full addresses, as WordPress stores them
+  const savedHtml = `${doc.content ?? ""} ${doc.content_raw ?? ""}`;
+  check("a picture in the text is stored with its full islamonlive.in address", savedHtml.includes(`src="${SITE}/wp-content/uploads/2026/10/e2e-inline.jpg"`) && !savedHtml.includes(`src="/wp-content/`), savedHtml.slice(0, 200));
   check("it gets a WordPress-style URL under its category", /^\/[^?]+\/$/.test(path) && path.includes(catA.slug), path);
   check("its new tags were created on the way", (doc?.tags?.length ?? 0) === 2);
   check("its featured video is attached", doc?.featured_video?.source === "self" && doc.featured_video.media_id === video?.id);
@@ -217,10 +220,31 @@ async function journey({ db, categories }) {
   check("its /?p=ID link 301s to the article", legacy.status === 301 && (legacy.headers.get("location") ?? "").endsWith(path));
   check("the category page lists it", (await eventually(async () => ({ ok: (await text(pathOf(catA.link))).includes(path) }))).ok);
 
-  // reader analytics: the dashboard's most-read list takes each article's date and thumbnail from the database
-  const beacon = await fetch(`${BASE}/api/analytics/event/`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ articleId: post.id, sessionId: "e2e-reader-session-1", path, title, type: "view", seconds: 30, progress: 0.5 }) });
-  const top = (await (await ad("/api/admin/overview/?days=30")).json()).reader?.topArticles?.find((a) => a.articleId === post.id);
-  check("reader analytics list the article with its date and thumbnail", beacon.status === 204 && top?.publishedAt === doc.date && Boolean(top?.imageUrl), `${beacon.status} ${JSON.stringify(top)}`);
+  // reader analytics: beacons as lib/analytics/tracker.ts sends them, then what the administrator sees
+  const READER_UA = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36";
+  const reader = { id: `e2e-view-${randomBytes(6).toString("hex")}`, v: "e2e-visitor-000001", s: "e2e-session-00001", k: "article", p: path, a: post.id, c: [catA._id], rh: "www.google.com", nv: true, en: true, e: 0, sd: 0 };
+  const beacon = (body, headers = {}) => fetch(`${BASE}/api/analytics/collect`, { method: "POST", headers: { "Content-Type": "text/plain", "User-Agent": READER_UA, ...headers }, body: JSON.stringify(body) });
+  const started = await beacon({ ...reader, ev: "start" });
+  await beacon({ ...reader, ev: "start" }); // a re-render sending start again
+  await beacon({ ...reader, ev: "ping", e: 12, sd: 60 });
+  await beacon({ ...reader, ev: "end", e: 28, sd: 93 });
+  await beacon({ ...reader, ev: "ping", e: 20, sd: 70 }); // late and out of order
+  const views = await db.collection("analytics_views").find({ a: post.id }).toArray();
+  check("a reader's start, pings and end make one view holding the largest totals", started.status === 204 && views.length === 1 && views[0].e === 28 && views[0].sd === 93 && views[0].src === "search" && views[0].dev === "mobile", JSON.stringify(views));
+  check("the view keeps no IP address or browser string", !/Pixel|Android|127\.0\.0\.1/.test(JSON.stringify(views)));
+  await beacon({ ...reader, id: `${reader.id}-bot`, ev: "start" }, { "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" });
+  await beacon({ ...reader, id: `${reader.id}-staff`, ev: "start" }, { Cookie: editor.cookie });
+  check("crawlers and signed-in staff are not counted", (await db.collection("analytics_views").countDocuments({ a: post.id })) === 1);
+  const summary = await (await ad("/api/admin/analytics/summary?range=today")).json();
+  const top = summary.topViewed?.find((a) => a.id === post.id);
+  check("the administrator's dashboard shows the read, with the article's path, date and thumbnail", summary.totals?.articleViews >= 1 && top?.path === path && top?.publishedAt === doc.date && Boolean(top?.image) && summary.sources?.some((s) => s.id === "search"), `${JSON.stringify(summary.totals)} ${JSON.stringify(top)}`);
+  check("editors cannot open reader analytics, and their Overview leaves it out", (await ed("/api/admin/analytics/summary")).status === 403 && (await (await ed("/api/admin/overview/?days=30")).json()).reader === null);
+  const table = await (await ad(`/api/admin/analytics/articles?range=today&q=${post.id}`)).json();
+  check("the article table lists it with its exact visitors", table.data?.[0]?.id === post.id && table.data[0].visitors === 1, JSON.stringify(table).slice(0, 300));
+  const detail = await (await ad(`/api/admin/analytics/articles/${post.id}?range=today`)).json();
+  check("its breakdown shows the active time and where the reader stopped", detail.totals?.avgArticleSeconds === 28 && detail.totals?.reached?.["90"] === 1, JSON.stringify(detail.totals));
+  const live = await (await ad("/api/admin/analytics/live")).json();
+  check("live readers include it", live.pages?.some((p) => p.kind === "article" && Number(p.key) === post.id), JSON.stringify(live).slice(0, 300));
 
   // edit: categories change keeps the URL; slug change moves it with a redirect
   const edit = (fields) => ed(`/api/admin/posts/?id=${post.id}`, { method: "PUT", body: articleForm({ title, content: "<p>Edited body.</p>", status: "publish", categories: [catB._id], excerpt: "", ...fields }) });
@@ -263,6 +287,18 @@ async function journey({ db, categories }) {
   check("editor creates a category", cat.status === 201);
   const authors = await ad("/api/admin/authors/");
   check("admin loads the authors screen", authors.status === 200);
+  // a staff account made on the authors screen can sign in with its temporary password
+  const account = (fields) => {
+    const form = new FormData();
+    for (const [k, v] of Object.entries({ name: "E2E New Editor", username: "e2e-new-editor", email: "new-editor@e2e.test", password: `${PASSWORD}-new`, role: "editor", ...fields })) form.set(k, v);
+    return form;
+  };
+  check("an editor cannot create accounts", (await ed("/api/admin/authors/", { method: "POST", body: account({ username: "e2e-sneaky", email: "sneaky@e2e.test", role: "administrator" }) })).status === 403);
+  check("admin creates an editor account", (await ad("/api/admin/authors/", { method: "POST", body: account() })).status === 201);
+  check("the new editor signs in with the temporary password", (await login("e2e-new-editor", `${PASSWORD}-new`)).status === 200);
+  check("a made-up role is refused", (await ad("/api/admin/authors/", { method: "POST", body: account({ username: "e2e-x", email: "x@e2e.test", role: "superadmin" }) })).status === 400);
+  const stored = await db.collection("users").findOne({ username: "e2e-new-editor" });
+  check("the password is stored only as a hash", stored?.role === "editor" && /^scrypt\$/.test(stored?.password_hash ?? "") && !JSON.stringify(stored).includes(`${PASSWORD}-new`));
 
   // trash
   const del = await ed(`/api/admin/posts/?id=${post.id}`, { method: "DELETE" });
@@ -308,6 +344,8 @@ const env = {
   NEXT_PUBLIC_MEDIA_ORIGIN: "https://d4dx-storage.blr1.cdn.digitaloceanspaces.com/islamonlive",
   ADMIN_SESSION_SECRET: randomBytes(32).toString("base64url"),
   CRON_SECRET: process.env.E2E_CRON_SECRET,
+  // the browser check drives an automated browser on purpose (crawlers are still dropped)
+  ANALYTICS_ALLOW_AUTOMATION: "1",
   DO_SPACES_ENDPOINT: `http://127.0.0.1:${s3.address().port}`,
   DO_SPACES_BUCKET: "e2e-bucket",
   DO_SPACES_FOLDER: "islamonlive",

@@ -3,6 +3,7 @@ import ReelsLightbox from "@/components/ReelsLightbox";
 import WatchSwitch from "@/components/WatchSwitch";
 import { getReels } from "@/lib/instagram";
 import { getShorts } from "@/lib/youtube";
+import PageView from "@/components/PageView";
 
 export const revalidate = 1800;
 export const metadata = { title: "Reels", alternates: { canonical: "/reels/" } };
@@ -22,6 +23,7 @@ export default async function ReelsPage({ searchParams }: { searchParams: Promis
 
   return (
     <div>
+      <PageView kind="watch" />
       <div className="mb-6 flex flex-wrap items-center justify-center gap-3 md:justify-between">
         <h1 className="sr-only border-l-4 border-purple-800 pl-3 text-2xl font-extrabold md:not-sr-only">Reels</h1>
         <WatchSwitch />

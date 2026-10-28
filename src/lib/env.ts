@@ -72,10 +72,12 @@ export const MEDIA_HOSTS: readonly string[] = [
   "i2.wp.com",
 ];
 
-/* Where content is read from while WordPress is retired
-   (docs/backend-migration-plan.md). "wordpress" until cutover; "mongo" reads the
-   migrated copy in MongoDB. Flipping back is the rollback. Server-side only: in a
-   client component this is always "wordpress", so nothing there may branch on it. */
+/* Where content is read from (docs/backend-migration-plan.md). "mongo" is the
+   site's own backend and must be chosen explicitly, together with MONGODB_URI:
+   `npm run dev` always does; a deployment does by setting DATA_SOURCE=mongo. Left
+   unset it stays "wordpress", so a build or deploy missing the Mongo settings
+   keeps serving the old backend instead of failing. Server-side only: in a client
+   component this is always "wordpress", so nothing there may branch on it. */
 export type DataSource = "wordpress" | "mongo";
 export const DATA_SOURCE: DataSource = process.env.DATA_SOURCE === "mongo" ? "mongo" : "wordpress";
 

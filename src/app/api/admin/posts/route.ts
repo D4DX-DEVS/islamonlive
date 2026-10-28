@@ -5,6 +5,7 @@ import { invalidateAdminTaxonomyCache } from "@/lib/admin-taxonomy-cache";
 import { parsePublishDate, parseSeo, POST_STATS_CACHE, resolveTagIds } from "@/lib/admin-posts";
 import { parseVideoChange, readFeaturedVideo, saveFeaturedVideo, type VideoChange } from "@/lib/featured-video";
 import { invalidatePublicPostCache } from "@/lib/admin-public-cache";
+import { absoluteUploads } from "@/lib/urls";
 
 export const dynamic = "force-dynamic";
 
@@ -92,7 +93,8 @@ export async function POST(request: Request) {
       featuredMedia = Number(mediaData.id || 0);
       if (featuredMedia && form.has("featuredImageAlt")) await wpAdminFetch(`/media/${featuredMedia}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ alt_text: imageAlt }) }).catch(() => undefined);
     }
-    const payload: Record<string, unknown> = { title, content, status, excerpt: String(form.get("excerpt") || "") };
+    // full upload addresses, as WordPress stores them: the editor hands back /wp-content/… paths
+    const payload: Record<string, unknown> = { title, content: absoluteUploads(content), status, excerpt: String(form.get("excerpt") || "") };
     if (slug) payload.slug = slug;
     const author = Number(form.get("author") || 0);
     const categories = String(form.get("categories") || "[]");
@@ -146,7 +148,8 @@ export async function PUT(request: Request) {
       if (featuredMedia && imageAlt) await wpAdminFetch(`/media/${featuredMedia}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ alt_text: imageAlt }) }).catch(() => undefined);
     }
 
-    const payload: Record<string, unknown> = { title, content, status, excerpt: String(form.get("excerpt") || "") };
+    // full upload addresses, as WordPress stores them: the editor hands back /wp-content/… paths
+    const payload: Record<string, unknown> = { title, content: absoluteUploads(content), status, excerpt: String(form.get("excerpt") || "") };
     if (slug) payload.slug = slug;
     const author = Number(form.get("author") || 0);
     const categories = String(form.get("categories") || "[]");

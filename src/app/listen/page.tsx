@@ -1,5 +1,6 @@
 import PodcastPlayer from "@/components/PodcastPlayer";
 import { getEpisodes } from "@/lib/podcast";
+import PageView from "@/components/PageView";
 
 export const revalidate = 1800;
 export const metadata = { title: "Listen", alternates: { canonical: "/listen/" } };
@@ -14,6 +15,7 @@ export default async function ListenPage() {
 
   return (
     <div>
+      <PageView kind="listen" />
       <h1 className="mb-4 border-l-4 border-purple-800 pl-3 text-2xl font-extrabold sm:mb-6">Listen</h1>
       {/* one player, not two. The page used to stack Spotify's own show embed on
           top of this player: two transports, two progress bars and two sources of

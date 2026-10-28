@@ -4,6 +4,7 @@ import SearchBox from "@/components/SearchBox";
 import { FEED_PER_PAGE } from "@/lib/feed";
 import { normalizeSearch, searchPosts } from "@/lib/search";
 import { getPosts, searchUsers } from "@/lib/wordpress";
+import PageView from "@/components/PageView";
 
 /* Search results are noindex,follow.
 
@@ -68,6 +69,7 @@ export default async function SearchPage({ searchParams }: Props) {
   if (!q) {
     return (
       <div className="flex min-h-[55vh] flex-col items-center justify-center px-2 text-center">
+        <PageView kind="search" />
         <h1 className="text-2xl font-extrabold sm:text-3xl">What do you want to read?</h1>
         <p className="mt-2 text-sm text-zinc-500">Search articles, topics and authors across Islamonlive</p>
         <div className="mt-6 w-full">
@@ -89,6 +91,7 @@ export default async function SearchPage({ searchParams }: Props) {
 
   return (
     <div>
+      <PageView kind="search" />
       <div className="mb-6">
         <SearchBox initialQ={q} />
       </div>

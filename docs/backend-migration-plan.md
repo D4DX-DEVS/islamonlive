@@ -134,9 +134,13 @@ Atlas M10 if traffic grows (Flex is shared with ~15 apps).
 
 - **Staging:** local production build during development; a **Vercel** preview
   (password-protected, `noindex`) for the final pre-cutover check.
-- **Logins:** only 2–3 admin/editor accounts. Passwords are set with a CLI
-  script; no email provider, no password-reset flow, no old hashes needed.
-  Other users stay as author profiles only.
+- **Logins:** only 2–3 admin/editor accounts. The first administrator's
+  password is set with a CLI script (`scripts/admin-user.mjs`); after that, an
+  administrator creates Editor and Administrator accounts from the admin's
+  Authors page (Role field, temporary password stored as a scrypt hash). No
+  email provider, no password-reset flow, no old hashes needed. Resetting a
+  password, changing a role or disabling an account is still the CLI script.
+  Other users stay as author profiles only (Authors cannot sign in).
 - **Scheduled posts are used:** `future` posts count as published once their
   time passes (query-level), plus a cron hitting a protected route to revalidate
   pages, sitemaps and the news sitemap on time.

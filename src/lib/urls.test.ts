@@ -266,3 +266,21 @@ describe("URL rewriting", () => {
     });
   });
 });
+
+describe("absoluteUploads(): article HTML saved from the admin", () => {
+  /* The admin's editor shows uploads as /wp-content/… so they load through the
+     admin's own origin, and that is the HTML it hands back. Stored that way, an
+     RSS reader (which has no page to resolve it against) gets a broken picture;
+     every migrated article stores the full https://islamonlive.in address. */
+  it("turns site-relative upload addresses in src, srcset and links into full ones", async () => {
+    const { absoluteUploads } = await import("@/lib/urls");
+    const html = '<figure><a href="/wp-content/uploads/2026/10/a.jpg"><img src="/wp-content/uploads/2026/10/a.jpg" srcset="/wp-content/uploads/2026/10/a-300x200.jpg 300w, /wp-content/uploads/2026/10/a.jpg 900w" alt="A"></a></figure>';
+    expect(absoluteUploads(html)).toBe('<figure><a href="https://islamonlive.in/wp-content/uploads/2026/10/a.jpg"><img src="https://islamonlive.in/wp-content/uploads/2026/10/a.jpg" srcset="https://islamonlive.in/wp-content/uploads/2026/10/a-300x200.jpg 300w, https://islamonlive.in/wp-content/uploads/2026/10/a.jpg 900w" alt="A"></a></figure>');
+  });
+
+  it("leaves full addresses, other paths and plain text alone", async () => {
+    const { absoluteUploads } = await import("@/lib/urls");
+    const html = '<p>See /wp-content/uploads/ in the text.</p><img src="https://islamonlive.in/wp-content/uploads/x.jpg"><a href="/opinion/some-post/">link</a><img src="data:image/png;base64,AAAA">';
+    expect(absoluteUploads(html)).toBe(html);
+  });
+});

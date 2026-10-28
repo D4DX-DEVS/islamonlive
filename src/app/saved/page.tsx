@@ -16,6 +16,7 @@ import {
   type SavedItem,
 } from "@/lib/reader";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import PageView from "@/components/PageView";
 
 /* The reader's library: the posts they bookmarked and the ones they were in
    the middle of. Both live in localStorage, so this page renders empty on the
@@ -176,6 +177,7 @@ function NoteEditor({ item }: { item: SavedItem }) {
 export default function SavedPage() {
   return (
     <Suspense fallback={<div className="mx-auto h-64 max-w-2xl" />}>
+      <PageView kind="other" />
       <Library />
     </Suspense>
   );

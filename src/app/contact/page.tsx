@@ -6,6 +6,7 @@ import ContactForm from "@/components/ContactForm";
 import JsonLd from "@/components/JsonLd";
 import { siteUrl } from "@/lib/env";
 import { breadcrumbSchema, graph, ORG_ID, siteNodes, webPageSchema } from "@/lib/schema";
+import PageView from "@/components/PageView";
 
 export const revalidate = 3600;
 
@@ -56,6 +57,7 @@ export default async function ContactPage() {
 
   return (
     <div className="mx-auto max-w-5xl">
+      <PageView kind="page" />
       <JsonLd
         data={graph(
           webPageSchema(url, "Contact Us", { type: "ContactPage", description: `Reach the Islamonlive editorial desk: ${EMAIL}, ${PHONE}.`, mainEntity: { "@id": ORG_ID } }),

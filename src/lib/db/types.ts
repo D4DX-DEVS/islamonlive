@@ -1,4 +1,5 @@
 import type { YoastHead } from "@/lib/seo";
+import type { Device, PageKind, Source } from "@/lib/analytics/shared";
 
 /* Document shapes in the "islamonlive" database, exactly as the WordPress
    migration wrote them (migration/mongo-load.mjs, MAP). `_id` is the WordPress
@@ -191,6 +192,66 @@ export interface SettingsDoc {
   [key: string]: unknown;
 }
 
+/** One page view, written by /api/analytics/collect (see docs/analytics-plan.md). Short keys: there are many. */
+export interface AnalyticsViewDoc {
+  /** random view id from the browser */
+  _id: string;
+  /** visitor and session ids, random */
+  v: string;
+  s: string;
+  /** started, last seen */
+  t: Date;
+  ls: Date;
+  /** IST day the view started, YYYY-MM-DD */
+  day: string;
+  k: PageKind;
+  p: string;
+  a?: number;
+  c?: number[];
+  dev: Device;
+  src: Source;
+  /** referring domain or utm_source */
+  ref?: string;
+  /** first visit ever, first view of the session */
+  nv: boolean;
+  en: boolean;
+  /** active seconds, furthest scroll depth 0–100 (both only ever raised) */
+  e: number;
+  sd: number;
+}
+
+/** The sums the reports add up, from raw views or from rollups. Scroll figures count article views only. */
+export interface AnalyticsMeasures {
+  views: number;
+  activeSeconds: number;
+  articleViews: number;
+  articleActiveSeconds: number;
+  scrollSum: number;
+  /** article views scrolled to 25, 50, 75 and 90 % */
+  r25: number;
+  r50: number;
+  r75: number;
+  r90: number;
+  /** sessions that started here, and how many of them were engaged */
+  sessions: number;
+  engagedSessions: number;
+}
+
+/** Totals for one closed day and one combination of dimensions, rolled up from analytics_views. */
+export interface AnalyticsDailyDoc extends AnalyticsMeasures {
+  /** the dimensions below, joined with "|" */
+  _id: string;
+  day: string;
+  dev: Device;
+  src: Source;
+  nv: boolean;
+  k: PageKind;
+  /** article id, or the path for other pages */
+  key: number | string;
+  ref: string | null;
+  c: number[] | null;
+}
+
 export interface Collections {
   posts: PostDoc;
   pages: PageDoc;
@@ -200,4 +261,7 @@ export interface Collections {
   tags: TagDoc;
   banners: BannerDoc;
   settings: SettingsDoc;
+  analytics_views: AnalyticsViewDoc;
+  analytics_daily: AnalyticsDailyDoc;
+  analytics_meta: { _id: string; [key: string]: unknown };
 }

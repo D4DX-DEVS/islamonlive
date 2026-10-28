@@ -6,6 +6,7 @@ import { siteUrl } from "@/lib/env";
 import { pagePath, splitPage } from "@/lib/paging";
 import { breadcrumbSchema, collectionPageSchema, graph, siteNodes } from "@/lib/schema";
 import { getUsersPage, stripHtml, userAvatar } from "@/lib/wordpress";
+import PageView from "@/components/PageView";
 
 export const revalidate = 3600;
 
@@ -75,6 +76,7 @@ export default async function AuthorsListPage({ params }: Props) {
 
   return (
     <div className="mx-auto max-w-5xl">
+      <PageView kind="other" />
       <JsonLd
         data={graph(
           collectionPageSchema(url, "Authors", "Every writer published on Islamonlive, A to Z."),

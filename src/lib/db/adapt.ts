@@ -38,7 +38,7 @@ function isGravatar(url: string): boolean {
    either. Split them back: Gravatar URLs are avatar_urls, the rest is
    mpp_avatar — and no photo means no mpp_avatar at all, which the helpers read
    as "draw the fallback icon", exactly as WP's {errors} object did. */
-function splitAvatars(avatars: Record<string, string> | undefined): { avatar_urls: Record<string, string>; mpp_avatar?: Record<string, string> } {
+export function splitAvatars(avatars: Record<string, string> | undefined): { avatar_urls: Record<string, string>; mpp_avatar?: Record<string, string> } {
   const avatar_urls: Record<string, string> = {};
   const mpp: Record<string, string> = {};
   for (const [size, url] of Object.entries(avatars ?? {})) {

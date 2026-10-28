@@ -1,6 +1,7 @@
 import { getVideos } from "@/lib/youtube";
 import WatchReels from "@/components/WatchReels";
 import WatchSwitch from "@/components/WatchSwitch";
+import PageView from "@/components/PageView";
 
 export const revalidate = 3600;
 // canonical drops the ?v= deep-link so every video variant consolidates here
@@ -15,6 +16,7 @@ export default async function WatchPage({ searchParams }: { searchParams: Promis
 
   return (
     <div>
+      <PageView kind="watch" />
       <div className="mb-6 flex flex-wrap items-center justify-center gap-3 md:justify-between">
         <h1 className="sr-only border-l-4 border-purple-800 pl-3 text-2xl font-extrabold md:not-sr-only">Videos</h1>
         <WatchSwitch />

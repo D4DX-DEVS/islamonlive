@@ -9,6 +9,7 @@ import { breadcrumbSchema, collectionPageSchema, graph, siteNodes } from "@/lib/
 import { siteUrl } from "@/lib/env";
 import { toSitePath } from "@/lib/urls";
 import { pagePath, splitPage } from "@/lib/paging";
+import PageView from "@/components/PageView";
 
 export const revalidate = 60;
 
@@ -88,6 +89,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
 
   return (
     <div>
+      <PageView kind="category" />
       <JsonLd
         data={
           seoSchema(cat.yoast_head_json) ??

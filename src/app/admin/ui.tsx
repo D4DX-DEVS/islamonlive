@@ -1,4 +1,4 @@
-export type Tab = "overview" | "articles" | "new" | "edit" | "authors";
+export type Tab = "overview" | "articles" | "new" | "edit" | "authors" | "analytics";
 
 export const cardClass = "rounded-2xl border border-slate-200/70 bg-white p-4 shadow-[0_1px_2px_rgba(76,29,149,0.05),0_6px_20px_-12px_rgba(76,29,149,0.12)] sm:p-6";
 export const inputClass = "flex min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus-visible:border-violet-500 focus-visible:ring-4 focus-visible:ring-violet-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400";

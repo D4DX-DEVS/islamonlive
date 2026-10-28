@@ -9,6 +9,7 @@ import { seoMetadata, seoSchema } from "@/lib/seo";
 import { breadcrumbSchema, graph, siteNodes, SITE_ID } from "@/lib/schema";
 import { siteUrl } from "@/lib/env";
 import { pagePath, splitPage } from "@/lib/paging";
+import PageView from "@/components/PageView";
 
 export const revalidate = 60;
 
@@ -97,6 +98,7 @@ export default async function AuthorPage({ params }: { params: Promise<{ slug: s
 
   return (
     <div>
+      <PageView kind="author" />
       <JsonLd data={jsonLd} />
       <nav aria-label="Breadcrumb" className="mb-3 hidden text-xs text-zinc-500 sm:block">
         <Link href="/" className="hover:text-purple-800">Home</Link>

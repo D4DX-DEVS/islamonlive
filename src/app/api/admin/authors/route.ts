@@ -7,6 +7,9 @@ import { adminTaxonomyCacheHeaders, getAdminTaxonomyCached, invalidateAdminTaxon
 
 export const dynamic = "force-dynamic";
 
+/** Roles an account can be created with: authors are bylines; editors and administrators can sign in here. */
+const ACCOUNT_ROLES = ["author", "editor", "administrator"];
+
 /**
  * The author's own uploaded photo (Metronet Profile Picture). WordPress's
  * Gravatar `avatar_urls` is always the grey placeholder on this site, so it is
@@ -70,12 +73,16 @@ export async function POST(request: Request) {
     const password = String(form.get("password") || "");
     const name = field("name");
     if (!username || !email || !password || !name) return NextResponse.json({ error: "Name, username, email and password are required" }, { status: 400 });
+    if (password.length < 8) return NextResponse.json({ error: "The temporary password must be at least 8 characters." }, { status: 400 });
+    // only administrators reach a successful create (WordPress and the MongoDB backend both refuse anyone else)
+    const role = field("role") || "author";
+    if (!ACCOUNT_ROLES.includes(role)) return NextResponse.json({ error: "Choose Author, Editor or Administrator." }, { status: 400 });
     const upload = form.get("photo");
     const photo = upload instanceof File && upload.size > 0 ? upload : null;
     // Check the photo before anything is created, so a bad photo never leaves a half-made author behind.
     if (photo && !PHOTO_TYPES.includes(photo.type)) return NextResponse.json({ error: "The profile photo must be a PNG, JPG or WebP image." }, { status: 415 });
     if (photo && photo.size > PHOTO_LIMIT_BYTES) return NextResponse.json({ error: "The profile photo must be 2 MB or smaller." }, { status: 413 });
-    const payload = { username, email, password, name, slug: field("slug"), description: String(form.get("description") || ""), roles: ["author"] };
+    const payload = { username, email, password, name, slug: field("slug"), description: String(form.get("description") || ""), roles: [role] };
     const response = await wpAdminFetch("/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     const data = await response.json();
     if (!response.ok) return NextResponse.json({ error: data?.message || "Author could not be created" }, { status: response.status });

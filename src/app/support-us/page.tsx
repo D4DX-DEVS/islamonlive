@@ -8,6 +8,7 @@ import JsonLd from "@/components/JsonLd";
 import { siteUrl } from "@/lib/env";
 import { UPI_ID } from "@/lib/support";
 import { breadcrumbSchema, graph, ORG_ID, siteNodes, webPageSchema } from "@/lib/schema";
+import PageView from "@/components/PageView";
 
 /* Static: nothing here comes from WordPress, so there is no revalidation to do.
    The page has no WP twin either, which is why it declares its own canonical —
@@ -92,6 +93,7 @@ export default function SupportPage() {
 
   return (
     <div className="support mx-auto max-w-[1200px]">
+      <PageView kind="page" />
       <JsonLd
         data={graph(
           webPageSchema(url, "Support Us", { description: metadata.description, mainEntity: { "@id": ORG_ID } }),
