@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import ConfirmDialog from "@/components/ConfirmDialog";
+import ConfirmDialog from "../ConfirmDialog";
 import { Select } from "../Select";
 import { Icon } from "../icons";
 import { cardClass, initials, inputClass, Skeleton } from "../ui";

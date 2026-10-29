@@ -8,6 +8,8 @@ import { CardTitle, FieldLabel } from "./form-parts";
 import HtmlEditor from "./HtmlEditor";
 import { Icon, type IconName } from "./icons";
 import { cardClass, inputClass, Skeleton, stripHtml, type Author, type Category } from "./ui";
+import ConfirmDialog from "./ConfirmDialog";
+import { articleConfirmation } from "./article-confirm";
 
 type PostDetail = {
   title?: { raw?: string; rendered?: string };
@@ -28,6 +30,12 @@ type FeaturedVideoInfo = { available: boolean; source: "" | "self" | "embed"; em
 /* The Yoast fields. Once WordPress is retired this card is the only place an
    editor can set an article's search title and description, so it stays. */
 const noSeo: SeoFields = { focusKeyword: "", title: "", description: "" };
+
+/** The fields that make an article different from when it was opened (the body is tracked by typing, see `typed`). */
+type Snapshot = { title: string; slug: string; excerpt: string; status: string; visibility: string; publishDate: string; publishTime: string; author: string; category: string; tags: string[]; image: string | null; imageAlt: string; removeImage: boolean; seo: SeoFields; video: string };
+const snapshot = (fields: Snapshot) => JSON.stringify(fields);
+const emptySnapshot = (): string => snapshot({ title: "", slug: "", excerpt: "", status: "draft", visibility: "public", publishDate: "", publishTime: "", author: "", category: "", tags: [], image: null, imageAlt: "", removeImage: false, seo: noSeo, video: videoKey(noVideo) });
+const whenFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 const metaText = (meta: Record<string, unknown> | undefined, key: string) => (typeof meta?.[key] === "string" ? meta[key] as string : "");
 
 const EXCERPT_GUIDE = 300;
@@ -167,7 +175,7 @@ function PreviewDialog({ title, excerpt, content, imageUrl, onClose }: { title: 
 }
 /* eslint-enable @next/next/no-img-element */
 
-export default function NewArticle({ authors, categories, taxonomiesLoading, editId, publishOnOpen = false, onCreated, onCancel, onCategoryCreated }: { authors: Author[]; categories: Category[]; taxonomiesLoading: boolean; editId?: number | null; publishOnOpen?: boolean; onCreated: (notice?: string) => void; onCancel: () => void; onCategoryCreated: () => Promise<void> }) {
+export default function NewArticle({ authors, categories, taxonomiesLoading, editId, publishOnOpen = false, onCreated, onCancel, onCategoryCreated, onDirtyChange }: { authors: Author[]; categories: Category[]; taxonomiesLoading: boolean; editId?: number | null; publishOnOpen?: boolean; onCreated: (notice?: string) => void; onCancel: () => void; onCategoryCreated: () => Promise<void>; /** Told whether there are unsaved changes, so leaving can ask first. */ onDirtyChange?: (dirty: boolean) => void }) {
   const editing = Boolean(editId);
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
@@ -203,6 +211,13 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
   const [previewing, setPreviewing] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [openedAt] = useState(() => Date.now());
+  const [storedStatus, setStoredStatus] = useState<string | null>(null);
+  const [baseline, setBaseline] = useState(emptySnapshot);
+  // typing anywhere in the form (the body editor included) counts as a change. It listens in
+  // the bubble phase: in the capture phase it re-renders before the field's onChange and the
+  // first keystroke is lost.
+  const [typed, setTyped] = useState(false);
+  const [confirming, setConfirming] = useState<ReturnType<typeof articleConfirmation>>(null);
 
   useEffect(() => {
     if (!editId) return;
@@ -213,6 +228,7 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
       if (!response.ok || !body.item) { setMessage(body.error || "Could not load article"); setLoadingPost(false); return; }
       const item = body.item as PostDetail;
       const stored = item.status || "draft";
+      setStoredStatus(stored);
       setTitle(item.title?.raw || stripHtml(item.title?.rendered || ""));
       setSlug(item.slug || "");
       setContent(item.content?.raw || item.content?.rendered || "");
@@ -239,6 +255,14 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
         : loadedVideo?.source === "self" ? { mode: "upload", url: "", media: { id: loadedVideo.mediaId, url: loadedVideo.url, name: decodeURIComponent(loadedVideo.url.split("/").pop() || "Uploaded video") } }
         : noVideo;
       setVideo(choice); setInitialVideoKey(videoKey(choice));
+      setBaseline(snapshot({
+        title: item.title?.raw || stripHtml(item.title?.rendered || ""), slug: item.slug || "", excerpt: item.excerpt?.raw || item.excerpt?.rendered || "",
+        status: publishOnOpen || stored === "private" || stored === "future" ? "publish" : ["draft", "pending", "publish"].includes(stored) ? stored : "draft",
+        visibility: stored === "private" ? "private" : "public",
+        publishDate: ["publish", "future", "private"].includes(stored) && item.date ? item.date.slice(0, 10) : "", publishTime: ["publish", "future", "private"].includes(stored) && item.date ? item.date.slice(11, 16) : "",
+        author: item.author ? String(item.author) : "", category: item.categories?.[0] ? String(item.categories[0]) : "", tags: loadedTags,
+        image: null, imageAlt: media?.alt_text || "", removeImage: false, seo: loadedSeo, video: videoKey(choice),
+      }));
       setLoadingPost(false);
     }).catch(() => { if (!cancelled) { setMessage("Could not reach the article service"); setLoadingPost(false); } });
     return () => { cancelled = true; };
@@ -266,11 +290,32 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
     setPreviewImage((current) => { if (current?.startsWith("blob:")) URL.revokeObjectURL(current); return null; });
   }
 
-  async function submit(event: FormEvent) {
+  const scheduled = status === "publish" && visibility === "public" && Boolean(publishDate) && new Date(`${publishDate}T${publishTime || "00:00"}`).getTime() > openedAt;
+  const dirty = typed || snapshot({ title, slug, excerpt, status, visibility, publishDate, publishTime, author, category, tags, image: image ? `${image.name}:${image.size}` : null, imageAlt, removeImage: removeExistingImage, seo, video: videoKey(video) }) !== baseline;
+  useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
+  // closing the tab with unsaved changes asks first
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
+  /** Check the form, then save, or first ask when the save changes what readers see. */
+  function submit(event: FormEvent) {
     event.preventDefault(); setMessage("");
     if (dateTouched && !publishDate) { setMessage("Choose a date to schedule this article, or clear the schedule."); return; }
+    if (videoKey(video) === "invalid") { setMessage("The featured video link must be a YouTube, Vimeo or Dailymotion address. Fix it or clear it."); return; }
+    const when = publishDate ? whenFormat.format(new Date(`${publishDate}T${publishTime || "00:00"}`)) : "";
+    const check = articleConfirmation({ stored: storedStatus, status, visibility, scheduled, when, dateTouched });
+    if (check) { setConfirming(check); return; }
+    void save().catch((problem: unknown) => setMessage(problem instanceof Error ? problem.message : "Could not save the article"));
+  }
+
+  /** The save itself. A failure is thrown, so the confirmation modal (or the form) can show it. */
+  async function save() {
     const currentVideoKey = videoKey(video);
-    if (currentVideoKey === "invalid") { setMessage("The featured video link must be a YouTube, Vimeo or Dailymotion address. Fix it or clear it."); return; }
     setSaving(true);
     const form = new FormData();
     form.set("title", title); form.set("slug", slug); form.set("content", content); form.set("excerpt", excerpt);
@@ -291,10 +336,11 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
     if (Object.keys(changedSeo).length) form.set("seo", JSON.stringify(changedSeo));
     const videoChange = currentVideoKey !== initialVideoKey ? videoPayload(video) : null;
     if (videoChange) form.set("featuredVideo", videoChange);
-    const response = await fetch(editing ? "/api/admin/posts/?id=" + editId : "/api/admin/posts/", { method: editing ? "PUT" : "POST", body: form });
+    let response: Response;
+    try { response = await fetch(editing ? "/api/admin/posts/?id=" + editId : "/api/admin/posts/", { method: editing ? "PUT" : "POST", body: form }); } catch { setSaving(false); throw new Error("Could not reach the server. Check the connection and try again."); }
     const body = await response.json().catch(() => ({}));
     setSaving(false);
-    if (!response.ok) { setMessage(body.error || (editing ? "Could not update article" : "Could not create article")); return; }
+    if (!response.ok) throw new Error(body.error || (editing ? "Could not update article" : "Could not create article"));
     const warnings = Array.isArray(body.warnings) ? (body.warnings as string[]).join(" ") : "";
     setMessage(editing ? "Article updated successfully." : "Article created successfully.");
     onCreated(warnings || undefined);
@@ -302,7 +348,6 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
 
   if (loadingPost) return <FormSkeleton />;
 
-  const scheduled = status === "publish" && visibility === "public" && Boolean(publishDate) && new Date(`${publishDate}T${publishTime || "00:00"}`).getTime() > openedAt;
   const actionLabel = saving
     ? (scheduled ? "Scheduling…" : editing ? "Saving…" : status === "publish" ? "Publishing…" : "Creating…")
     : scheduled
@@ -322,7 +367,7 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
       <p className="mt-1.5 text-sm text-slate-500">{editing ? "Update the existing article while keeping its permalink and history." : "Create and publish a new article with SEO details, tags, a featured image and video."}</p>
     </div>
 
-    <form onSubmit={submit}>
+    <form onSubmit={submit} onInput={(event) => { if (event.nativeEvent.isTrusted) setTyped(true); }}>
       <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0 space-y-5">
         <div className={`${cardClass} space-y-5`}>
@@ -393,6 +438,7 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
         </div>
       </div>
     </form>
+    {confirming && <ConfirmDialog open {...confirming} details={title ? <p className="break-words font-semibold text-slate-800">{title}</p> : undefined} onConfirm={save} onCancel={() => setConfirming(null)} />}
     {previewing && <PreviewDialog title={title} excerpt={excerpt} content={content} imageUrl={previewImage} onClose={closePreview} />}
   </div>;
 }

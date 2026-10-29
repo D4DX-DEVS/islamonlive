@@ -139,10 +139,11 @@ export function useLayoutDraft() {
     schedule(next);
   }, [future, draft, schedule]);
 
+  /** Publish / discard / restore. A failure is thrown, so the confirmation modal that started it can show it and offer a retry. */
   async function run(work: () => Promise<void>) {
     if (timer.current) { clearTimeout(timer.current); timer.current = null; }
     setBusy(true); setError("");
-    try { await queue.current; await work(); } catch (problem) { setError(problem instanceof Error ? problem.message : "Something went wrong."); } finally { setBusy(false); }
+    try { await queue.current; await work(); } finally { setBusy(false); }
   }
 
   const publish = () => run(async () => {

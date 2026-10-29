@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import ConfirmDialog from "@/components/ConfirmDialog";
+import ConfirmDialog, { type ConfirmDialogProps } from "../ConfirmDialog";
 import { Icon } from "../icons";
 import { Skeleton, type Category } from "../ui";
 import { DEFAULT_LAYOUT, KIND_LABELS, STYLE_LABELS, newSectionId, type HomeSection } from "@/lib/home-layout/schema";
@@ -11,23 +11,25 @@ import SectionList, { sectionName } from "./SectionList";
 import SectionSettings from "./SectionSettings";
 import AddSectionDialog from "./AddSectionDialog";
 import LayoutMap from "./LayoutMap";
+import { ChangeList, compareLayouts } from "./changes";
 import { useLayoutDraft } from "./useLayoutDraft";
 
 /* The homepage builder (administrators only): the section list on the left,
    the live page in the middle, the selected section's settings on the right.
    Edits autosave as a draft that only the preview shows; Publish puts it live.
-   On a phone the three panels become tabs. */
+   On a phone the three panels become tabs.
 
-type Pending = { kind: "delete"; id: string } | { kind: "reset" } | { kind: "restore"; index: number } | { kind: "discard" } | { kind: "publish" } | null;
+   Confirmation rule: anything that changes what readers see (publish,
+   restore), throws work away (discard, remove, reset) or leaves with work
+   unpublished asks first in a modal. Small draft edits (hide, duplicate, add,
+   move, typing) do not interrupt; they show an Undo toast instead, and every
+   one of them is undoable. */
+
+type Pending = { kind: "delete"; id: string } | { kind: "reset" } | { kind: "restore"; index: number } | { kind: "discard" } | { kind: "publish" } | { kind: "exit" } | null;
 type Panel = "sections" | "preview" | "settings";
+type Toast = { id: number; text: string; undo: boolean; href?: string };
 
-const CONFIRM: Record<NonNullable<Pending>["kind"], { title: string; body: string; label: string; destructive?: boolean }> = {
-  delete: { title: "Remove this section?", body: "It leaves the draft now and the homepage when you publish. Undo brings it back.", label: "Remove section", destructive: true },
-  reset: { title: "Start again from the original layout?", body: "The draft is replaced by the built-in homepage. Readers see nothing until you publish, and Undo brings your sections back.", label: "Use original layout" },
-  restore: { title: "Restore this version?", body: "It goes live immediately. The layout live now stays in the history.", label: "Restore and publish" },
-  discard: { title: "Discard the draft?", body: "The builder goes back to the layout readers see now.", label: "Discard draft", destructive: true },
-  publish: { title: "Publish to the homepage?", body: "Every reader sees this layout from now on. The current one is kept in the history.", label: "Publish now" },
-};
+const when = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
 function changedKeys(before: HomeSection, after: HomeSection): string {
   return Object.keys(after).filter((key) => JSON.stringify((before as unknown as Record<string, unknown>)[key]) !== JSON.stringify((after as unknown as Record<string, unknown>)[key])).join(",");
@@ -45,6 +47,7 @@ export default function HomeLayoutPage({ categories, onExit }: { categories: Cat
   const [panel, setPanel] = useState<Panel>("preview");
   const [adding, setAdding] = useState(false);
   const [pending, setPending] = useState<Pending>(null);
+  const [toast, setToast] = useState<Toast | null>(null);
   const selected = draft.find((s) => s.id === selectedId) ?? null;
   const index = selected ? draft.indexOf(selected) : -1;
 
@@ -53,7 +56,7 @@ export default function HomeLayoutPage({ categories, onExit }: { categories: Cat
     const onKey = (event: KeyboardEvent) => {
       const typing = event.target instanceof HTMLElement && (event.target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(event.target.tagName));
       if (event.key === "Escape" && !typing && !adding && !pending) setSelectedId(null);
-      if (typing || !(event.ctrlKey || event.metaKey)) return;
+      if (typing || pending || !(event.ctrlKey || event.metaKey)) return;
       const key = event.key.toLowerCase();
       if (key === "z" && !event.shiftKey) { event.preventDefault(); layout.undo(); }
       if ((key === "z" && event.shiftKey) || key === "y") { event.preventDefault(); layout.redo(); }
@@ -70,22 +73,86 @@ export default function HomeLayoutPage({ categories, onExit }: { categories: Cat
     return () => window.removeEventListener("beforeunload", warn);
   }, [layout.save]);
 
+  // a toast stays for six seconds; a newer one replaces it
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast((current) => (current?.id === toast.id ? null : current)), 6000);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  const notify = (text: string, undo = true, href?: string) => setToast((current) => ({ id: (current?.id ?? 0) + 1, text, undo, href }));
   const select = (id: string | null, from: "list" | "canvas" = "list") => { setSelectedId(id); if (id && from === "list") setPanel((p) => (p === "sections" ? "settings" : p)); };
   const move = (from: number, to: number) => { if (to < 0 || to >= draft.length || from === to) return; const next = [...draft]; const [item] = next.splice(from, 1); next.splice(to, 0, item); commit(next); };
   const update = (section: HomeSection) => { const before = draft.find((s) => s.id === section.id); commit(draft.map((s) => (s.id === section.id ? section : s)), before ? `${section.id}:${changedKeys(before, section)}` : undefined); };
-  const toggle = (id: string) => commit(draft.map((s) => (s.id === id ? ({ ...s, enabled: !s.enabled } as HomeSection) : s)));
-  const duplicate = (id: string) => { const at = draft.findIndex((s) => s.id === id); if (at < 0) return; const copy = { ...draft[at], id: newSectionId() } as HomeSection; commit([...draft.slice(0, at + 1), copy, ...draft.slice(at + 1)]); setSelectedId(copy.id); };
-  const add = (section: HomeSection) => { const at = index >= 0 ? index + 1 : draft.length; commit([...draft.slice(0, at), section, ...draft.slice(at)]); setAdding(false); setSelectedId(section.id); setPanel("settings"); };
-  const exit = async () => { await layout.flush(); onExit(); };
+  const toggle = (id: string) => {
+    const section = draft.find((s) => s.id === id);
+    if (!section) return;
+    commit(draft.map((s) => (s.id === id ? ({ ...s, enabled: !s.enabled } as HomeSection) : s)));
+    notify(section.enabled ? `“${sectionName(section)}” hidden in the draft` : `“${sectionName(section)}” shown again`);
+  };
+  const duplicate = (id: string) => { const at = draft.findIndex((s) => s.id === id); if (at < 0) return; const copy = { ...draft[at], id: newSectionId() } as HomeSection; commit([...draft.slice(0, at + 1), copy, ...draft.slice(at + 1)]); setSelectedId(copy.id); notify(`Duplicated “${sectionName(copy)}”`); };
+  const add = (section: HomeSection) => { const at = index >= 0 ? index + 1 : draft.length; commit([...draft.slice(0, at), section, ...draft.slice(at)]); setAdding(false); setSelectedId(section.id); setPanel("settings"); notify(`Added “${sectionName(section)}”`); };
+  const undoFromToast = () => { layout.undo(); setToast(null); };
+  // nothing unpublished and nothing unsaved: leave straight away; otherwise ask
+  const exit = async () => {
+    if (layout.hasChanges || layout.save === "error") { setPending({ kind: "exit" }); return; }
+    await layout.flush();
+    onExit();
+  };
 
-  function confirm() {
-    const action = pending; setPending(null);
-    if (!action) return;
-    if (action.kind === "delete") { commit(draft.filter((s) => s.id !== action.id)); if (selectedId === action.id) setSelectedId(null); }
-    if (action.kind === "reset") commit(DEFAULT_LAYOUT);
-    if (action.kind === "discard") void layout.discard();
-    if (action.kind === "publish") void layout.publish();
-    if (action.kind === "restore") void layout.restore(action.index);
+  function dialogFor(action: NonNullable<Pending>): Omit<ConfirmDialogProps, "open" | "onCancel"> {
+    const changes = server ? compareLayouts(server.sections, draft) : null;
+    switch (action.kind) {
+      case "publish": return {
+        title: "Publish to the homepage?", tone: "primary", icon: "send", confirmLabel: "Publish now", pendingLabel: "Publishing…",
+        body: "Every reader sees this layout as soon as it is published. The current one is kept in the version history.",
+        details: changes && <ChangeList changes={changes} />,
+        onConfirm: async () => { await layout.publish(); setPending(null); notify("Published: the homepage now shows this layout", false, "/"); },
+      };
+      case "discard": return {
+        title: "Discard the draft?", tone: "danger", icon: "trash", confirmLabel: "Discard draft", pendingLabel: "Discarding…",
+        body: "The builder goes back to the layout readers see now. Undo can bring the draft back while you stay in the builder.",
+        details: changes && <ChangeList changes={changes} verb="would have" />,
+        onConfirm: async () => { await layout.discard(); setPending(null); notify("Draft discarded"); },
+      };
+      case "restore": {
+        const version = server?.history[action.index];
+        return {
+          title: "Restore this version?", tone: "warning", icon: "history", confirmLabel: "Restore and publish", pendingLabel: "Restoring…",
+          body: "It goes live straight away, replacing the layout readers see now. That one stays in the history.",
+          details: version && <p><span className="font-semibold text-slate-800">{Date.parse(version.savedAt) > 0 ? when.format(new Date(version.savedAt)) : "Original layout"}</span>{version.savedBy ? ` · published by ${version.savedBy.name}` : ""} · {version.sections} sections</p>,
+          onConfirm: async () => { await layout.restore(action.index); setPending(null); notify("Earlier version restored and live", true, "/"); },
+        };
+      }
+      case "delete": {
+        const section = draft.find((s) => s.id === action.id);
+        const name = section ? sectionName(section) : "this section";
+        return {
+          title: `Remove “${name}”?`, tone: "danger", icon: "trash", confirmLabel: "Remove section",
+          body: "It leaves the draft now, and the homepage when you publish.",
+          details: section && <p>{describe(section)} · {section.placement === "full" ? "full width" : section.placement === "main" ? "main column" : "sidebar"}</p>,
+          onConfirm: () => { commit(draft.filter((s) => s.id !== action.id)); if (selectedId === action.id) setSelectedId(null); setPending(null); notify(`Removed “${name}”`); },
+        };
+      }
+      case "reset": return {
+        title: "Start again from the original layout?", tone: "warning", icon: "reset", confirmLabel: "Use original layout",
+        body: "Your sections in the draft are replaced by the built-in homepage. Readers see nothing until you publish.",
+        onConfirm: () => { commit(DEFAULT_LAYOUT); setSelectedId(null); setPending(null); notify("Original layout loaded into the draft"); },
+      };
+      case "exit": {
+        const unsaved = layout.save === "error";
+        return unsaved ? {
+          title: "Leave without saving?", tone: "danger", icon: "info", confirmLabel: "Leave anyway", cancelLabel: "Stay and retry",
+          body: "Your last changes could not be saved, so they will be lost if you leave now.",
+          onConfirm: () => { setPending(null); onExit(); },
+        } : {
+          title: "Leave the builder?", tone: "warning", icon: "info", confirmLabel: "Leave builder", cancelLabel: "Keep editing", pendingLabel: "Saving draft…",
+          body: "Your changes are kept as a draft. Readers keep seeing the live homepage until you come back and publish.",
+          details: changes && <ChangeList changes={changes} verb="is waiting to be" />,
+          onConfirm: async () => { await layout.flush(); setPending(null); onExit(); },
+        };
+      }
+    }
   }
 
   if (!server) return <div className="fixed inset-0 z-[110] flex flex-col bg-slate-50">
@@ -140,6 +207,13 @@ export default function HomeLayoutPage({ categories, onExit }: { categories: Cat
     </nav>
 
     {adding && <AddSectionDialog after={selected ? sectionName(selected) : null} onAdd={add} onClose={() => setAdding(false)} />}
-    <ConfirmDialog open={pending !== null} title={pending ? CONFIRM[pending.kind].title : ""} body={pending ? CONFIRM[pending.kind].body : ""} confirmLabel={pending ? CONFIRM[pending.kind].label : "OK"} destructive={pending ? CONFIRM[pending.kind].destructive : false} onConfirm={confirm} onCancel={() => setPending(null)} />
+    {pending && <ConfirmDialog key={pending.kind} open {...dialogFor(pending)} onCancel={() => setPending(null)} />}
+    {toast && <div role="status" className="fixed bottom-20 left-1/2 z-[150] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-xl bg-slate-900 py-2 pl-4 pr-2 text-sm text-white shadow-2xl transition duration-200 starting:translate-y-3 starting:opacity-0 lg:bottom-6">
+      <Icon name="info" className="h-4 w-4 shrink-0 text-violet-300" />
+      <span className="min-w-0 truncate">{toast.text}</span>
+      {toast.href && <a href={toast.href} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-lg px-2.5 py-1.5 font-semibold text-violet-200 hover:bg-white/10">View</a>}
+      {toast.undo && layout.canUndo && <button type="button" onClick={undoFromToast} className="shrink-0 rounded-lg px-2.5 py-1.5 font-semibold text-violet-200 hover:bg-white/10">Undo</button>}
+      <button type="button" aria-label="Dismiss" onClick={() => setToast(null)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-white/10 hover:text-white"><Icon name="close" className="h-4 w-4" /></button>
+    </div>}
   </div>;
 }

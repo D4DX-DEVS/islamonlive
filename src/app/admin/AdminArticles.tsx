@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import ConfirmDialog from "@/components/ConfirmDialog";
+import ConfirmDialog from "./ConfirmDialog";
 import Avatar from "./avatar";
 import { Icon, type IconName } from "./icons";
 import { cardClass, formatDay, inputClass, Skeleton, stripHtml, type Author, type Category } from "./ui";
@@ -148,19 +148,20 @@ export default function Articles({ initialSearch, initialStatus, initialAuthor =
     finally { setBusyId(null); }
   }
 
+  /** Runs inside the confirmation modal: it stays open with a spinner, and shows the error there if the trash fails. */
   async function moveToTrash() {
     const post = trashTarget;
     if (!post) return;
-    setTrashTarget(null); setBusyId(post.id); setError(""); setNotice("");
+    setBusyId(post.id); setError(""); setNotice("");
     try {
       const response = await fetch(`/api/admin/posts/?id=${post.id}`, { method: "DELETE" });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error || "Could not move the article to the trash");
+      setTrashTarget(null);
       run({ ...query, page: items.length === 1 && query.page > 1 ? query.page - 1 : query.page });
       setNotice(`“${rowTitle(post)}” was moved to the trash.`);
       loadStats();
-    } catch (failure) { setError(failure instanceof Error ? failure.message : "Could not move the article to the trash"); }
-    finally { setBusyId(null); }
+    } finally { setBusyId(null); }
   }
 
   const authorOf = (id?: number) => authors.find((item) => item.id === id);
@@ -283,6 +284,9 @@ export default function Articles({ initialSearch, initialStatus, initialAuthor =
       </div>
     </div>
 
-    <ConfirmDialog open={Boolean(trashTarget)} title="Move to trash?" body={trashTarget ? `“${rowTitle(trashTarget)}” will be taken off the site.` : ""} confirmLabel="Move to trash" destructive onConfirm={() => void moveToTrash()} onCancel={() => setTrashTarget(null)} />
+    <ConfirmDialog open={Boolean(trashTarget)} tone="danger" icon="trash" title="Move this article to the trash?" confirmLabel="Move to trash" pendingLabel="Moving…"
+      body={trashTarget?.status === "publish" ? "It comes off the site straight away and its page stops working for readers. It stays under the Trash filter in this list." : "It leaves the article list and stays under the Trash filter."}
+      details={trashTarget && <p className="break-words font-semibold text-slate-800">{rowTitle(trashTarget)}</p>}
+      onConfirm={moveToTrash} onCancel={() => setTrashTarget(null)} />
   </div>;
 }
