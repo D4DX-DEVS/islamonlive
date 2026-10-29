@@ -114,8 +114,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               "window.__iolInstalled=true;dispatchEvent(new Event('iol:installready'));});})();",
           }}
         />
-        <link rel="preconnect" href="https://i0.wp.com" />
-        <link rel="dns-prefetch" href="https://i0.wp.com" />
         {/* feed autodiscovery — WordPress printed this in <head>; React hoists it there from here */}
         <link rel="alternate" type="application/rss+xml" title="Islamonlive.in" href={`${SITE_URL}/feed/`} />
         <Header previews={previews} />
