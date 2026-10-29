@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { resolvePostByPath, getPosts, featuredImage, author, authorName, primaryCategory, postCategories, formatDate, modifiedIso, stripHtml, postPath, WPPost } from "@/lib/wordpress";
 import { renderContent } from "@/lib/content";
-import { seoMetadata, seoSchema } from "@/lib/seo";
+import { atPermalink, seoMetadata, seoSchema } from "@/lib/seo";
 import { articleSchema, breadcrumbSchema, graph, siteNodes } from "@/lib/schema";
 import { siteUrl } from "@/lib/env";
 import JsonLd from "@/components/JsonLd";
@@ -63,8 +63,9 @@ export async function generateMetadata({ params }: { params: Params }) {
      descriptions Google has been ranking for years. The fallbacks only cover a
      post the plugin skipped. The canonical always points at the post's real
      permalink on the public domain, never at whatever URL was requested and
-     never at the backend. */
-  return seoMetadata(post.yoast_head_json, {
+     never at the backend — nor at the stale category path an old Yoast
+     indexable still names (atPermalink). */
+  return seoMetadata(atPermalink(post.yoast_head_json, canonical), {
     path: canonical,
     title: stripHtml(post.title.rendered),
     description: stripHtml(post.excerpt.rendered),
@@ -125,7 +126,7 @@ export default async function PostPage({ params }: { params: Params }) {
   const crumbs = postCategories(post);
   const modified = modifiedIso(post);
   const jsonLd =
-    seoSchema(post.yoast_head_json, { modified }) ??
+    seoSchema(atPermalink(post.yoast_head_json, canonical), { modified }) ??
     graph(
       articleSchema({
         url: siteUrl(canonical),

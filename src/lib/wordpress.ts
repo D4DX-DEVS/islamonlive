@@ -209,12 +209,16 @@ export async function resolvePostByPath(requestPath: string, slug: string): Prom
 /* Compare paths by their decoded form. The permalink keeps WP's original
    lowercase percent-encoding (%e0%b4...) while the request may arrive
    re-encoded in uppercase by a browser, a mail client or a scraper — the same
-   URL, byte-different. Comparing raw strings would 301 those into a loop. */
-function decodePath(path: string): string {
+   URL, byte-different. Comparing raw strings would 301 those into a loop.
+   Letter case is NOT folded: WP slugs are lowercase, the slug lookup is not
+   case-sensitive, so /CULTURE/TRAVEL/x/ found the post and served a 200
+   duplicate — it now gets the 308 to the real permalink like any wrong path. */
+export function decodePath(path: string): string {
   try {
-    return decodeURIComponent(path).replace(/\/+$/, "").toLowerCase();
+    return decodeURIComponent(path).replace(/\/+$/, "");
   } catch {
-    return path.replace(/\/+$/, "").toLowerCase();
+    // malformed escape: fold only the hex digits of the escapes that are there
+    return path.replace(/%[0-9a-f]{2}/gi, (m) => m.toLowerCase()).replace(/\/+$/, "");
   }
 }
 

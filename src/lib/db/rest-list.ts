@@ -22,7 +22,9 @@ export interface RestRow {
   link?: string;
   slug?: string;
   modified?: string;
+  modified_gmt?: string;
   date?: string;
+  date_gmt?: string;
   title?: { rendered: string };
   count?: number;
   yoast_head_json?: { robots?: { index?: string } };
@@ -70,10 +72,19 @@ async function listImpl(path: Path, query: string): Promise<RestList> {
     // pages share every field read here with posts
     const col = (await collection(path)) as unknown as Collection<PostDoc>;
     const [docs, total] = await Promise.all([
-      col.find(filter, { projection: { link: 1, slug: 1, modified: 1, date: 1, title: 1, seo: 1 } }).sort(sort).skip(skip).limit(perPage).toArray(),
+      col.find(filter, { projection: { link: 1, slug: 1, modified: 1, modified_gmt: 1, date: 1, date_gmt: 1, title: 1, seo: 1 } }).sort(sort).skip(skip).limit(perPage).toArray(),
       col.countDocuments(filter),
     ]);
-    const items = docs.map((d) => ({ link: d.link, slug: d.slug, modified: d.modified, date: d.date, title: { rendered: d.title }, yoast_head_json: robots(d.seo) }));
+    const items = docs.map((d) => ({
+      link: d.link,
+      slug: d.slug,
+      modified: d.modified,
+      modified_gmt: d.modified_gmt,
+      date: d.date,
+      date_gmt: d.date_gmt,
+      title: { rendered: d.title },
+      yoast_head_json: robots(d.seo),
+    }));
     return { items, total };
   }
 
