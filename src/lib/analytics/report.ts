@@ -2,7 +2,7 @@ import { getArticleMeta, getCategoryNames, getThumbnails, type ArticleMeta } fro
 import { EMPTY, collectingSince, liveNow, totalsBy, uniqueVisitors, visitorsPerArticle, type Row, type VisitorCounts } from "@/lib/analytics/aggregate";
 import { eachDay, previousRange, type Filters } from "@/lib/analytics/filters";
 import { LIVE_WINDOW_MS, istDay, type Device, type PageKind, type Source } from "@/lib/analytics/shared";
-import type { ArticleDetail, ArticleRow, ArticleSort, ArticlesPage, BreakdownRow, CategoryRow, Insights, LiveReport, Metric, SeriesPoint, Summary, Totals } from "@/lib/analytics/report-types";
+import { ARTICLE_LISTS, LIST_PAGE_SIZE, type ArticleDetail, type ArticleList, type ArticleRow, type ArticleSort, type ArticlesPage, type BreakdownRow, type CategoryRow, type Insights, type ListName, type ListPage, type ListRow, type LiveReport, type Metric, type SeriesPoint, type Summary, type Totals } from "@/lib/analytics/report-types";
 import type { AnalyticsMeasures } from "@/lib/db/types";
 
 /* Turns the sums from aggregate.ts into the reports the admin dashboard shows.
@@ -11,9 +11,8 @@ import type { AnalyticsMeasures } from "@/lib/db/types";
 
 /** An article needs this many views in the period before it is ranked by engagement or picked for an insight. */
 export const MIN_VIEWS = 10;
-const INSIGHT_SIZE = 5;
-/** the lead list: where the reading time went */
-const LEAD_SIZE = 10;
+/** Skimmed and hidden gems compare articles with each other, so they need at least this many eligible ones. */
+const MIN_POOL = 5;
 
 const cache = new Map<string, { at: number; ttl: number; value: Promise<unknown> }>();
 
@@ -135,7 +134,7 @@ function quantile(values: number[], q: number): number {
 
 type Bare = ReturnType<typeof articleRows>[number];
 
-/** Which articles stand out. Each list only draws on articles with at least MIN_VIEWS views. */
+/** Which articles stand out, each list ranked in full. Each only draws on articles with at least MIN_VIEWS views. */
 function pickInsights(rows: Bare[]): { eligible: number; trending: Bare[]; declining: Bare[]; skimmed: Bare[]; gems: Bare[] } {
   const eligible = rows.filter((row) => row.views >= MIN_VIEWS && row.avgSeconds !== null);
   const times = eligible.map((row) => row.avgSeconds ?? 0);
@@ -143,12 +142,12 @@ function pickInsights(rows: Bare[]): { eligible: number; trending: Bare[]; decli
   const typicalTime = median(times);
   return {
     eligible: eligible.length,
-    trending: rows.filter((row) => row.views >= MIN_VIEWS && row.views - row.previousViews >= MIN_VIEWS / 2).sort((a, b) => (b.views - b.previousViews) - (a.views - a.previousViews)).slice(0, INSIGHT_SIZE),
-    declining: rows.filter((row) => row.previousViews >= MIN_VIEWS && row.previousViews - row.views >= MIN_VIEWS / 2).sort((a, b) => (b.previousViews - b.views) - (a.previousViews - a.views)).slice(0, INSIGHT_SIZE),
+    trending: rows.filter((row) => row.views >= MIN_VIEWS && row.views - row.previousViews >= MIN_VIEWS / 2).sort((a, b) => (b.views - b.previousViews) - (a.views - a.previousViews)),
+    declining: rows.filter((row) => row.previousViews >= MIN_VIEWS && row.previousViews - row.views >= MIN_VIEWS / 2).sort((a, b) => (b.previousViews - b.views) - (a.previousViews - a.views)),
     // read a lot, read little: well above typical views, under half the typical reading time
-    skimmed: eligible.length >= INSIGHT_SIZE ? eligible.filter((row) => row.views >= quantile(views, 0.75) && (row.avgSeconds ?? 0) < typicalTime / 2).sort((a, b) => b.views - a.views).slice(0, INSIGHT_SIZE) : [],
+    skimmed: eligible.length >= MIN_POOL ? eligible.filter((row) => row.views >= quantile(views, 0.75) && (row.avgSeconds ?? 0) < typicalTime / 2).sort((a, b) => b.views - a.views) : [],
     // read little, read well: at most typical views, in the top quarter for reading time
-    gems: eligible.length >= INSIGHT_SIZE ? eligible.filter((row) => row.views <= median(views) && (row.avgSeconds ?? 0) >= quantile(times, 0.75)).sort((a, b) => (b.avgSeconds ?? 0) - (a.avgSeconds ?? 0)).slice(0, INSIGHT_SIZE) : [],
+    gems: eligible.length >= MIN_POOL ? eligible.filter((row) => row.views <= median(views) && (row.avgSeconds ?? 0) >= quantile(times, 0.75)).sort((a, b) => (b.avgSeconds ?? 0) - (a.avgSeconds ?? 0)) : [],
   };
 }
 
@@ -158,8 +157,9 @@ async function comparable(f: Filters, since: string | null): Promise<Filters | n
   return since && prev.from >= since ? { ...f, ...prev } : null;
 }
 
-export function summary(f: Filters): Promise<Summary> {
-  return memo(`summary:${JSON.stringify(f)}`, ttlFor(f), async () => {
+/** Everything the summary draws on, with every list ranked in full: one set of queries serves the summary and every page of its lists. */
+function ranked(f: Filters) {
+  return memo(`ranked:${JSON.stringify(f)}`, ttlFor(f), async () => {
     const since = await collectingSince();
     const pf = await comparable(f, since);
     const [all, byDay, byCategory, bySource, byReferrer, byDevice, byVisitor, byKind, pages, visitors, prevAll, prevVisitor, prevPages, prevVisitors] = await Promise.all([
@@ -172,35 +172,83 @@ export function summary(f: Filters): Promise<Summary> {
     const categories: CategoryRow[] = byCategory
       .filter((row) => Number(row.id) > 0)
       .map((row) => ({ id: Number(row.id), name: categoryNames.get(Number(row.id)) ?? `Category #${row.id}`, views: row.articleViews, activeSeconds: row.articleActiveSeconds, avgSeconds: avg(row.articleActiveSeconds, row.articleViews), completionRate: pct(row.r90, row.articleViews), share: pct(row.articleViews, totals.articleViews) ?? 0, timeShare: pct(row.articleActiveSeconds, totals.articleActiveSeconds) ?? 0 }))
-      .sort((a, b) => b.views - a.views)
-      .slice(0, 50);
+      .sort((a, b) => b.activeSeconds - a.activeSeconds || b.views - a.views);
 
     const articles = articleRows(pages, prevPages);
     const insights = pickInsights(articles);
-    const topByTime = articles.filter((row) => row.activeSeconds > 0).sort((a, b) => b.activeSeconds - a.activeSeconds || b.views - a.views).slice(0, LEAD_SIZE);
-    const topViewed = [...articles].sort((a, b) => b.views - a.views).slice(0, INSIGHT_SIZE);
-    const topEngaging = articles.filter((row) => row.views >= MIN_VIEWS).sort((a, b) => (b.avgSeconds ?? 0) - (a.avgSeconds ?? 0)).slice(0, INSIGHT_SIZE);
-    const described = new Map((await describe([...topByTime, ...topViewed, ...topEngaging,...insights.trending, ...insights.declining, ...insights.skimmed, ...insights.gems].filter((row, i, list) => list.findIndex((r) => r.id === row.id) === i))).map((row) => [row.id, row]));
-    const full = (rows: Bare[]) => rows.map((row) => described.get(row.id)!).filter(Boolean);
-
+    const lists: Record<ArticleList, Bare[]> = {
+      byTime: articles.filter((row) => row.activeSeconds > 0).sort((a, b) => b.activeSeconds - a.activeSeconds || b.views - a.views),
+      viewed: [...articles].sort((a, b) => b.views - a.views),
+      engaging: articles.filter((row) => row.views >= MIN_VIEWS).sort((a, b) => (b.avgSeconds ?? 0) - (a.avgSeconds ?? 0)),
+      trending: insights.trending,
+      declining: insights.declining,
+      skimmed: insights.skimmed,
+      gems: insights.gems,
+    };
     return {
-      filters: f,
-      previousRange: previousRange(f),
-      collectingSince: since,
-      generatedAt: new Date().toISOString(),
+      since,
       totals,
       previous: pf && prevAll ? totalsOf(sum(prevAll), prevVisitors, prevVisitor ?? []) : null,
       series: series(f, byDay),
       categories,
       sources: breakdown<Source>(bySource, totals.views),
-      referrers: breakdown(byReferrer, totals.views).slice(0, 10),
+      referrers: breakdown(byReferrer, totals.views),
       devices: breakdown<Device>(byDevice, totals.views),
       kinds: breakdown<PageKind>(byKind, totals.views),
-      topByTime: full(topByTime),
-      topViewed: full(topViewed),
-      topEngaging: full(topEngaging),
-      insights: { minViews: MIN_VIEWS, eligible: insights.eligible, trending: full(insights.trending), declining: full(insights.declining), skimmed: full(insights.skimmed), gems: full(insights.gems) } satisfies Insights,
+      lists,
+      eligible: insights.eligible,
     };
+  });
+}
+
+/** One page of a ranked list; a page past the end gives the last one. */
+function pageOf<T>(rows: T[], page: number): ListPage<T> {
+  const totalPages = Math.max(1, Math.ceil(rows.length / LIST_PAGE_SIZE));
+  const current = Math.min(Math.max(1, page), totalPages);
+  return { data: rows.slice((current - 1) * LIST_PAGE_SIZE, current * LIST_PAGE_SIZE), page: current, pageSize: LIST_PAGE_SIZE, total: rows.length, totalPages };
+}
+
+/** Titles, paths, categories and images for the articles on some pages, looked up together. */
+async function describePages(pages: ListPage<Bare>[]): Promise<ListPage<ArticleRow>[]> {
+  const rows = [...new Map(pages.flatMap((p) => p.data).map((row) => [row.id, row])).values()];
+  const described = new Map((await describe(rows)).map((row) => [row.id, row]));
+  return pages.map((p) => ({ ...p, data: p.data.map((row) => described.get(row.id)!) }));
+}
+
+/** The Analytics page: totals, trends and breakdowns, with the first page of each ranked list. */
+export function summary(f: Filters): Promise<Summary> {
+  return memo(`summary:${JSON.stringify(f)}`, ttlFor(f), async () => {
+    const r = await ranked(f);
+    const [byTime, viewed, engaging, trending, declining, skimmed, gems] = await describePages(ARTICLE_LISTS.map((list) => pageOf(r.lists[list], 1)));
+    return {
+      filters: f,
+      previousRange: previousRange(f),
+      collectingSince: r.since,
+      generatedAt: new Date().toISOString(),
+      totals: r.totals,
+      previous: r.previous,
+      series: r.series,
+      categories: pageOf(r.categories, 1),
+      sources: r.sources,
+      referrers: pageOf(r.referrers, 1),
+      devices: r.devices,
+      kinds: r.kinds,
+      topByTime: byTime,
+      topViewed: viewed,
+      topEngaging: engaging,
+      insights: { minViews: MIN_VIEWS, eligible: r.eligible, trending, declining, skimmed, gems } satisfies Insights,
+    };
+  });
+}
+
+/** Any page of one of the summary's ranked lists, from the same figures as the summary. */
+export function listPage<L extends ListName>(f: Filters, list: L, page: number): Promise<ListPage<ListRow[L]>> {
+  return memo(`list:${list}:${page}:${JSON.stringify(f)}`, ttlFor(f), async () => {
+    const r = await ranked(f);
+    if (list === "categories") return pageOf(r.categories, page) as ListPage<ListRow[L]>;
+    if (list === "referrers") return pageOf(r.referrers, page) as ListPage<ListRow[L]>;
+    const [described] = await describePages([pageOf(r.lists[list as ArticleList], page)]);
+    return described as ListPage<ListRow[L]>;
   });
 }
 

@@ -52,7 +52,7 @@ export async function GET(request: Request) {
     const search = url.searchParams.get("search")?.trim();
     const status = url.searchParams.get("status") || "any";
     if (!STATUSES.includes(status)) return NextResponse.json({ error: "Invalid article status" }, { status: 400 });
-    const query = new URLSearchParams({ context: "edit", page: String(page), per_page: String(PER_PAGE), orderby: "date", order: "desc", _fields: "id,date,date_gmt,modified,status,title,author,categories,link" });
+    const query = new URLSearchParams({ context: "edit", page: String(page), per_page: String(PER_PAGE), orderby: "date", order: "desc", _fields: "id,date,date_gmt,modified,status,title,author,categories,link,created_by,updated_by" });
     if (search) query.set("search", search);
     if (status !== "any") query.set("status", status);
     const author = Number(url.searchParams.get("author") || 0);

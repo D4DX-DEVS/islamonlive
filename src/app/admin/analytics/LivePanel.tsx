@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchLive } from "./api";
 import { DEVICE_LABELS, KIND_LABELS, SOURCE_LABELS } from "./format";
-import { EmptyNote, ErrorNote, ListSkeleton, Panel, VIOLET } from "./parts";
-import type { LiveReport } from "@/lib/analytics/report-types";
+import { EmptyNote, ErrorNote, ListSkeleton, Pager, Panel, VIOLET } from "./parts";
+import { LIST_PAGE_SIZE, type LiveReport } from "@/lib/analytics/report-types";
 
 const REFRESH_MS = 15_000;
 
@@ -12,6 +12,7 @@ const REFRESH_MS = 15_000;
 export default function LivePanel({ onOpenArticle }: { onOpenArticle: (id: number) => void }) {
   const [live, setLive] = useState<LiveReport | null>(null);
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -32,6 +33,9 @@ export default function LivePanel({ onOpenArticle }: { onOpenArticle: (id: numbe
   }, [load]);
 
   const max = Math.max(...(live?.perMinute ?? [0]), 0);
+  // the snapshot holds at most 15 pages and is replaced every 15 s, so it pages here; a refresh can shorten it, so the page is clamped
+  const totalPages = Math.max(1, Math.ceil((live?.pages.length ?? 0) / LIST_PAGE_SIZE));
+  const current = Math.min(page, totalPages);
   return <Panel title="Live now" subtitle={`Readers seen in the last ${live ? live.windowSeconds / 60 : 2} minutes. Updates every 15 seconds.`}
     action={live && <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700"><span aria-hidden className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />Live</span>}>
     {error && <ErrorNote message={error} onRetry={() => void load()} />}
@@ -61,7 +65,7 @@ export default function LivePanel({ onOpenArticle }: { onOpenArticle: (id: numbe
       <div className="min-w-0">
         <p className="text-sm font-semibold text-slate-800">Being read now</p>
         {live.pages.length ? <ul className="mt-2 divide-y divide-slate-100">
-          {live.pages.map((page) => {
+          {live.pages.slice((current - 1) * LIST_PAGE_SIZE, current * LIST_PAGE_SIZE).map((page) => {
             const body = <><span className="min-w-0 flex-1"><span className="line-clamp-1 text-sm font-medium text-slate-900">{page.title}</span><span className="block truncate text-xs text-slate-500">{page.kind === "article" ? page.category ?? "Article" : KIND_LABELS[page.kind] ?? page.kind}</span></span>
               <span className="shrink-0 text-sm font-semibold tabular-nums text-slate-900">{page.readers}<span className="sr-only"> readers</span></span></>;
             return <li key={`${page.kind}:${page.key}`}>{page.kind === "article"
@@ -69,6 +73,7 @@ export default function LivePanel({ onOpenArticle }: { onOpenArticle: (id: numbe
               : <div className="flex min-h-11 items-center gap-3 px-1 py-1.5">{body}</div>}</li>;
           })}
         </ul> : <EmptyNote>Nobody is reading right now.</EmptyNote>}
+        <Pager label="Being read now" page={current} totalPages={totalPages} total={live.pages.length} noun={["page", "pages"]} onPage={setPage} />
       </div>
     </div>}
   </Panel>;

@@ -1,6 +1,7 @@
 import { collection } from "@/lib/db/client";
 import type { MediaDoc } from "@/lib/db/types";
-import { json, notFound, pickFields, readJson, wpError, type AdminRequest } from "@/lib/admin-rest/http";
+import { json, notFound, pickFields, readJson, staffRef, wpError, type AdminRequest } from "@/lib/admin-rest/http";
+import { recordActivity } from "@/lib/activity";
 import { getImageDimensions } from "@/lib/admin-rest/image-dimensions";
 import { nextId } from "@/lib/admin-rest/ids";
 import { postClocks, siteTimezone, wallClock } from "@/lib/admin-rest/site-time";
@@ -140,6 +141,7 @@ async function upload(req: AdminRequest): Promise<Response> {
     author_id: req.user.id,
   };
   await media.insertOne(doc);
+  await recordActivity(staffRef(req.user), "media.upload", { type: "media", id: doc._id, title: doc.title || doc.slug, link: doc.source_url });
   return json(attachment(doc), 201);
 }
 
@@ -174,6 +176,7 @@ async function remove(req: AdminRequest, id: number): Promise<Response> {
     await Promise.all([doc.spaces_key, ...sized].map((k) => deleteFromSpaces(k)));
   }
   await media.deleteOne({ _id: id });
+  await recordActivity(staffRef(req.user), "media.delete", { type: "media", id, title: doc.title || doc.slug, link: null });
   return json({ deleted: true, previous: attachment(doc) });
 }
 

@@ -61,14 +61,25 @@ export type ArticleRow = {
   change: Metric;
 };
 
+/** One page of a ranked list. Every list on the Analytics page pages on the server, so a card never grows with the data. */
+export type ListPage<T> = { data: T[]; page: number; pageSize: number; total: number; totalPages: number };
+
+export const ARTICLE_LISTS = ["byTime", "viewed", "engaging", "trending", "declining", "skimmed", "gems"] as const;
+export type ArticleList = (typeof ARTICLE_LISTS)[number];
+export const LISTS = [...ARTICLE_LISTS, "categories", "referrers"] as const;
+export type ListName = (typeof LISTS)[number];
+export type ListRow = Record<ArticleList, ArticleRow> & { categories: CategoryRow; referrers: BreakdownRow };
+/** rows on each page of every ranked list */
+export const LIST_PAGE_SIZE = 5;
+
 export type Insights = {
   minViews: number;
   /** articles with at least minViews, the pool insights are drawn from */
   eligible: number;
-  trending: ArticleRow[];
-  declining: ArticleRow[];
-  skimmed: ArticleRow[];
-  gems: ArticleRow[];
+  trending: ListPage<ArticleRow>;
+  declining: ListPage<ArticleRow>;
+  skimmed: ListPage<ArticleRow>;
+  gems: ListPage<ArticleRow>;
 };
 
 export type Summary = {
@@ -81,15 +92,16 @@ export type Summary = {
   /** null when the previous period is before collection began */
   previous: Totals | null;
   series: SeriesPoint[];
-  categories: CategoryRow[];
+  /** first page, most article reading time first */
+  categories: ListPage<CategoryRow>;
   sources: BreakdownRow<Source>[];
-  referrers: BreakdownRow[];
+  referrers: ListPage<BreakdownRow>;
   devices: BreakdownRow<Device>[];
   kinds: BreakdownRow<PageKind>[];
-  /** the articles readers spent the most active time on, in total */
-  topByTime: ArticleRow[];
-  topViewed: ArticleRow[];
-  topEngaging: ArticleRow[];
+  /** first page of the articles readers spent the most active time on, in total */
+  topByTime: ListPage<ArticleRow>;
+  topViewed: ListPage<ArticleRow>;
+  topEngaging: ListPage<ArticleRow>;
   insights: Insights;
 };
 

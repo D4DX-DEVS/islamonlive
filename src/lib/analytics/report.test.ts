@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { collection } from "@/lib/db/client";
-import { articleDetail, articlesTable, liveReport, summary, MIN_VIEWS } from "./report";
+import { articleDetail, articlesTable, listPage, liveReport, summary, MIN_VIEWS } from "./report";
 import { rollupsSettled } from "./aggregate";
 import { addDays, istDay, istDayStart } from "./shared";
 import type { Filters } from "./filters";
@@ -54,19 +54,26 @@ describe("analytics reports", () => {
       ...reads(6, today, 3, 999, 100), // too few views to judge
     ]);
     const report = await summary({ ...week, from: addDays(today, -1) });
-    expect(report.topViewed.map((a) => a.id)).toEqual([1, 2, 3, 4, 5]);
-    expect(report.topEngaging[0].id).toBe(5);
-    expect(report.topEngaging.map((a) => a.id)).not.toContain(6);
-    expect(report.insights.skimmed.map((a) => a.id)).toEqual([1]);
-    expect(report.insights.gems.map((a) => a.id)).toEqual([5]);
+    expect(report.topViewed.data.map((a) => a.id)).toEqual([1, 2, 3, 4, 5]);
+    expect(report.topEngaging.data[0].id).toBe(5);
+    expect(report.topEngaging.data.map((a) => a.id)).not.toContain(6);
+    expect(report.insights.skimmed.data.map((a) => a.id)).toEqual([1]);
+    expect(report.insights.gems.data.map((a) => a.id)).toEqual([5]);
     expect(report.insights.minViews).toBe(MIN_VIEWS);
-    expect(report.topViewed[0]).toMatchObject({ title: "Article 1", category: "Category 10", avgSeconds: 10, completionRate: 0 });
-    expect(report.categories[0]).toMatchObject({ id: 10, name: "Category 10", views: 150 });
+    expect(report.topViewed.data[0]).toMatchObject({ title: "Article 1", category: "Category 10", avgSeconds: 10, completionRate: 0 });
+    expect(report.categories.data[0]).toMatchObject({ id: 10, name: "Category 10", views: 150 });
     // where the reading time went: 12 × 300 s, 3 × 999 s, 30 × 90 s, 25 × 80 s, 20 × 70 s, 60 × 10 s
     // (a total, so it needs no minimum number of views)
-    expect(report.topByTime.map((a) => a.id)).toEqual([5, 6, 2, 3, 4, 1]);
-    expect(report.topByTime[0]).toMatchObject({ title: "Article 5", category: "Category 10", activeSeconds: 3600 });
-    expect(report.categories[0]).toMatchObject({ activeSeconds: 13_297, timeShare: 100 });
+    expect(report.topByTime.data.map((a) => a.id)).toEqual([5, 6, 2, 3, 4]);
+    expect(report.topByTime).toMatchObject({ page: 1, pageSize: 5, total: 6, totalPages: 2 });
+    // the rest pages on the server, from the same figures, numbered on from the first page
+    const second = await listPage({ ...week, from: addDays(today, -1) }, "byTime", 2);
+    expect(second).toMatchObject({ page: 2, total: 6, totalPages: 2 });
+    expect(second.data.map((a) => [a.id, a.title])).toEqual([[1, "Article 1"]]);
+    expect((await listPage({ ...week, from: addDays(today, -1) }, "byTime", 9)).page).toBe(2);
+    expect((await listPage({ ...week, from: addDays(today, -1) }, "categories", 1)).data[0]).toMatchObject({ id: 10, name: "Category 10" });
+    expect(report.topByTime.data[0]).toMatchObject({ title: "Article 5", category: "Category 10", activeSeconds: 3600 });
+    expect(report.categories.data[0]).toMatchObject({ activeSeconds: 13_297, timeShare: 100 });
   });
 
   it("compares with the previous period and shows what is gaining and losing readers", async () => {
@@ -77,9 +84,9 @@ describe("analytics reports", () => {
     const report = await summary({ preset: "today", from: today, to: today });
     expect(report.previous?.views).toBe(42);
     expect(report.totals.views).toBe(35);
-    expect(report.insights.trending.map((a) => a.id)).toEqual([2]);
-    expect(report.insights.declining.map((a) => a.id)).toEqual([1]);
-    expect(report.insights.trending[0]).toMatchObject({ previousViews: 2, change: 1400 });
+    expect(report.insights.trending.data.map((a) => a.id)).toEqual([2]);
+    expect(report.insights.declining.data.map((a) => a.id)).toEqual([1]);
+    expect(report.insights.trending.data[0]).toMatchObject({ previousViews: 2, change: 1400 });
   });
 
   it("serves the article table sorted, searched and paged, with exact visitors per row", async () => {

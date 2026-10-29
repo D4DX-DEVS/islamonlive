@@ -1,5 +1,5 @@
 import { filtersQuery, type Filters } from "@/lib/analytics/filters";
-import type { ArticleDetail, ArticleSort, ArticlesPage, LiveReport, Summary } from "@/lib/analytics/report-types";
+import type { ArticleDetail, ArticleSort, ArticlesPage, ListName, ListPage, ListRow, LiveReport, Summary } from "@/lib/analytics/report-types";
 
 /* The Analytics page's only way to the server. Every call takes an AbortSignal
    so a newer filter choice cancels the request it replaces. */
@@ -23,6 +23,13 @@ export function fetchArticles(filters: FilterState, table: TableQuery, signal?: 
   return getJson<ArticlesPage>(`/api/admin/analytics/articles?${params}`, signal);
 }
 
-export const fetchArticle = (id: number, filters: FilterState, signal?: AbortSignal) => getJson<ArticleDetail>(`/api/admin/analytics/articles/${id}?${filtersQuery(filters)}`, signal);
+export function fetchList<L extends ListName>(filters: FilterState, list: L, page: number, signal?: AbortSignal): Promise<ListPage<ListRow[L]>> {
+  const params = new URLSearchParams(filtersQuery(filters));
+  params.set("list", list);
+  params.set("page", String(page));
+  return getJson<ListPage<ListRow[L]>>(`/api/admin/analytics/list?${params}`, signal);
+}
+
+export const fetchArticle =(id: number, filters: FilterState, signal?: AbortSignal) => getJson<ArticleDetail>(`/api/admin/analytics/articles/${id}?${filtersQuery(filters)}`, signal);
 
 export const fetchLive = (signal?: AbortSignal) => getJson<LiveReport>("/api/admin/analytics/live", signal);

@@ -9,7 +9,7 @@ import { cardClass, formatDay, inputClass, Skeleton, stripHtml, type Author, typ
 
 const PER_PAGE = 10;
 
-type Row = { id: number; date: string; modified?: string; status?: string; title: { rendered: string; raw?: string }; author?: number; categories?: number[]; link?: string };
+type Row = { id: number; date: string; modified?: string; status?: string; title: { rendered: string; raw?: string }; author?: number; categories?: number[]; link?: string; /** Staff accounts that added / last saved it here; 0 or absent on migrated posts. */ created_by?: number; updated_by?: number };
 type Page = { items: Row[]; total: number; totalPages: number };
 type Stats = { total: number; publish: number; draft: number; trash: number; recent: { total: number; publish: number; draft: number } };
 type Query = { page: number; search: string; author: string; category: string; status: string; days: string };
@@ -164,6 +164,13 @@ export default function Articles({ initialSearch, initialStatus, initialAuthor =
   }
 
   const authorOf = (id?: number) => authors.find((item) => item.id === id);
+  /** "Added by Asha · edited by Rafi": which staff account did the work, apart from the byline. */
+  const staffLine = (post: Row) => {
+    const added = post.created_by ? authorOf(post.created_by)?.name : "";
+    const edited = post.updated_by && post.updated_by !== post.created_by ? authorOf(post.updated_by)?.name : "";
+    const parts = [added && `Added by ${added}`, edited && `edited by ${edited}`].filter(Boolean);
+    return parts.length ? <p className="mt-1 break-words text-[11px] font-normal text-slate-500">{parts.join(" · ")}</p> : null;
+  };
   const authorName = (id?: number) => (authorsLoading ? "…" : authorOf(id)?.name || "—");
   const categoriesOf = (post: Row) => (post.categories ?? []).flatMap((id) => { const match = categories.find((item) => item.id === id); return match ? [{ id, name: stripHtml(match.name) }] : []; });
   const filtered = Boolean(query.search || query.author || query.category || query.status !== "any" || query.days);
@@ -235,7 +242,7 @@ export default function Articles({ initialSearch, initialStatus, initialAuthor =
             <ul className="space-y-3 md:hidden">{items.map((post) => {
               const author = authorOf(post.author);
               return <li key={post.id} className="rounded-xl border border-slate-200 bg-white p-3">
-                <h2 className="break-words text-[13px] font-semibold leading-snug text-[#12093a]">{rowTitle(post)}</h2>
+                <h2 className="break-words text-[13px] font-semibold leading-snug text-[#12093a]">{rowTitle(post)}</h2>{staffLine(post)}
                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5"><StatusChip status={post.status} />{categoriesOf(post).map((cat) => <CategoryChip key={cat.id} name={cat.name} />)}</div>
                 <div className="mt-2.5 flex items-center justify-between gap-3 border-t border-slate-100 pt-2.5">
                   <div className="flex min-w-0 items-center gap-2"><Avatar src={author?.avatar} /><div className="min-w-0 text-[11px] text-slate-500"><p className="break-words text-xs font-medium text-slate-700">{authorName(post.author)}</p><p>{formatDay(post.date)}</p></div></div>
@@ -252,7 +259,7 @@ export default function Articles({ initialSearch, initialStatus, initialAuthor =
                 const cats = categoriesOf(post);
                 return <tr key={post.id} className="align-middle">
                   <td className={`${cell} text-slate-500`}>{(query.page - 1) * PER_PAGE + index + 1}</td>
-                  <td className={`${cell} break-words text-[13px] font-semibold leading-snug text-[#12093a]`}>{rowTitle(post)}</td>
+                  <td className={`${cell} break-words text-[13px] font-semibold leading-snug text-[#12093a]`}>{rowTitle(post)}{staffLine(post)}</td>
                   <td className={cell}><div className="flex items-center gap-2"><Avatar src={author?.avatar} /><span className="min-w-0 break-words leading-snug text-slate-700">{authorName(post.author)}</span></div></td>
                   <td className={cell}>{cats.length ? <div className="flex flex-wrap gap-1">{cats.map((cat) => <CategoryChip key={cat.id} name={cat.name} />)}</div> : <span className="text-slate-400">—</span>}</td>
                   <td className={cell}><StatusChip status={post.status} /></td>

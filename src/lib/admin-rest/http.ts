@@ -11,6 +11,13 @@ export interface AdminUser {
   id: number;
   username: string;
   role: string;
+  /** Display name, for the activity log; the username when absent. */
+  name?: string;
+}
+
+/** The actor as the activity log records them. */
+export function staffRef(user: AdminUser): { id: number; name: string; role: string } {
+  return { id: user.id, name: user.name || user.username, role: user.role };
 }
 
 export interface AdminRequest {

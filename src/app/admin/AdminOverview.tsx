@@ -105,14 +105,14 @@ function ReaderSection({ reader, error, days, onOpenAnalytics }: { reader: Summa
         <StatCard label="Avg. time per article" icon={readerIcons.clock} value={metric(t.avgArticleSeconds, formatDuration)} trend={delta(t.avgArticleSeconds, previous?.avgArticleSeconds)} caption={caption} series={series.map((day) => (day.articleViews ? day.articleActiveSeconds / day.articleViews : 0))} />
         <StatCard label="Finished articles" icon={readerIcons.check} value={metric(t.completionRate, (v) => `${v}%`)} trend={delta(t.completionRate, previous?.completionRate)} caption={caption} series={series.map((day) => (day.articleViews ? day.completed / day.articleViews : 0))} />
       </div>
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.85fr)_minmax(0,1fr)]">
-        <section className={cardClass}>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.85fr)_minmax(0,1fr)]">
+        <section className={`${cardClass} flex flex-col`}>
           <h3 className="text-lg font-extrabold text-[#12093a]">Daily page views</h3><p className="mt-1 text-sm text-slate-500">Page views per day in the last {days} days.</p>
-          <DailyChart key={`views-${days}`} points={series.map((day) => ({ date: day.day, value: day.views }))} unit={["view", "views"]} gradientId="readers-fill" emptyText="No page views in this period." />
+          <DailyChart key={`views-${days}`} points={series.map((day) => ({ date: day.day, value: day.views }))} unit={["view", "views"]} gradientId="readers-fill" emptyText="No page views in this period." fill />
         </section>
         <section className={cardClass}>
           <h3 className="text-lg font-extrabold text-[#12093a]">Most read articles</h3><p className="mt-1 text-sm text-slate-500">Most viewed in the last {days} days</p>
-          {reader.topViewed.length ? <ul className="mt-3 divide-y divide-slate-100">{reader.topViewed.map((article) => <ArticleRow key={article.id} href={article.path ?? "#"} title={article.title} image={article.image} meta={`${article.publishedAt ? `Published ${fullDate.format(utcDay(article.publishedAt))} · ` : ""}${metric(article.avgSeconds, formatDuration)} avg. read · ${metric(article.completionRate, (v) => `${v}%`)} finished`} aside={<span className="flex shrink-0 items-center gap-1.5 text-sm font-semibold tabular-nums text-slate-800"><Icon name="eye" className="h-[18px] w-[18px] text-slate-500" />{article.views.toLocaleString()}<span className="sr-only"> views</span></span>} />)}</ul> : <p className="mt-5 text-sm text-slate-500">No article data yet.</p>}
+          {reader.topViewed.data.length ? <ul className="mt-3 divide-y divide-slate-100">{reader.topViewed.data.map((article) => <ArticleRow key={article.id} href={article.path ?? "#"} title={article.title} image={article.image} meta={`${article.publishedAt ? `Published ${fullDate.format(utcDay(article.publishedAt))} · ` : ""}${metric(article.avgSeconds, formatDuration)} avg. read · ${metric(article.completionRate, (v) => `${v}%`)} finished`} aside={<span className="flex shrink-0 items-center gap-1.5 text-sm font-semibold tabular-nums text-slate-800"><Icon name="eye" className="h-[18px] w-[18px] text-slate-500" />{article.views.toLocaleString()}<span className="sr-only"> views</span></span>} />)}</ul> : <p className="mt-5 text-sm text-slate-500">No article data yet.</p>}
         </section>
       </div>
     </>}

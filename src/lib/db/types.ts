@@ -1,3 +1,5 @@
+import type { ObjectId } from "mongodb";
+import type { HomeSection } from "@/lib/home-layout/schema";
 import type { YoastHead } from "@/lib/seo";
 import type { Device, PageKind, Source } from "@/lib/analytics/shared";
 
@@ -65,6 +67,10 @@ export interface PostDoc {
   excerpt_raw?: string;
   /** A draft whose date was never set: publishing it stamps the publish time, as WordPress does. */
   date_floating?: boolean;
+  /** Staff account that created the post in this admin (absent on migrated posts). */
+  created_by?: number;
+  /** Staff account that saved it last. */
+  updated_by?: number;
 }
 
 export interface PageDoc {
@@ -252,6 +258,42 @@ export interface AnalyticsDailyDoc extends AnalyticsMeasures {
   c: number[] | null;
 }
 
+export interface StaffRef {
+  id: number;
+  name: string;
+  role: string;
+}
+
+export interface HomeLayoutVersion {
+  sections: HomeSection[];
+  saved_at: Date;
+  saved_by: StaffRef | null;
+}
+
+/** The homepage arrangement (lib/home-layout); one document, _id "home". */
+export interface HomeLayoutDoc {
+  _id: "home";
+  /** What readers see; absent until the first publish (the built-in default shows). */
+  sections?: HomeSection[];
+  updated_at?: Date;
+  updated_by?: StaffRef | null;
+  /** Earlier publishes, newest first, capped. */
+  history?: HomeLayoutVersion[];
+  /** The builder's work in progress: autosaved, shown only in the preview, null when there is none. */
+  draft?: HomeSection[] | null;
+  draft_updated_at?: Date;
+  draft_updated_by?: StaffRef | null;
+}
+
+/** One staff action in the admin (lib/activity.ts). */
+export interface AdminActivityDoc {
+  _id?: ObjectId;
+  at: Date;
+  actor: StaffRef;
+  action: string;
+  target: { type: string; id: number | string | null; title: string; link: string | null };
+}
+
 export interface Collections {
   posts: PostDoc;
   pages: PageDoc;
@@ -264,4 +306,6 @@ export interface Collections {
   analytics_views: AnalyticsViewDoc;
   analytics_daily: AnalyticsDailyDoc;
   analytics_meta: { _id: string; [key: string]: unknown };
+  home_layout: HomeLayoutDoc;
+  admin_activity: AdminActivityDoc;
 }

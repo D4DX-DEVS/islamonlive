@@ -18,7 +18,8 @@ type SelectProps = {
 
 /**
  * The admin's dropdown: a Radix select styled like the admin inputs, keyboard and screen-reader ready.
- * Its list is portalled to <body>, so it sits above the admin shell (z-100) with the other admin menus (z-150).
+ * Its list is portalled to <body>, so it sits above the admin shell (z-100), the other admin menus (z-150)
+ * and the admin dialogs (z-200) — a select inside a dialog otherwise opened behind it.
  */
 export function Select({ value, options, onChange, label, className = "" }: SelectProps) {
   return <RadixSelect.Root value={value} onValueChange={onChange}>
@@ -28,7 +29,7 @@ export function Select({ value, options, onChange, label, className = "" }: Sele
     </RadixSelect.Trigger>
     <RadixSelect.Portal>
       <RadixSelect.Content position="popper" sideOffset={6} collisionPadding={12}
-        className="z-[150] max-h-[min(22rem,var(--radix-select-content-available-height))] min-w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-24px)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-violet-950/10">
+        className="z-[250] max-h-[min(22rem,var(--radix-select-content-available-height))] min-w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-24px)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-violet-950/10">
         <RadixSelect.ScrollUpButton className="flex h-7 items-center justify-center text-slate-500"><Icon name="chevronDown" className="h-4 w-4 rotate-180" /></RadixSelect.ScrollUpButton>
         <RadixSelect.Viewport className="p-1">
           {options.map((option) => <RadixSelect.Item key={option.value} value={option.value}
