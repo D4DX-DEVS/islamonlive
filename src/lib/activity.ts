@@ -14,7 +14,8 @@ export type ActivityAction =
   | "post.create" | "post.update" | "post.publish" | "post.trash"
   | "media.upload" | "media.delete"
   | "user.create" | "user.update" | "user.delete" | "user.remove"
-  | "layout.update" | "layout.restore";
+  | "layout.update" | "layout.restore"
+  | "analytics.delete";
 
 export const ACTION_LABELS: Record<ActivityAction, string> = {
   "post.create": "created an article",
@@ -29,6 +30,7 @@ export const ACTION_LABELS: Record<ActivityAction, string> = {
   "user.remove": "removed someone from the team",
   "layout.update": "updated the homepage layout",
   "layout.restore": "restored an earlier homepage layout",
+  "analytics.delete": "deleted all reader analytics",
 };
 
 const holder = globalThis as typeof globalThis & { __iolActivityIndexes?: Promise<void> };
@@ -48,7 +50,7 @@ function ensureIndexes(): Promise<void> {
 }
 
 export interface ActivityTarget {
-  type: "post" | "media" | "user" | "layout";
+  type: "post" | "media" | "user" | "layout" | "analytics";
   id: number | string | null;
   title?: string;
   link?: string | null;
@@ -89,7 +91,7 @@ export async function listActivity({ actorId, action, page, perPage }: ActivityQ
   const filter: Record<string, unknown> = {};
   if (actorId) filter["actor.id"] = actorId;
   if (action && action in ACTION_LABELS) filter.action = action;
-  else if (action && /^(post|media|user|layout)$/.test(action)) filter.action = { $regex: `^${action}\\.` };
+  else if (action && /^(post|media|user|layout|analytics)$/.test(action)) filter.action = { $regex: `^${action}\\.` };
   const col = await collection("admin_activity");
   const [docs, total] = await Promise.all([
     col.find(filter).sort({ at: -1 }).skip((page - 1) * perPage).limit(perPage).toArray(),

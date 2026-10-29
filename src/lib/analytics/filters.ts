@@ -1,15 +1,18 @@
-import { DEVICES, SOURCES, addDays, istDay, type Device, type Source } from "@/lib/analytics/shared";
+import { DEVICES, RETENTION_DAYS, SOURCES, addDays, istDay, type Device, type Source } from "@/lib/analytics/shared";
 
 /* The dashboard's filters, read from a query string and checked against
    allow-lists. Pure and client-safe: the admin page builds the same query
    string the API reads. Days are IST calendar days, inclusive. */
 
-export const RANGE_PRESETS = ["today", "7", "30", "90", "custom"] as const;
+export const RANGE_PRESETS = ["today", "7", "30", "custom"] as const;
 export type RangePreset = (typeof RANGE_PRESETS)[number];
 export type VisitorType = "new" | "returning";
 
-/** The longest custom range: the raw views are kept 400 days. */
-export const MAX_RANGE_DAYS = 400;
+/** The longest range, and how far back it may start: reader data is kept only this long. */
+export const MAX_RANGE_DAYS = RETENTION_DAYS;
+
+/** The oldest day still kept: the earliest a range may start. */
+export const oldestKeptDay = (today: string) => addDays(today, -(RETENTION_DAYS - 1));
 
 export type Range = { from: string; to: string };
 export type Filters = Range & {
@@ -63,7 +66,7 @@ export function parseFilters(params: URLSearchParams, now = Date.now()): Filters
     if (!realDay(from) || !realDay(to)) return { error: "Choose a start and an end date." };
     if (from > to) return { error: "The start date is after the end date." };
     if (to > today) return { error: "The end date is in the future." };
-    if (daysIn({ from, to }) > MAX_RANGE_DAYS) return { error: `Choose at most ${MAX_RANGE_DAYS} days.` };
+    if (from < oldestKeptDay(today)) return { error: `Reader data is kept for ${RETENTION_DAYS} days: choose a start on or after ${oldestKeptDay(today)}.` };
     range = { from, to };
   } else {
     const days = preset === "today" ? 1 : Number(preset);

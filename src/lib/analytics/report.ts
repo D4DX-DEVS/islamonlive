@@ -28,6 +28,11 @@ function memo<T>(key: string, ttl: number, load: () => Promise<T>): Promise<T> {
   return value;
 }
 
+/** After the data is deleted: no remembered report may still show it. */
+export function forgetReports(): void {
+  cache.clear();
+}
+
 const ttlFor = (f: Filters) => (f.to >= istDay(Date.now()) ? 60_000 : 600_000);
 const pct = (part: number, whole: number): Metric => (whole > 0 ? Math.round((part / whole) * 1000) / 10 : null);
 const avg = (sum: number, count: number): Metric => (count > 0 ? Math.round(sum / count) : null);

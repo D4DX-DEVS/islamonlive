@@ -1,6 +1,7 @@
-import { collection } from "@/lib/db/client";
+import { MongoServerError } from "mongodb";
+import { collection, db } from "@/lib/db/client";
 import { deviceOf, sourceOf } from "@/lib/analytics/classify";
-import { istDay, type Beacon } from "@/lib/analytics/shared";
+import { RETENTION_DAYS, istDay, type Beacon } from "@/lib/analytics/shared";
 import type { AnalyticsViewDoc } from "@/lib/db/types";
 
 /* Writes reader beacons to MongoDB: one document per page view in
@@ -12,8 +13,11 @@ import type { AnalyticsViewDoc } from "@/lib/db/types";
    ($max), so a repeated, retried or out-of-order beacon never counts anything
    twice, and a lost `start` is made good by the next ping. */
 
-/** Raw views are kept this long; the daily rollups outlive them. */
-export const VIEW_RETENTION_DAYS = 400;
+/** Raw views are kept this long (MongoDB's TTL index drops them); rollups are pruned to the same window. */
+export const VIEW_RETENTION_DAYS = RETENTION_DAYS;
+const TTL_SECONDS = VIEW_RETENTION_DAYS * 86_400;
+/** MongoDB's codes for "an index of this name exists with other options". */
+const INDEX_OPTIONS_CONFLICT = new Set([85, 86]);
 
 const holder = globalThis as typeof globalThis & { __iolAnalyticsIndexes?: Promise<void>; __iolAnalyticsIndexesFailedAt?: number };
 /** after a failed index build, beacons wait this long before trying again */
@@ -27,8 +31,14 @@ export function ensureAnalyticsIndexes(): Promise<void> {
       { key: { day: 1, k: 1 }, name: "day_kind" },
       { key: { a: 1, day: 1 }, name: "article_day", partialFilterExpression: { a: { $exists: true } } },
       { key: { ls: -1 }, name: "last_seen" },
-      { key: { t: 1 }, name: "ttl", expireAfterSeconds: VIEW_RETENTION_DAYS * 86_400 },
     ]);
+    try {
+      await views.createIndexes([{ key: { t: 1 }, name: "ttl", expireAfterSeconds: TTL_SECONDS }]);
+    } catch (error) {
+      // the index was built with another retention (it was 400 days): change it in place
+      if (!(error instanceof MongoServerError && INDEX_OPTIONS_CONFLICT.has(Number(error.code)))) throw error;
+      await (await db()).command({ collMod: "analytics_views", index: { name: "ttl", expireAfterSeconds: TTL_SECONDS } });
+    }
     await (await collection("analytics_daily")).createIndexes([{ key: { day: 1 }, name: "day" }]);
   })().catch((error: unknown) => {
     holder.__iolAnalyticsIndexes = undefined;

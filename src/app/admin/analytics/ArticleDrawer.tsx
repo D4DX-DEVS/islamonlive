@@ -7,6 +7,7 @@ import { fetchArticle, type FilterState } from "./api";
 import { DEVICE_LABELS, SOURCE_LABELS, compact, delta, duration, longDay, metric, percent, shortDuration } from "./format";
 import { BarList, EmptyNote, ErrorNote, ListSkeleton, Panel, ScrollFunnel, SplitBar, Stat, TEAL, VIOLET } from "./parts";
 import type { ArticleDetail, Metric } from "@/lib/analytics/report-types";
+import { RETENTION_DAYS } from "@/lib/analytics/shared";
 
 /** "12% above the site average" style note; nothing when either side is unknown. */
 function versus(value: Metric, average: Metric, format: (n: number) => string): string | undefined {
@@ -65,7 +66,7 @@ export default function ArticleDrawer({ id, filters, onClose }: { id: number; fi
           {t.views === 0 && <EmptyNote>This article has no views in this period with these filters.</EmptyNote>}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
             <Stat label="Views" value={compact(t.views)} note={change(t.views, p?.views)} />
-            <Stat label="Unique visitors" value={metric(t.visitors, compact)} note={t.visitors === null ? "Older than the 400 days raw views are kept" : change(t.visitors, p?.visitors)} />
+            <Stat label="Unique visitors" value={metric(t.visitors, compact)} note={t.visitors === null ? `Older than the ${RETENTION_DAYS} days reader data is kept` : change(t.visitors, p?.visitors)} />
             <Stat label="Total reading time" value={duration(t.articleActiveSeconds)} note={change(t.articleActiveSeconds, p?.articleActiveSeconds)} />
             <Stat label="Avg. reading time" value={metric(t.avgArticleSeconds, duration)} note={versus(t.avgArticleSeconds, d.siteAverage.avgArticleSeconds, duration)} />
             <Stat label="Avg. scroll depth" value={metric(t.avgScroll, percent)} note={versus(t.avgScroll, d.siteAverage.avgScroll, percent)} />

@@ -236,7 +236,7 @@ async function journey({ db, categories }) {
   await beacon({ ...reader, id: `${reader.id}-staff`, ev: "start" }, { Cookie: editor.cookie });
   check("crawlers and signed-in staff are not counted", (await db.collection("analytics_views").countDocuments({ a: post.id })) === 1);
   const summary = await (await ad("/api/admin/analytics/summary?range=today")).json();
-  const top = summary.topViewed?.find((a) => a.id === post.id);
+  const top = summary.topViewed?.data?.find((a) => a.id === post.id);
   check("the administrator's dashboard shows the read, with the article's path, date and thumbnail", summary.totals?.articleViews >= 1 && top?.path === path && top?.publishedAt === doc.date && Boolean(top?.image) && summary.sources?.some((s) => s.id === "search"), `${JSON.stringify(summary.totals)} ${JSON.stringify(top)}`);
   check("editors cannot open reader analytics, and their Overview leaves it out", (await ed("/api/admin/analytics/summary")).status === 403 && (await (await ed("/api/admin/overview/?days=30")).json()).reader === null);
   const table = await (await ad(`/api/admin/analytics/articles?range=today&q=${post.id}`)).json();

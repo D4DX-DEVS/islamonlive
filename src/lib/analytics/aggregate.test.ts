@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { collection } from "@/lib/db/client";
-import { liveNow, rollUpYesterday, rollupsSettled, totalsBy, uniqueVisitors, visitorsPerArticle, type GroupBy } from "./aggregate";
+import { deleteAllReaderData, liveNow, pruneExpired, rollUpYesterday, rollupsSettled, totalsBy, uniqueVisitors, visitorsPerArticle, type GroupBy } from "./aggregate";
 import { istDayStart, type Device, type PageKind, type Source } from "./shared";
 import type { Filters } from "./filters";
 import type { AnalyticsViewDoc } from "@/lib/db/types";
@@ -50,6 +50,26 @@ describe("analytics aggregation", () => {
       scrollSum: 165, r25: 3, r50: 1, r75: 1, r90: 1,
       sessions: 3, engagedSessions: 2,
     });
+  });
+
+  it("prunes views, rollups and markers once they are older than the 30 days kept", async () => {
+    await totalsBy(f(), "all", LATER); // queues the day's rollup
+    await rollupsSettled();
+    expect(await (await collection("analytics_daily")).countDocuments()).toBeGreaterThan(0);
+    await pruneExpired(T0 + 29 * 86_400_000); // the day is the oldest of the 30 still kept
+    expect(await (await collection("analytics_views")).countDocuments()).toBe(4);
+    await pruneExpired(T0 + 30 * 86_400_000);
+    for (const name of ["analytics_views", "analytics_daily", "analytics_meta"] as const) expect(await (await collection(name)).countDocuments(), name).toBe(0);
+  });
+
+  it("deletes all reader data on request, and a rollup already queued does not bring it back", async () => {
+    const report = totalsBy(f(), "all", LATER);
+    const deleted = await deleteAllReaderData();
+    await report.catch(() => undefined);
+    await rollupsSettled();
+    expect(deleted.views).toBe(4);
+    for (const name of ["analytics_views", "analytics_daily"] as const) expect(await (await collection(name)).countDocuments(), name).toBe(0);
+    expect(await (await collection("analytics_meta")).findOne({ _id: `rolled:${DAY}` })).toBeNull();
   });
 
   it("never credits more active time than passed between a view's first and last beacon", async () => {

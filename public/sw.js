@@ -1,6 +1,6 @@
 /* ponytail: minimal offline-shell SW — network-first pages, cache-first static.
    Bump CACHE version to invalidate. */
-const CACHE = "iol-v3-admin-pwa";
+const CACHE = "iol-v4-admin-pwa";
 const OFFLINE_URL = "/";
 const ADMIN_OFFLINE_URL = "/admin-offline.html";
 
@@ -28,8 +28,13 @@ self.addEventListener("fetch", (e) => {
         (hit) =>
           hit ||
           fetch(req).then((res) => {
-            const copy = res.clone();
-            caches.open(CACHE).then((c) => c.put(req, copy));
+            // only cache real assets — a 404 HTML page cached here during a
+            // deploy would be served forever as "MIME type text/html"
+            const type = res.headers.get("content-type") || "";
+            if (res.ok && !type.startsWith("text/html")) {
+              const copy = res.clone();
+              caches.open(CACHE).then((c) => c.put(req, copy));
+            }
             return res;
           })
       )

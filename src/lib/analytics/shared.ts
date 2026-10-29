@@ -26,6 +26,8 @@ export const ENGAGED_SESSION_SECONDS = 10;
 /** Scroll depths the dashboard reports reads reaching, in percent. 90 % counts as finished. */
 export const SCROLL_MARKS = [25, 50, 75, 90] as const;
 export const COMPLETE_AT = 90;
+/** Reader data (raw views and daily rollups) is kept this many IST days, today included, then deleted. */
+export const RETENTION_DAYS = 30;
 
 export type BeaconEvent = "start" | "ping" | "end";
 
