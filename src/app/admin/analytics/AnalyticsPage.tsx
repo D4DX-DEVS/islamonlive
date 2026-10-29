@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { Icon } from "../icons";
 import { Skeleton, cardClass, type Category } from "../ui";
 import { DailyChart } from "../charts";
-import { fetchSummary, type FilterState } from "./api";
+import { deleteReaderData, fetchSummary, type FilterState } from "./api";
+import ConfirmDialog from "../ConfirmDialog";
+import { RETENTION_DAYS } from "@/lib/analytics/shared";
 import { DEVICE_LABELS, KIND_LABELS, SOURCE_LABELS, compact, delta, duration, longDay, metric, percent, shortDuration, viewCount } from "./format";
 import { ArticleList, BarList, EmptyNote, ErrorNote, ListSkeleton, Panel, SplitBar, Stat, TEAL, VIOLET, articleFigures } from "./parts";
 import FilterBar from "./FilterBar";
@@ -28,7 +30,20 @@ export default function AnalyticsPage({ categories }: { categories: Category[] }
   const [data, setData] = useState<Summary | null>(null);
   const [settled, setSettled] = useState<{ key: string; error: string } | null>(null);
   const [article, setArticle] = useState<number | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deletedNote, setDeletedNote] = useState("");
+  /** bumped by a delete: the table and live panel load their own data, so they start over */
+  const [wipes, setWipes] = useState(0);
   const key = JSON.stringify([filters, attempt]);
+
+  async function wipe() {
+    const deleted = await deleteReaderData();
+    setConfirmDelete(false);
+    setArticle(null);
+    setWipes((n) => n + 1);
+    setDeletedNote(`Deleted ${deleted.views.toLocaleString("en")} page ${deleted.views === 1 ? "view" : "views"}. New readers are counted from now on.`);
+    setAttempt((n) => n + 1);
+  }
 
   useEffect(() => {
     const controller = new AbortController();
@@ -55,13 +70,16 @@ export default function AnalyticsPage({ categories }: { categories: Category[] }
       <div>
         <p className="text-sm font-semibold text-violet-700">Readers</p>
         <h1 className="text-2xl font-extrabold text-[#12093a] sm:text-3xl">Analytics</h1>
-        <p className="mt-1 max-w-2xl text-sm text-slate-500">What readers open, how long they actively read, how far down they get and where they come from. Anonymous, from this site only.</p>
+        <p className="mt-1 max-w-2xl text-sm text-slate-500">What readers open, how long they actively read, how far down they get and where they come from. Anonymous, from this site only, kept for {RETENTION_DAYS} days.</p>
       </div>
-      <div className="flex items-center gap-3 text-xs text-slate-500">
-        {data && <span>{data.collectingSince ? `Collecting since ${longDay(data.collectingSince)}` : "Not collecting yet"} · updated {new Date(data.generatedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</span>}
+      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+        {data && <span>{data.collectingSince ? `Data from ${longDay(data.collectingSince)}` : "Not collecting yet"} · updated {new Date(data.generatedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</span>}
         <button type="button" onClick={() => setAttempt((n) => n + 1)} disabled={loading} className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 disabled:opacity-60"><Icon name="reset" className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Refresh</button>
+        <button type="button" onClick={() => { setDeletedNote(""); setConfirmDelete(true); }} disabled={!data?.collectingSince} className="flex min-h-11 items-center gap-2 rounded-xl border border-red-200 bg-white px-3 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-50"><Icon name="trash" className="h-4 w-4" />Delete data</button>
       </div>
     </div>
+
+    {deletedNote && <p role="status" className="flex items-start gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800"><Icon name="info" className="mt-0.5 h-4 w-4 shrink-0" />{deletedNote}</p>}
 
     <FilterBar filters={filters} categories={categories} onChange={update} />
 
@@ -88,12 +106,12 @@ export default function AnalyticsPage({ categories }: { categories: Category[] }
         </Panel>
       </div>
 
-      <LivePanel onOpenArticle={setArticle} />
+      <LivePanel key={wipes} onOpenArticle={setArticle} />
 
       <Panel title="Site totals" subtitle={`Every page in this period${data.previous ? ", against the period before" : ""}.`}>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Stat label="Page views" value={compact(t.views)} change={delta(t.views, p?.views)} note={compareNote} />
-          <Stat label="Unique visitors" value={metric(t.visitors, compact)} change={t.visitors === null ? null : delta(t.visitors, p?.visitors)} note={t.visitors === null ? "Unavailable: part of this range is older than the 400 days raw views are kept" : compareNote} />
+          <Stat label="Unique visitors" value={metric(t.visitors, compact)} change={t.visitors === null ? null : delta(t.visitors, p?.visitors)} note={t.visitors === null ? `Unavailable: part of this range is older than the ${RETENTION_DAYS} days reader data is kept` : compareNote} />
           <Stat label="Total reading time" value={duration(t.activeSeconds)} change={delta(t.activeSeconds, p?.activeSeconds)} note={compareNote} />
           <Stat label="Avg. time per article" value={metric(t.avgArticleSeconds, duration)} change={delta(t.avgArticleSeconds, p?.avgArticleSeconds)} note={t.avgArticleSeconds === null ? "No article views in this period" : compareNote} />
           <Stat label="Finished articles" value={metric(t.completionRate, percent)} change={delta(t.completionRate, p?.completionRate)} note={t.completionRate === null ? "No article views in this period" : "Views that scrolled to 90%"} />
@@ -158,9 +176,12 @@ export default function AnalyticsPage({ categories }: { categories: Category[] }
         </div>
       </section>
 
-      <ArticleTable filters={filters} onOpen={setArticle} />
+      <ArticleTable key={wipes} filters={filters} onOpen={setArticle} />
     </div>}
 
     {article !== null && <ArticleDrawer id={article} filters={filters} onClose={closeArticle} />}
+    <ConfirmDialog open={confirmDelete} tone="danger" title="Delete all reader analytics?" confirmLabel="Delete everything" pendingLabel="Deleting…"
+      body={<>Every page view, reading time and visitor count kept so far is removed for good, for every date and filter. This cannot be undone. Reader data is deleted after {RETENTION_DAYS} days anyway; use this to start again sooner.</>}
+      onConfirm={wipe} onCancel={() => setConfirmDelete(false)} />
   </div>;
 }

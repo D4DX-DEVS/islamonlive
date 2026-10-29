@@ -32,4 +32,12 @@ export function fetchList<L extends ListName>(filters: FilterState, list: L, pag
 
 export const fetchArticle =(id: number, filters: FilterState, signal?: AbortSignal) => getJson<ArticleDetail>(`/api/admin/analytics/articles/${id}?${filtersQuery(filters)}`, signal);
 
-export const fetchLive = (signal?: AbortSignal) => getJson<LiveReport>("/api/admin/analytics/live", signal);
+/** Deletes all reader data. Throws the server's message when it fails. */
+export async function deleteReaderData(): Promise<{ views: number; rollups: number }> {
+  const response = await fetch("/api/admin/analytics/data", { method: "DELETE", cache: "no-store", credentials: "same-origin" });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error((body as { error?: string }).error || "Could not delete the reader data.");
+  return (body as { deleted: { views: number; rollups: number } }).deleted;
+}
+
+export const fetchLive =(signal?: AbortSignal) => getJson<LiveReport>("/api/admin/analytics/live", signal);

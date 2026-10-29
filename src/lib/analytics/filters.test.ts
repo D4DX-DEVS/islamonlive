@@ -9,7 +9,13 @@ describe("parseFilters", () => {
     expect(parse("")).toMatchObject({ preset: "30", from: "2026-09-29", to: "2026-10-28" });
     expect(parse("range=today")).toMatchObject({ from: "2026-10-28", to: "2026-10-28" });
     expect(parse("range=7")).toMatchObject({ from: "2026-10-22", to: "2026-10-28" });
-    expect(daysIn(parse("range=90") as { from: string; to: string })).toBe(90);
+    expect(daysIn(parse("range=30") as { from: string; to: string })).toBe(30);
+    expect(parse("range=90")).toHaveProperty("error");
+  });
+
+  it("refuses a range starting before the 30 days reader data is kept", () => {
+    expect(parse("range=custom&from=2026-09-29&to=2026-10-28")).toMatchObject({ from: "2026-09-29" });
+    expect(parse("range=custom&from=2026-09-28&to=2026-10-01")).toHaveProperty("error");
   });
 
   it("accepts a custom range and refuses bad ones", () => {

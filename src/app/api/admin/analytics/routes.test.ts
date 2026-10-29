@@ -16,6 +16,7 @@ const { GET: articleGET } = await import("./articles/[id]/route");
 const { GET: listGET } = await import("./list/route");
 const { GET: liveGET } = await import("./live/route");
 const { POST: collect } = await import("../../analytics/collect/route");
+const { DELETE: dataDELETE } = await import("./data/route");
 
 const as = (userId: number, username: string) => { session.current = { userId, username, role: "unknown", expiresAt: Date.now() + 3_600_000 }; };
 const get = (path: string) => new Request(`http://localhost${path}`);
@@ -42,6 +43,21 @@ describe("admin analytics routes", () => {
     as(9003, "gone");
     expect((await articlesGET(get("/api/admin/analytics/articles"))).status).toBe(403);
     expect((await listGET(get("/api/admin/analytics/list?list=byTime"))).status).toBe(403);
+  });
+
+  it("lets only administrators delete all reader data", async () => {
+    const views = await collection("analytics_views");
+    await views.insertOne({ _id: "view-to-delete-000001", v: "v", s: "s", t: new Date(), ls: new Date(), day: "2026-10-29", k: "home", p: "/", dev: "mobile", src: "direct", nv: true, en: true, e: 1, sd: 0 });
+    expect((await dataDELETE()).status).toBe(401);
+    as(9002, "writer");
+    expect((await dataDELETE()).status).toBe(403);
+    expect(await views.countDocuments({ _id: "view-to-delete-000001" })).toBe(1);
+    as(9001, "boss");
+    const res = await dataDELETE();
+    expect(res.status).toBe(200);
+    expect((await res.json()).deleted.views).toBeGreaterThanOrEqual(1);
+    expect(await views.countDocuments()).toBe(0);
+    expect(await (await collection("admin_activity")).findOne({ action: "analytics.delete", "actor.id": 9001 })).not.toBeNull();
   });
 
   it("looks a WordPress-mode session (no user id) up by username", async () => {

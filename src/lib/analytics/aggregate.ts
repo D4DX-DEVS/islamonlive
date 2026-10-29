@@ -1,7 +1,7 @@
 import type { Document } from "mongodb";
 import { collection } from "@/lib/db/client";
-import { ensureAnalyticsIndexes, VIEW_RETENTION_DAYS } from "@/lib/analytics/store";
-import { eachDay, type Filters, type Range } from "@/lib/analytics/filters";
+import { ensureAnalyticsIndexes } from "@/lib/analytics/store";
+import { eachDay, oldestKeptDay, type Filters, type Range } from "@/lib/analytics/filters";
 import { ENGAGED_SESSION_SECONDS, LIVE_WINDOW_MS, addDays, istDay, istDayStart, type Device, type PageKind, type Source } from "@/lib/analytics/shared";
 import type { AnalyticsDailyDoc, AnalyticsMeasures } from "@/lib/db/types";
 
@@ -143,7 +143,11 @@ const ROLLUP_BATCH = 50;
 const rollupPauseMs = () => Number(process.env.ANALYTICS_ROLLUP_PAUSE_MS ?? 1000);
 const pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+/** Bumped when an administrator deletes the data: a rollup started before then must not write it back. */
+let generation = 0;
+
 async function buildRollup(day: string): Promise<void> {
+  const started = generation;
   const views = await collection("analytics_views");
   const range = { from: day, to: day };
   const [viewRows, sessionRows] = await Promise.all([
@@ -163,12 +167,14 @@ async function buildRollup(day: string): Promise<void> {
   // marker below is written the day is read from its raw views, so a half-written rollup is never counted
   for (let i = 0; i < docs.length; i += ROLLUP_BATCH) {
     if (i > 0) await pause(rollupPauseMs());
+    if (started !== generation) return;
     await daily.bulkWrite(docs.slice(i, i + ROLLUP_BATCH).map((doc) => ({ replaceOne: { filter: { _id: doc._id }, replacement: doc, upsert: true } })), { ordered: false });
   }
+  if (started !== generation) return;
   await (await collection("analytics_meta")).updateOne({ _id: `rolled:${day}` }, { $set: { at: new Date(), rows: docs.length } }, { upsert: true });
 }
 
-/** The first day anything was collected (rollups outlive the raw views), or null. */
+/** The first day anything is still kept for, or null. */
 export async function collectingSince(): Promise<string | null> {
   const [firstView] = await (await collection("analytics_views")).find({}, { projection: { day: 1 } }).sort({ t: 1 }).limit(1).toArray();
   const [firstRollup] = await (await collection("analytics_daily")).find({}, { projection: { day: 1 } }).sort({ day: 1 }).limit(1).toArray();
@@ -206,14 +212,41 @@ async function rolledUp(days: string[], now: number): Promise<Set<string>> {
 let checkedDay = "";
 
 /**
- * Rolls up yesterday once it closes, whether or not anyone opens a report, so no day is left to
- * expire unrolled. Cheap to call on every beacon; callers need not wait (it resolves once queued).
+ * Deletes everything older than the retention window. The TTL index already drops raw views by
+ * their timestamp; this also covers the rollups and their markers, which have no Date to expire on.
+ */
+export async function pruneExpired(now = Date.now()): Promise<void> {
+  const cutoff = retainedFrom(now);
+  await Promise.all([
+    (await collection("analytics_views")).deleteMany({ day: { $lt: cutoff } }),
+    (await collection("analytics_daily")).deleteMany({ day: { $lt: cutoff } }),
+    (await collection("analytics_meta")).deleteMany({ _id: { $gte: "rolled:", $lt: `rolled:${cutoff}` } }),
+  ]);
+}
+
+/**
+ * Once a day, when yesterday closes: rolls it up, whether or not anyone opens a report, and prunes
+ * what has aged out. Cheap to call on every beacon; callers need not wait (it resolves once queued).
  */
 export function rollUpYesterday(now = Date.now()): Promise<void> {
   const yesterday = addDays(istDay(now), -1);
   if (checkedDay === yesterday || !isClosed(yesterday, now)) return Promise.resolve();
   checkedDay = yesterday;
-  return rolledUp([yesterday], now).then(() => undefined, () => { checkedDay = ""; });
+  const prune = pruneExpired(now).catch((error: unknown) => console.warn("[analytics] could not prune old data:", error instanceof Error ? error.message : error));
+  return Promise.all([rolledUp([yesterday], now), prune]).then(() => undefined, () => { checkedDay = ""; });
+}
+
+/** An administrator's "delete all reader data": raw views, rollups and their markers. Counts what went. */
+export async function deleteAllReaderData(): Promise<{ views: number; rollups: number }> {
+  generation += 1;
+  // rollups queued before now find their raw views gone and the generation moved on, so they write nothing
+  const [views, rollups] = await Promise.all([
+    (await collection("analytics_views")).deleteMany({}),
+    (await collection("analytics_daily")).deleteMany({}),
+    (await collection("analytics_meta")).deleteMany({ _id: { $gte: "rolled:", $lt: "rolled;" } }),
+  ]);
+  checkedDay = "";
+  return { views: views.deletedCount, rollups: rollups.deletedCount };
 }
 
 /** Wait for queued rollups; for tests and the benchmark. */
@@ -257,7 +290,7 @@ export async function totalsBy(f: Filters, by: GroupBy, now = Date.now()): Promi
 
 /** The oldest day raw views are still kept for. */
 export function retainedFrom(now = Date.now()): string {
-  return addDays(istDay(now), -(VIEW_RETENTION_DAYS - 1));
+  return oldestKeptDay(istDay(now));
 }
 
 export type VisitorCounts = { total: number; new: number; returning: number };
