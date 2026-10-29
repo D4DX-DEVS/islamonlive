@@ -50,7 +50,7 @@ const SUBSITES: NavChild[] = [
 const NAV: NavItem[] = [
   { label: "Home", href: "/" },
   {
-    label: "Read", href: "/category/opinion", children: [
+    label: "Read", href: "/read", children: [
       { label: "Opinion", href: "/category/opinion" },
       { label: "Shari'ah", href: "/category/shariah" },
       { label: "Culture", href: "/category/culture" },

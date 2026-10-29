@@ -46,6 +46,14 @@ const shapes = {
   users: <><circle cx="9" cy="8.500" r="3.300" /><path d="M2.800 19.500c.5-3.300 3-5 6.200-5s5.700 1.700 6.200 5M16 5.400a3.300 3.300 0 010 6.200M18 14.800c1.700.6 2.900 2.200 3.200 4.700" /></>,
   sparkles: <><path d="M10 4l1.600 4.400L16 10l-4.400 1.600L10 16l-1.600-4.400L4 10l4.400-1.600z" /><path d="M18 14l.8 2.200L21 17l-2.200.8L18 20l-.8-2.200L15 17l2.200-.8z" /></>,
   download: <path d="M12 4v12M7 11l5 5 5-5M4.500 19.500h15" />,
+  monitor: <><rect x="3" y="4.5" width="18" height="12" rx="2" /><path d="M8.5 20h7M12 16.5V20" /></>,
+  tablet: <><rect x="5" y="3" width="14" height="18" rx="2.5" /><path d="M11 17.5h2" /></>,
+  smartphone: <><rect x="7" y="3" width="10" height="18" rx="2.5" /><path d="M11 17.5h2" /></>,
+  mic: <><rect x="9" y="3.5" width="6" height="11" rx="3" /><path d="M5.5 11.5a6.5 6.5 0 0013 0M12 18v2.5" /></>,
+  grid: <><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="13" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><rect x="13" y="13" width="7" height="7" rx="1.5" /></>,
+  layers: <><path d="M12 4l8.5 4.5L12 13 3.5 8.5z" /><path d="M3.5 12.5L12 17l8.5-4.5M3.5 16.5L12 21l8.5-4.5" /></>,
+  history: <><path d="M4 12a8 8 0 102.4-5.7M4 4.5V9h4.5" /><path d="M12 8v4.5l3 1.8" /></>,
+  arrowLeft: <path d="M19 12H5M11 6l-6 6 6 6" />,
 } as const;
 
 export type IconName = keyof typeof shapes;

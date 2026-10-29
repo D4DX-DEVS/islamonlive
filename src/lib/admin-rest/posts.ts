@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 import type { Filter } from "mongodb";
 import { collection } from "@/lib/db/client";
 import type { PostDoc, PostStatus } from "@/lib/db/types";
-import { escapeRegex, json, list, notFound, pastTheEnd, paging, pickFields, readJson, wpError, type AdminRequest } from "@/lib/admin-rest/http";
+import { escapeRegex, json, list, notFound, pastTheEnd, paging, pickFields, readJson, staffRef, wpError, type AdminRequest } from "@/lib/admin-rest/http";
+import { recordActivity, type ActivityTarget } from "@/lib/activity";
 import { nextId } from "@/lib/admin-rest/ids";
 import { sanitizeTitle, uniqueSlug } from "@/lib/admin-rest/slug";
 import { fromWallClock, postClocks, siteTimezone } from "@/lib/admin-rest/site-time";
@@ -79,6 +80,9 @@ async function adminPost(doc: PostDoc, full: boolean): Promise<Record<string, un
     meta: doc.meta ?? {},
     // not a WordPress field: lets the admin routes purge cached pages at URLs the post has left
     old_paths: doc.old_paths ?? [],
+    // not WordPress fields: the staff accounts that added and last saved the post
+    created_by: doc.created_by ?? 0,
+    updated_by: doc.updated_by ?? 0,
   };
 }
 
@@ -275,6 +279,10 @@ async function applyBody(body: Record<string, unknown>, prev: PostDoc | null, id
   return doc;
 }
 
+function postTarget(doc: PostDoc): ActivityTarget {
+  return { type: "post", id: doc._id, title: decodeEntities(doc.title), link: doc.path || null };
+}
+
 /** Tell IndexNow about a URL that just appeared or changed in public. Best effort, never awaited by the caller's response. */
 function announce(doc: PostDoc, prev: PostDoc | null): void {
   if (doc.status !== "publish") return;
@@ -290,8 +298,11 @@ async function handleCreate(req: AdminRequest): Promise<Response> {
   const id = await nextId("post");
   const doc = await applyBody(body, null, id, req.user.id);
   if (doc instanceof Response) return doc;
+  doc.created_by = req.user.id;
+  doc.updated_by = req.user.id;
   await (await postsCollection()).insertOne(doc);
   announce(doc, null);
+  await recordActivity(staffRef(req.user), PUBLIC.has(doc.status) ? "post.publish" : "post.create", postTarget(doc));
   return json(await adminPost(doc, true), 201);
 }
 
@@ -303,9 +314,11 @@ async function handleUpdate(req: AdminRequest, id: number): Promise<Response> {
   if (body instanceof Response) return body;
   const doc = await applyBody(body, prev, id, req.user.id);
   if (doc instanceof Response) return doc;
+  doc.updated_by = req.user.id;
   await posts.replaceOne({ _id: id }, doc);
   if (doc.path !== prev.path || doc.status !== prev.status) forgetMovedPaths();
   announce(doc, prev);
+  await recordActivity(staffRef(req.user), PUBLIC.has(doc.status) && !PUBLIC.has(prev.status) ? "post.publish" : "post.update", postTarget(doc));
   return json(await adminPost(doc, true));
 }
 
@@ -319,8 +332,9 @@ async function handleTrash(req: AdminRequest, id: number): Promise<Response> {
   const tz = await siteTimezone();
   const now = new Date();
   const { modified, modified_gmt } = postClocks(prev.published_at ?? now, now, tz);
-  const update = { status: "trash" as const, slug: `${prev.slug || sanitizeTitle(decodeEntities(prev.title)) || id}__trashed`, desired_slug: prev.slug, trashed_from: prev.status, modified, modified_gmt, updated_at: now };
+  const update = { status: "trash" as const, slug: `${prev.slug || sanitizeTitle(decodeEntities(prev.title)) || id}__trashed`, desired_slug: prev.slug, trashed_from: prev.status, modified, modified_gmt, updated_at: now, updated_by: req.user.id };
   await posts.updateOne({ _id: id }, { $set: update });
+  await recordActivity(staffRef(req.user), "post.trash", postTarget(prev));
   return json(await adminPost({ ...prev, ...update }, true));
 }
 

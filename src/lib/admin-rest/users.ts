@@ -4,7 +4,8 @@ import { SITE_URL } from "@/lib/env";
 import { sanitizeTitle, uniqueSlug } from "@/lib/admin-rest/slug";
 import { hashPassword } from "@/lib/auth/password";
 import { splitAvatars } from "@/lib/db/adapt";
-import { json, wpError, list, readJson, pickFields, paging, pastTheEnd, forbidden, escapeRegex } from "@/lib/admin-rest/http";
+import { json, wpError, list, readJson, pickFields, paging, pastTheEnd, forbidden, escapeRegex, staffRef } from "@/lib/admin-rest/http";
+import { recordActivity } from "@/lib/activity";
 import type { UserDoc } from "@/lib/db/types";
 import type { AdminRequest } from "@/lib/admin-rest/http";
 
@@ -144,6 +145,7 @@ async function handleCreate(req: AdminRequest): Promise<Response> {
   };
 
   await col.insertOne(doc);
+  await recordActivity(staffRef(req.user), "user.create", { type: "user", id: doc._id, title: `${doc.name} (${doc.role})`, link: null });
 
   return json(formatUser(doc, true), 201);
 }
@@ -165,6 +167,7 @@ async function handleUpdate(req: AdminRequest, userId: number): Promise<Response
 
   if (Object.keys(update).length > 0) {
     await col.updateOne({ _id: userId }, { $set: update });
+    await recordActivity(staffRef(req.user), "user.update", { type: "user", id: userId, title: doc.name, link: null });
   }
 
   const updated = await col.findOne({ _id: userId });

@@ -1,8 +1,30 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { parseEnv } from "node:util";
 import type { NextConfig } from "next";
 
 // the version /settings shows — read from package.json so the two can't drift
 const { version } = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")) as { version: string };
+
+/* Local checkouts keep the backend's secrets in the workspace root .env (shared
+   with migration/), not in frontend/. Next only reads frontend/.env*, so a plain
+   `next build` never saw MONGODB_URI, fell back to WordPress, and failed now that
+   WordPress answers 410. This takes the same keys migration/next-mongo.mjs passes
+   to `npm run dev` — the database, Spaces and the admin sign-in, never the
+   analytics/purge/push keys — and never overrides a value already set. On
+   DigitalOcean there is no root .env (it is outside the repo), so the dashboard
+   env is used untouched. Runs before anything below reads process.env, and the
+   build workers inherit it. */
+const ROOT_ENV = new URL("../.env", import.meta.url);
+const ROOT_KEYS = ["MONGODB_URI", "ADMIN_USER", "ADMIN_PASSWORD", "ADMIN_SESSION_SECRET"];
+if (existsSync(ROOT_ENV)) {
+  for (const [key, value] of Object.entries(parseEnv(readFileSync(ROOT_ENV, "utf8")))) {
+    if ((ROOT_KEYS.includes(key) || key.startsWith("DO_SPACES_")) && process.env[key] === undefined) process.env[key] = value;
+  }
+  if (process.env.MONGODB_URI) {
+    process.env.DATA_SOURCE ??= "mongo";
+    process.env.NEXT_PUBLIC_MEDIA_ORIGIN ??= "https://d4dx-storage.blr1.cdn.digitaloceanspaces.com/islamonlive";
+  }
+}
 
 /* The WordPress origin, duplicated from lib/env.ts because next.config runs
    before the "@/..." path alias exists. Keep the two in step. */
@@ -61,18 +83,14 @@ const nextConfig: NextConfig = {
   experimental: { staleTimes: { dynamic: 300, static: 300 } },
 
   images: {
-    /* Photon, not Vercel's optimizer — see lib/imageLoader.ts. Vercel bills
-       optimization per source image and the archive exhausted the allowance,
-       so /_next/image began answering 402 and every uncached size rendered as
-       a broken image. A custom loader bypasses that route completely: the
-       browser fetches i0.wp.com directly. */
-    loader: "custom",
-    loaderFile: "./src/lib/imageLoader.ts",
-
-    /* Unused while the loader is custom — Next only consults remotePatterns in
-       its own optimizer — but kept as the record of which hosts may appear in
-       an <Image src>, and what the config must be if the loader is ever
-       dropped. MEDIA_HOST is empty when NEXT_PUBLIC_MEDIA_ORIGIN is unset. */
+    /* Next's own optimizer (sharp), running in the DO App container. It replaced
+       the Jetpack Photon loader (i0.wp.com), which was there only because
+       Vercel billed per optimized image and started answering 402. Self-hosted
+       there is no per-image bill, and Photon was the slow part: ~1s for every
+       cold rendition, a per-IP burst limit that broke cards on scroll (429 →
+       ERR_BLOCKED_BY_ORB), and a 404 on the first fetch of a fresh upload.
+       Now the browser asks /_next/image on our own origin (same connection as
+       the page, no extra DNS/TLS) and sharp resizes from the Spaces CDN. */
     remotePatterns: [
       { protocol: "https" as const, hostname: "islamonlive.in" },
       { protocol: "https" as const, hostname: "*.islamonlive.in" },
@@ -84,21 +102,22 @@ const nextConfig: NextConfig = {
       { protocol: "https" as const, hostname: "secure.gravatar.com" },
       { protocol: "https" as const, hostname: "i.ytimg.com" },
     ],
-    /* Fewer, wider-apart breakpoints than Next's defaults (8 device widths +
-       8 image widths). Every distinct width is a separate rendition Photon has
-       to generate on first request, and it throttles bursts of *cold* ones
-       hard — a scroll that reveals a row of cards then comes back as 429s,
-       which Chrome refuses to render (ERR_BLOCKED_BY_ORB) and the card shows
-       as broken until a reload finds the rendition warm. Halving the width
-       count roughly doubles the chance any given card asks for a size the CDN
-       has already made, for the same visual result. ImageRetry.tsx covers what
-       still slips through. */
+    /* Fewer widths than Next's 16 defaults: each width is a separate sharp
+       encode and a separate cache entry, so fewer widths = more cache hits and
+       less CPU in the container, for the same visual result. */
     deviceSizes: [640, 828, 1280, 1920],
     imageSizes: [96, 192, 384],
 
-    /* formats/minimumCacheTTL are deliberately absent: both configure the
-       built-in optimizer, which no longer runs. Photon negotiates WebP from
-       the Accept header itself and caches on its own CDN. */
+    /* WebP only. AVIF is ~20% smaller but several times slower to encode, which
+       on a small App Platform instance turns a cold card into a visible wait.
+       One format also keeps the DO edge (which ignores Vary: Accept) from ever
+       handing one browser another's format. */
+    formats: ["image/webp"],
+
+    /* Upload filenames never change content (WordPress/Spaces write a new name
+       per upload), so a rendition can be kept a month. This is also the
+       Cache-Control max-age the browser and the DO edge receive. */
+    minimumCacheTTL: 2678400,
   },
 
   async rewrites() {

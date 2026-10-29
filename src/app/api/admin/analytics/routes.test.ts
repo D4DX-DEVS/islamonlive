@@ -13,6 +13,7 @@ vi.mock("@/lib/wp-lookup", () => ({
 const { GET: summaryGET } = await import("./summary/route");
 const { GET: articlesGET } = await import("./articles/route");
 const { GET: articleGET } = await import("./articles/[id]/route");
+const { GET: listGET } = await import("./list/route");
 const { GET: liveGET } = await import("./live/route");
 const { POST: collect } = await import("../../analytics/collect/route");
 
@@ -40,6 +41,7 @@ describe("admin analytics routes", () => {
     expect((await liveGET()).status).toBe(403);
     as(9003, "gone");
     expect((await articlesGET(get("/api/admin/analytics/articles"))).status).toBe(403);
+    expect((await listGET(get("/api/admin/analytics/list?list=byTime"))).status).toBe(403);
   });
 
   it("looks a WordPress-mode session (no user id) up by username", async () => {
@@ -65,6 +67,11 @@ describe("admin analytics routes", () => {
     expect((await articlesGET(get("/api/admin/analytics/articles?pageSize=5000"))).status).toBe(400);
     expect((await articleGET(get("/api/admin/analytics/articles/abc"), { params: Promise.resolve({ id: "abc" }) })).status).toBe(400);
     expect((await articlesGET(get("/api/admin/analytics/articles?sort=avgSeconds&order=asc&pageSize=50"))).status).toBe(200);
+    expect((await listGET(get("/api/admin/analytics/list?list=passwords"))).status).toBe(400);
+    expect((await listGET(get("/api/admin/analytics/list?list=byTime&page=0"))).status).toBe(400);
+    const page = await listGET(get("/api/admin/analytics/list?list=byTime&page=2&range=7"));
+    expect(page.status).toBe(200);
+    expect(await page.json()).toMatchObject({ pageSize: 5, data: expect.any(Array) });
   });
 });
 

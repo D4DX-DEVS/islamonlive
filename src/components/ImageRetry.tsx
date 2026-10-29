@@ -2,22 +2,18 @@
 
 import { useEffect } from "react";
 
-/* The safety net under the Photon loader (lib/imageLoader.ts).
+/* The safety net under next/image's optimizer (/_next/image, sharp).
 
-   Photon rate-limits bursts of requests from one IP, and a scroll down the home
-   page is exactly that: a row of cards enters the viewport and fires a dozen
-   image loads at once. The ones it throttles come back as 429 with an HTML
-   body, and because an <img> is a cross-origin no-cors request, Chrome will not
-   hand that body to the page — it logs ERR_BLOCKED_BY_ORB and the card renders
-   as a broken image. Reloading the page fixes it, which is the tell: the
-   rendition is warm the second time, so the request goes through. Cold
-   renditions (a width Photon has never resized) are throttled hardest, which is
-   why the gaps cluster wherever you scrolled first and then stop appearing.
+   It used to sit under the Photon loader, whose per-IP burst limit broke cards
+   on scroll. The optimizer runs on our own container now, but a cold rendition
+   can still fail — a timeout while the container is busy encoding a row of
+   cards, or a deploy swapping instances mid-scroll — and a broken card looks
+   the same either way.
 
-   The repair is to re-request the same URL with backoff, and if Photon still
-   refuses, to point the element at the WordPress original, which has no rate
-   limit. A full-size upload is more bytes than the resize would have been; a
-   broken card is worse.
+   The repair is to re-request the same URL with backoff, and if it still
+   fails, to point the element at the original upload (the `url` the optimizer
+   was handed), which is a plain CDN file. A full-size upload is more bytes than
+   the resize would have been; a broken card is worse.
 
    Two ways in, because neither alone is enough:
 
@@ -33,7 +29,7 @@ import { useEffect } from "react";
        category page died exactly that way; the sweep is what brings them
        back. */
 
-/** How many times to re-request the Photon URL before falling back. */
+/** How many times to re-request the optimizer URL before falling back. */
 const RETRIES = 2;
 
 /** How often to look for images that failed without an error event reaching us. */
@@ -46,16 +42,19 @@ function delayFor(attempt: number): number {
 }
 
 /**
- * The WordPress original behind a Photon URL:
- * https://i0.wp.com/admin.islamonlive.in/wp-content/…jpg?w=256
- *   -> https://admin.islamonlive.in/wp-content/…jpg
+ * The original behind an optimizer URL:
+ * /_next/image/?url=https%3A%2F%2F…%2Fwp-content%2F…jpg&w=640&q=75
+ *   -> https://…/wp-content/…jpg
  *
- * The host is read back out of the path Photon was handed, so this needs no env
- * and cannot disagree with whatever the loader emitted.
+ * Read back out of the URL itself, so this needs no env and cannot disagree
+ * with whatever next/image emitted. Photon URLs are still understood, for a
+ * tab left open across the deploy that dropped Photon.
  */
-function originalUrl(photon: string): string | null {
+function originalUrl(failed: string): string | null {
   try {
-    const u = new URL(photon);
+    const u = new URL(failed, window.location.href);
+    // trailingSlash: true makes next/image emit /_next/image/?url=…
+    if (u.pathname.replace(/\/$/, "") === "/_next/image") return u.searchParams.get("url");
     if (!u.host.endsWith(".wp.com")) return null;
     const m = /^\/([^/]+)(\/.*)$/.exec(u.pathname);
     return m ? `https://${m[1]}${m[2]}` : null;
@@ -71,7 +70,7 @@ function repair(img: HTMLImageElement): void {
 
   // the URL the browser actually chose out of the srcset, not the fallback src
   const failed = img.currentSrc || img.src;
-  if (!failed.includes(".wp.com/")) return;
+  if (!failed.includes("/_next/image") && !failed.includes(".wp.com/")) return;
 
   const attempt = Number(img.dataset.retry ?? 0);
 
@@ -92,7 +91,7 @@ function repair(img: HTMLImageElement): void {
     /* Re-requesting re-runs the browser's image selection, and with a srcset
        present it would pick by viewport rather than re-fetch the URL that
        failed. Dropping it pins the retry to that exact rendition — the one this
-       element needs and the one Photon is busy warming. */
+       element needs and the one the optimizer is busy encoding. */
     img.srcset = "";
     img.src = failed;
   }, delayFor(attempt));

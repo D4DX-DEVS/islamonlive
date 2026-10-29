@@ -33,9 +33,15 @@ describe("sitemaps from MongoDB", () => {
     expect(locs(xml)).toEqual(published.map((p) => `https://islamonlive.in${p.path}`));
   });
 
-  it("writes lastmod exactly as the WordPress path does: new Date(modified).toISOString()", async () => {
+  it("writes lastmod from modified_gmt — the IST `modified` read as UTC lands 5.5 h in the future", async () => {
     const xml = await body(await sitemap.childSitemap("post", 1));
-    expect(lastmods(xml)).toEqual(published.map((p) => new Date(p.modified).toISOString()));
+    expect(lastmods(xml)).toEqual(published.map((p) => new Date(`${p.modified_gmt}Z`).toISOString()));
+  });
+
+  it("dates the index's post files by the newest edit, in UTC", async () => {
+    const xml = await body(await sitemap.sitemapIndex());
+    const newest = [...published].sort((a, b) => b.modified_gmt.localeCompare(a.modified_gmt))[0];
+    expect(lastmods(xml)[0]).toBe(new Date(`${newest.modified_gmt}Z`).toISOString());
   });
 
   it("keeps WordPress's lowercase percent-encoding of Malayalam slugs", async () => {
@@ -87,15 +93,25 @@ describe("sitemaps from MongoDB", () => {
   it("puts a post published in the last 48 hours in the news sitemap, with its title", async () => {
     const col = await collection("posts");
     const now = new Date();
+    const gmt = now.toISOString().slice(0, 19);
     const local = new Date(now.getTime() + 5.5 * 3600_000).toISOString().slice(0, 19);
-    const fresh = { ...published[0], _id: 9_100_001, slug: "fresh-news", path: "/news/fresh-news/", link: "https://islamonlive.in/news/fresh-news/", title: "Fresh &amp; new", date: local, published_at: now };
-    await col.insertOne(fresh);
+    const fresh = { ...published[0], _id: 9_100_001, slug: "fresh-news", path: "/news/fresh-news/", link: "https://islamonlive.in/news/fresh-news/", title: "Fresh &amp; new&#8230; A &gt; B", date: local, date_gmt: gmt, published_at: now };
+    // a row with dates nothing can parse ("g…" sorts after any ISO date, so `after` keeps it)
+    const broken = { ...fresh, _id: 9_100_002, slug: "broken-date", path: "/news/broken-date/", link: "https://islamonlive.in/news/broken-date/", date: "garbage", date_gmt: "garbage" };
+    await col.insertMany([fresh, broken]);
     try {
-      const xml = await body(await sitemap.newsSitemap());
+      const response = await sitemap.newsSitemap();
+      expect(response.status).toBe(200);
+      const xml = await body(response);
       expect(locs(xml)).toContain("https://islamonlive.in/news/fresh-news/");
-      expect(xml).toContain("<news:title>Fresh &amp;amp; new</news:title>");
+      // entities decoded once, then XML-escaped once: Google News shows "Fresh & new… A > B"
+      expect(xml).toContain("<news:title>Fresh &amp; new… A &gt; B</news:title>");
+      expect(xml).toContain(`<news:publication_date>${gmt}.000Z</news:publication_date>`);
+      // the unparseable row is dropped, not printed as "undefined", and does not sink the file
+      expect(locs(xml)).not.toContain("https://islamonlive.in/news/broken-date/");
+      expect(xml).not.toContain("undefined");
     } finally {
-      await col.deleteOne({ _id: 9_100_001 });
+      await col.deleteMany({ _id: { $in: [9_100_001, 9_100_002] } });
     }
   });
 });

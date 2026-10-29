@@ -9,6 +9,7 @@ import { DEVICE_LABELS, KIND_LABELS, SOURCE_LABELS, compact, delta, duration, lo
 import { ArticleList, BarList, EmptyNote, ErrorNote, ListSkeleton, Panel, SplitBar, Stat, TEAL, VIOLET, articleFigures } from "./parts";
 import FilterBar from "./FilterBar";
 import LivePanel from "./LivePanel";
+import Paged from "./Paged";
 import ArticleTable from "./ArticleTable";
 import ArticleDrawer from "./ArticleDrawer";
 import type { Summary } from "@/lib/analytics/report-types";
@@ -47,7 +48,7 @@ export default function AnalyticsPage({ categories }: { categories: Category[] }
   const p = data?.previous ?? undefined;
   const compareNote = data?.previous ? "vs previous period" : "No earlier data to compare";
   const series = data?.series ?? [];
-  const byTime = [...(data?.categories ?? [])].sort((a, b) => b.activeSeconds - a.activeSeconds || b.views - a.views);
+  const ARTICLES: [string, string] = ["article", "articles"];
 
   return <div className="space-y-5 sm:space-y-6">
     <div className="flex flex-wrap items-end justify-between gap-3">
@@ -74,12 +75,16 @@ export default function AnalyticsPage({ categories }: { categories: Category[] }
       {/* the question this page exists for: which articles and categories get the reading time */}
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         <Panel title="Articles readers spend time on" subtitle="Total active reading time in this period. Select one for its full breakdown.">
-          <ArticleList rows={data.topByTime} onOpen={setArticle} empty="No article has been read in this period yet."
-            value={(row) => <><span className="font-semibold">{duration(row.activeSeconds)}</span><span className="block text-xs text-slate-500">{viewCount(row.views)} · {metric(row.avgSeconds, duration)} avg</span></>} />
+          <Paged list="byTime" first={data.topByTime} filters={data.filters} label="Articles readers spend time on" noun={ARTICLES}>{(rows, start) =>
+            <ArticleList rows={rows} start={start} onOpen={setArticle} empty="No article has been read in this period yet."
+              value={(row) => <><span className="font-semibold">{duration(row.activeSeconds)}</span><span className="block text-xs text-slate-500">{viewCount(row.views)} · {metric(row.avgSeconds, duration)} avg</span></>} />}
+          </Paged>
         </Panel>
         <Panel title="Categories readers spend time on" subtitle="Active reading time on each category's articles. Select one to filter. An article in two categories counts in both.">
-          {byTime.length ? <BarList label="Article reading time by category" active={filters.category ? String(filters.category) : undefined} onPick={(id) => toggle("category", Number(id))}
-            rows={byTime.slice(0, 12).map((c) => ({ id: String(c.id), label: c.name, value: c.activeSeconds, display: duration(c.activeSeconds), detail: `${percent(c.timeShare)} of reading time · ${viewCount(c.views)} · ${metric(c.avgSeconds, duration)} avg` }))} /> : <EmptyNote>No article has been read in this period yet.</EmptyNote>}
+          {data.categories.total ? <Paged list="categories" first={data.categories} filters={data.filters} label="Categories readers spend time on" noun={["category", "categories"]}>{(rows) =>
+            <BarList label="Article reading time by category" scale={data.categories.data[0]?.activeSeconds} active={filters.category ? String(filters.category) : undefined} onPick={(id) => toggle("category", Number(id))}
+              rows={rows.map((c) => ({ id: String(c.id), label: c.name, value: c.activeSeconds, display: duration(c.activeSeconds), detail: `${percent(c.timeShare)} of reading time · ${viewCount(c.views)} · ${metric(c.avgSeconds, duration)} avg` }))} />}
+          </Paged> : <EmptyNote>No article has been read in this period yet.</EmptyNote>}
         </Panel>
       </div>
 
@@ -115,7 +120,9 @@ export default function AnalyticsPage({ categories }: { categories: Category[] }
           {data.sources.length ? <BarList label="Page views by traffic source" active={filters.source} onPick={(id) => toggle("source", id)} rows={data.sources.map((s) => ({ id: s.id, label: SOURCE_LABELS[s.id] ?? s.id, value: s.views, display: compact(s.views), detail: percent(s.share) }))} /> : <EmptyNote>No page views in this period.</EmptyNote>}
         </Panel>
         <Panel title="Referring sites" subtitle="Search engines, social networks and other sites that sent readers.">
-          {data.referrers.length ? <BarList label="Page views by referring site" rows={data.referrers.map((r) => ({ id: r.id, label: r.id, value: r.views, display: compact(r.views), detail: percent(r.share) }))} /> : <EmptyNote>No visits from other sites in this period.</EmptyNote>}
+          {data.referrers.total ? <Paged list="referrers" first={data.referrers} filters={data.filters} label="Referring sites" noun={["site", "sites"]}>{(rows) =>
+            <BarList label="Page views by referring site" scale={data.referrers.data[0]?.views} rows={rows.map((r) => ({ id: r.id, label: r.id, value: r.views, display: compact(r.views), detail: percent(r.share) }))} />}
+          </Paged> : <EmptyNote>No visits from other sites in this period.</EmptyNote>}
         </Panel>
         <Panel title="Devices and visitors" subtitle="Select a device to filter.">
           {data.devices.length ? <BarList label="Page views by device" active={filters.device} onPick={(id) => toggle("device", id)} rows={data.devices.map((d) => ({ id: d.id, label: DEVICE_LABELS[d.id] ?? d.id, value: d.views, display: compact(d.views), detail: percent(d.share) }))} /> : <EmptyNote>No page views in this period.</EmptyNote>}
@@ -126,10 +133,10 @@ export default function AnalyticsPage({ categories }: { categories: Category[] }
 
       <div className="grid gap-5 lg:grid-cols-2">
         <Panel title="Most read" subtitle="Articles with the most views.">
-          <ArticleList rows={data.topViewed} onOpen={setArticle} empty="No article views in this period." value={(row) => <><span className="font-semibold">{compact(row.views)}</span><span className="block text-xs text-slate-500">views</span></>} />
+          <Paged list="viewed" first={data.topViewed} filters={data.filters} label="Most read" noun={ARTICLES}>{(rows, start) => <ArticleList rows={rows} start={start} onOpen={setArticle} empty="No article views in this period." value={(row) => <><span className="font-semibold">{compact(row.views)}</span><span className="block text-xs text-slate-500">views</span></>} />}</Paged>
         </Panel>
         <Panel title="Most engaging" subtitle={`Longest average reading time, among articles with ${data.insights.minViews}+ views.`}>
-          <ArticleList rows={data.topEngaging} onOpen={setArticle} empty={`No article has ${data.insights.minViews} views in this period yet.`} value={(row) => <><span className="font-semibold">{metric(row.avgSeconds, duration)}</span><span className="block text-xs text-slate-500">avg. read</span></>} />
+          <Paged list="engaging" first={data.topEngaging} filters={data.filters} label="Most engaging" noun={ARTICLES}>{(rows, start) => <ArticleList rows={rows} start={start} onOpen={setArticle} empty={`No article has ${data.insights.minViews} views in this period yet.`} value={(row) => <><span className="font-semibold">{metric(row.avgSeconds, duration)}</span><span className="block text-xs text-slate-500">avg. read</span></>} />}</Paged>
         </Panel>
       </div>
 
@@ -137,16 +144,16 @@ export default function AnalyticsPage({ categories }: { categories: Category[] }
         <div><h2 id="insights-heading" className="text-lg font-extrabold text-[#12093a]">Insights</h2><p className="text-sm text-slate-500">Drawn from {data.insights.eligible.toLocaleString("en")} {data.insights.eligible === 1 ? "article" : "articles"} with at least {data.insights.minViews} views{data.previous ? ", compared with the previous period" : ""}.</p></div>
         <div className="grid gap-5 md:grid-cols-2">
           <Panel title="Trending" subtitle="Biggest rise in views against the previous period.">
-            <ArticleList rows={data.insights.trending} onOpen={setArticle} empty={data.previous ? "Nothing is rising sharply." : "Needs a previous period with data to compare."} value={(row) => <span className="font-semibold text-emerald-700">+{compact(row.views - row.previousViews)}</span>} />
+            <Paged list="trending" first={data.insights.trending} filters={data.filters} label="Trending" noun={ARTICLES}>{(rows, start) => <ArticleList rows={rows} start={start} onOpen={setArticle} empty={data.previous ? "Nothing is rising sharply." : "Needs a previous period with data to compare."} value={(row) => <span className="font-semibold text-emerald-700">+{compact(row.views - row.previousViews)}</span>} />}</Paged>
           </Panel>
           <Panel title="Losing readers" subtitle="Biggest drop in views against the previous period.">
-            <ArticleList rows={data.insights.declining} onOpen={setArticle} empty={data.previous ? "Nothing is falling sharply." : "Needs a previous period with data to compare."} value={(row) => <span className="font-semibold text-red-700">−{compact(row.previousViews - row.views)}</span>} />
+            <Paged list="declining" first={data.insights.declining} filters={data.filters} label="Losing readers" noun={ARTICLES}>{(rows, start) => <ArticleList rows={rows} start={start} onOpen={setArticle} empty={data.previous ? "Nothing is falling sharply." : "Needs a previous period with data to compare."} value={(row) => <span className="font-semibold text-red-700">−{compact(row.previousViews - row.views)}</span>} />}</Paged>
           </Panel>
           <Panel title="Opened but skimmed" subtitle="Many views, under half the typical reading time: check the headline promise, the opening or the length.">
-            <ArticleList rows={data.insights.skimmed} onOpen={setArticle} empty="No article stands out as skimmed, or there are not enough articles to judge yet." value={(row) => <span className="text-xs text-slate-600">{articleFigures(row)}</span>} />
+            <Paged list="skimmed" first={data.insights.skimmed} filters={data.filters} label="Opened but skimmed" noun={ARTICLES}>{(rows, start) => <ArticleList rows={rows} start={start} onOpen={setArticle} empty="No article stands out as skimmed, or there are not enough articles to judge yet." value={(row) => <span className="text-xs text-slate-600">{articleFigures(row)}</span>} />}</Paged>
           </Panel>
           <Panel title="Hidden gems" subtitle="Fewer views, top-quarter reading time: worth promoting.">
-            <ArticleList rows={data.insights.gems} onOpen={setArticle} empty="No hidden gems yet, or there are not enough articles to judge." value={(row) => <span className="text-xs text-slate-600">{articleFigures(row)}</span>} />
+            <Paged list="gems" first={data.insights.gems} filters={data.filters} label="Hidden gems" noun={ARTICLES}>{(rows, start) => <ArticleList rows={rows} start={start} onOpen={setArticle} empty="No hidden gems yet, or there are not enough articles to judge." value={(row) => <span className="text-xs text-slate-600">{articleFigures(row)}</span>} />}</Paged>
           </Panel>
         </div>
       </section>

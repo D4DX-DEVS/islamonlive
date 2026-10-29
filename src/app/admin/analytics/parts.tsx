@@ -15,7 +15,8 @@ export const VIOLET = "#7c3aed";
 export const TEAL = "#0d9488";
 
 export function Panel({ title, subtitle, action, children, className = "" }: { title: string; subtitle?: string; action?: ReactNode; children: ReactNode; className?: string }) {
-  return <section className={`${cardClass} min-w-0 ${className}`}>
+  // a column, so a Pager's mt-auto pins it to the foot and pagers line up across a row of cards
+  return <section className={`${cardClass} flex min-w-0 flex-col ${className}`}>
     <div className="flex flex-wrap items-start justify-between gap-2">
       <div className="min-w-0"><h3 className="text-base font-extrabold text-[#12093a] sm:text-lg">{title}</h3>{subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}</div>
       {action}
@@ -41,9 +42,10 @@ export function ListSkeleton({ rows = 5 }: { rows?: number }) {
 
 export type Bar = { id: string; label: string; value: number; display: string; detail?: string };
 
-/** Horizontal bars sharing one scale, the value written at the end. Clickable when `onPick` is given. */
-export function BarList({ rows, onPick, label, active }: { rows: Bar[]; onPick?: (id: string) => void; label: string; active?: string }) {
-  const max = Math.max(...rows.map((row) => row.value), 0);
+/** Horizontal bars sharing one scale, the value written at the end. Clickable when `onPick` is given.
+    A paged list passes the whole list's top value as `scale`, so later pages are drawn to the same scale. */
+export function BarList({ rows, onPick, label, active, scale }: { rows: Bar[]; onPick?: (id: string) => void; label: string; active?: string; scale?: number }) {
+  const max = Math.max(...rows.map((row) => row.value), scale ?? 0, 0);
   return <ul aria-label={label} className="mt-4 space-y-3">
     {rows.map((row) => {
       const body = <>
@@ -104,18 +106,31 @@ export function ScrollFunnel({ reached, views }: { reached: Record<25 | 50 | 75 
   </ol>;
 }
 
-/** A ranked list of articles; each opens the article's breakdown. */
-export function ArticleList({ rows, value, onOpen, empty }: { rows: ArticleRow[]; value: (row: ArticleRow) => ReactNode; onOpen: (id: number) => void; empty: string }) {
+/** A ranked list of articles; each opens the article's breakdown. `start` is how many rows earlier pages hold. */
+export function ArticleList({ rows, value, onOpen, empty, start = 0 }: { rows: ArticleRow[]; value: (row: ArticleRow) => ReactNode; onOpen: (id: number) => void; empty: string; start?: number }) {
   if (!rows.length) return <EmptyNote>{empty}</EmptyNote>;
   return <ol className="mt-3 divide-y divide-slate-100">
     {rows.map((row, index) => <li key={row.id}>
       <button type="button" onClick={() => onOpen(row.id)} className="flex min-h-14 w-full items-center gap-3 rounded-lg px-1 py-2 text-left transition hover:bg-violet-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-50 text-xs font-bold text-violet-700">{index + 1}</span>
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-50 text-xs font-bold text-violet-700">{start + index + 1}</span>
         <span className="min-w-0 flex-1"><span className="line-clamp-2 text-sm font-semibold text-slate-900">{row.title}</span>{row.category && <span className="mt-0.5 block truncate text-xs text-slate-500">{row.category}</span>}</span>
         <span className="shrink-0 text-right text-sm tabular-nums text-slate-900">{value(row)}</span>
       </button>
     </li>)}
   </ol>;
+}
+
+/** Previous / next under a paged list. mt-auto pins it to the card's foot. Nothing when everything fits on one page. */
+export function Pager({ label, page, totalPages, total, noun, onPage, disabled }: { label: string; page: number; totalPages: number; total: number; noun: [string, string]; onPage: (page: number) => void; disabled?: boolean }) {
+  if (totalPages <= 1) return null;
+  const button = "flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white transition hover:bg-slate-50 disabled:opacity-40";
+  return <nav aria-label={`${label}: pages`} className="mt-auto flex items-center justify-between gap-3 pt-4 text-sm text-slate-600">
+    <p>Page {page} of {totalPages} <span className="text-slate-400">· {total.toLocaleString("en")} {total === 1 ? noun[0] : noun[1]}</span></p>
+    <div className="flex items-center gap-2">
+      <button type="button" aria-label="Previous page" disabled={disabled || page <= 1} onClick={() => onPage(page - 1)} className={button}><Icon name="chevronLeft" className="h-4 w-4" /></button>
+      <button type="button" aria-label="Next page" disabled={disabled || page >= totalPages} onClick={() => onPage(page + 1)} className={button}><Icon name="chevronRight" className="h-4 w-4" /></button>
+    </div>
+  </nav>;
 }
 
 /** The usual one-line article figures. */

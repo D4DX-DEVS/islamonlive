@@ -87,7 +87,7 @@ function download(name: string, text: string) {
   URL.revokeObjectURL(link.href);
 }
 
-export default function Authors({ authors, refresh, loading, error, wordpressAdmin, onViewArticles }: { authors: Author[]; refresh: () => void; loading: boolean; error?: string; wordpressAdmin: boolean; onViewArticles: (authorId: number) => void }) {
+export default function Authors({ authors, refresh, loading, error, wordpressAdmin, onViewArticles, canCreate = true }: { /** Administrators create authors; editors only browse. */ canCreate?: boolean; authors: Author[]; refresh: () => void; loading: boolean; error?: string; wordpressAdmin: boolean; onViewArticles: (authorId: number) => void }) {
   const [form, setForm] = useState(emptyForm);
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoProblem, setPhotoProblem] = useState("");
@@ -186,14 +186,14 @@ export default function Authors({ authors, refresh, loading, error, wordpressAdm
 
   return <div className="space-y-5 sm:space-y-6">
     <div>
-      <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-slate-500"><span>Authors</span><Icon name="chevronRight" className="h-3.5 w-3.5" strokeWidth={2} /><span className="font-medium text-slate-900">Create author</span></nav>
+      <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-slate-500"><span>Authors</span><Icon name="chevronRight" className="h-3.5 w-3.5" strokeWidth={2} /><span className="font-medium text-slate-900">{canCreate ? "Create author" : "All authors"}</span></nav>
       <p className="pill mt-4 text-xs font-bold uppercase tracking-[0.18em] text-violet-700">Authors</p>
       <h1 className="mt-2 text-2xl font-extrabold text-[#12093a] sm:text-3xl">Authors and editors</h1>
-      <p className="mt-1.5 text-sm text-slate-500">Create author profiles without touching existing user records. Administrators and editors who can publish are included.</p>
+      <p className="mt-1.5 text-sm text-slate-500">{canCreate ? "Create author profiles without touching existing user records. Administrators and editors who can publish are included." : "Everyone with a byline, plus the editors and administrators. Only administrators can add authors."}</p>
     </div>
 
-    <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
-      <form onSubmit={(event) => void submit(event)} className={`${cardClass} space-y-5`}>
+    <div className={`grid grid-cols-[minmax(0,1fr)] items-start gap-5 ${canCreate ? "xl:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]" : ""}`}>
+      {canCreate && <form onSubmit={(event) => void submit(event)} className={`${cardClass} space-y-5`}>
         <CardTitle icon="users">Create author</CardTitle>
         <div className="grid gap-5 sm:grid-cols-[10.5rem_minmax(0,1fr)]">
           <PhotoPicker file={photo} problem={photoProblem} onChange={choosePhoto} />
@@ -223,7 +223,7 @@ export default function Authors({ authors, refresh, loading, error, wordpressAdm
           <div className="flex items-start gap-3 text-xs leading-snug text-slate-600"><Icon name="info" className="mt-0.5 h-[18px] w-[18px] shrink-0 text-violet-600" /><p><span className="block font-medium text-slate-800">The account will be created with the role {roleLabel(form.role)}.</span>{form.role === "author" ? "A byline profile; it cannot sign in." : "Share the temporary password with them privately."}</p></div>
           <button disabled={saving} className="flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[linear-gradient(90deg,#7c3aed,#6d28d9)] px-5 text-sm font-bold text-white shadow-[0_10px_22px_-10px_rgba(109,40,217,0.8)] transition hover:brightness-110 disabled:opacity-60"><Icon name="users" className="h-[18px] w-[18px]" />{saving ? "Creating…" : `Create ${form.role === "author" ? "author" : roleLabel(form.role).toLowerCase()}`}</button>
         </div>
-      </form>
+      </form>}
 
       <section className={`${cardClass} @container`}>
         <div className="flex items-center justify-between gap-3"><CardTitle icon="users">Existing authors and editors</CardTitle><span className="shrink-0 text-sm text-slate-500">{authors.length.toLocaleString()} users</span></div>

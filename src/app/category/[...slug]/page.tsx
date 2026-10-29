@@ -3,7 +3,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import InfiniteFeed from "@/components/InfiniteFeed";
 import JsonLd from "@/components/JsonLd";
 import { FEED_PER_PAGE } from "@/lib/feed";
-import { getCategoryBySlug, getPostsPage, decodeEntities, stripHtml } from "@/lib/wordpress";
+import { getCategoryBySlug, getPostsPage, decodeEntities, decodePath, stripHtml } from "@/lib/wordpress";
 import { seoMetadata, seoSchema, termSeo } from "@/lib/seo";
 import { breadcrumbSchema, collectionPageSchema, graph, siteNodes } from "@/lib/schema";
 import { siteUrl } from "@/lib/env";
@@ -51,7 +51,8 @@ async function resolve(all: string[]) {
 
   const canonical = categoryPath(cat);
   const requested = `/category/${segments.join("/")}/`;
-  const wrongPath = decodeURIComponent(requested).toLowerCase() !== decodeURIComponent(canonical).toLowerCase();
+  // case-sensitive, like the article route: /CATEGORY/OPINION/ is a duplicate, not the archive
+  const wrongPath = decodePath(requested) !== decodePath(canonical);
   const redirectTo = wrongPath || (explicit && page === 1) ? pagePath(canonical, page) : null;
 
   return { cat, page, canonical, name: decodeEntities(cat.name), redirectTo };

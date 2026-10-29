@@ -2,6 +2,7 @@ import { TTL } from "@/lib/cache";
 import { DATA_SOURCE, SITE_URL, WP_API } from "@/lib/env";
 import { restList } from "@/lib/db/rest-list";
 import { toSiteUrl } from "@/lib/urls";
+import { stripHtml } from "@/lib/wp-model";
 import { getStaticPage } from "@/lib/wpPage";
 
 /* The sitemaps, at the addresses Yoast used.
@@ -56,7 +57,9 @@ interface Entry {
   link?: string;
   slug?: string;
   modified?: string;
+  modified_gmt?: string;
   date?: string;
+  date_gmt?: string;
   title?: { rendered: string };
   count?: number;
   yoast_head_json?: { robots?: { index?: string } };
@@ -117,6 +120,20 @@ export function sitemapUnavailable(): Response {
   });
 }
 
+/* An ISO instant from WordPress's clock pair. `date`/`modified` are site-local
+   (IST) with no offset, so new Date() on a UTC server reads them 5.5 h late and
+   the sitemap promised times in the future; the _gmt twin is the real instant.
+   Local is the fallback only for a row that carries no _gmt. */
+function instant(gmt: string | null | undefined, local: string | null | undefined): string | undefined {
+  // an unparseable row loses its date, never the whole file (toISOString throws on an invalid Date)
+  const iso = (s: string) => {
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+  };
+  const fromGmt = gmt && !gmt.startsWith("0000") ? iso(/[zZ]|[+-]\d\d:?\d\d$/.test(gmt) ? gmt : `${gmt}Z`) : undefined;
+  return fromGmt ?? (local && !local.startsWith("0000") ? iso(local) : undefined);
+}
+
 /** &, <, > and quotes are the only characters that may not sit raw in XML text. */
 function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -159,10 +176,10 @@ function childName(type: SitemapType, index: number): string {
 
 /** ISO time of the most recently edited item in a collection; undefined when WordPress cannot say. */
 async function newest(path: string, revalidateFor: number): Promise<string | undefined> {
-  const { items } = await wpList(path, { per_page: "1", orderby: "modified", order: "desc", _fields: "modified" }, revalidateFor).catch(
+  const { items } = await wpList(path, { per_page: "1", orderby: "modified", order: "desc", _fields: "modified,modified_gmt" }, revalidateFor).catch(
     () => ({ items: [] as Entry[], total: 0 })
   );
-  return items[0]?.modified ? new Date(items[0].modified).toISOString() : undefined;
+  return instant(items[0]?.modified_gmt, items[0]?.modified);
 }
 
 export async function sitemapIndex(): Promise<Response> {
@@ -213,7 +230,7 @@ export async function childSitemap(type: SitemapType, fileIndex: number): Promis
         {
           per_page: String(WP_PER_PAGE),
           page: String(firstPage + i),
-          _fields: taxonomy ? "link,count,yoast_head_json" : type === "page" ? "link,slug,modified,yoast_head_json" : "link,modified,yoast_head_json",
+          _fields: taxonomy ? "link,count,yoast_head_json" : type === "page" ? "link,slug,modified,modified_gmt,yoast_head_json" : "link,modified,modified_gmt,yoast_head_json",
           // stable ordering keeps a given article in the same file between
           // regenerations, so crawlers are not handed a reshuffled archive
           ...(taxonomy ? { hide_empty: "true" } : { orderby: "id", order: "asc" }),
@@ -239,7 +256,8 @@ export async function childSitemap(type: SitemapType, fileIndex: number): Promis
     .map((e) => {
       const loc = esc(toSiteUrl(e.link!));
       // no changefreq/priority: Google ignores both, and Yoast dropped them too
-      const mod = e.modified ? `\n\t\t<lastmod>${new Date(e.modified).toISOString()}</lastmod>` : "";
+      const when = instant(e.modified_gmt, e.modified);
+      const mod = when ? `\n\t\t<lastmod>${when}</lastmod>` : "";
       return `\t<url>\n\t\t<loc>${loc}</loc>${mod}\n\t</url>`;
     });
 
@@ -251,14 +269,20 @@ export async function newsSitemap(): Promise<Response> {
   const after = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
   const { items } = await wpList(
     "posts",
-    { per_page: "100", after, orderby: "date", order: "desc", _fields: "link,date,title,yoast_head_json" },
+    { per_page: "100", after, orderby: "date", order: "desc", _fields: "link,date,date_gmt,title,yoast_head_json" },
     TTL.posts
   ).catch(() => ({ items: [] as Entry[], total: 0 }));
 
   const urls = items
-    .filter((e) => e.link && e.date && e.yoast_head_json?.robots?.index !== "noindex")
-    .map((e) => {
-      const title = esc((e.title?.rendered ?? "").replace(/<[^>]*>/g, "").trim());
+    .filter((e) => e.link && e.yoast_head_json?.robots?.index !== "noindex")
+    .map((e) => ({ e, published: instant(e.date_gmt, e.date) }))
+    // publication_date is required by Google News; a row without a usable one is left out, not printed as "undefined"
+    .filter((r): r is { e: Entry; published: string } => !!r.published)
+    .map(({ e, published }) => {
+      /* the rendered title carries wptexturize's entities (&#8230;) and the
+         admin's &lt;/&gt; — decoded once here, then XML-escaped once, else
+         Google News shows them literally */
+      const title = esc(stripHtml(e.title?.rendered ?? "").replace(/&lt;/g, "<").replace(/&gt;/g, ">"));
       return [
         "\t<url>",
         `\t\t<loc>${esc(toSiteUrl(e.link!))}</loc>`,
@@ -267,7 +291,7 @@ export async function newsSitemap(): Promise<Response> {
         "\t\t\t\t<news:name>Islamonlive.in</news:name>",
         "\t\t\t\t<news:language>ml</news:language>",
         "\t\t\t</news:publication>",
-        `\t\t\t<news:publication_date>${new Date(e.date!).toISOString()}</news:publication_date>`,
+        `\t\t\t<news:publication_date>${published}</news:publication_date>`,
         `\t\t\t<news:title>${title}</news:title>`,
         "\t\t</news:news>",
         "\t</url>",

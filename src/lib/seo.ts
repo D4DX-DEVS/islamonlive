@@ -129,6 +129,62 @@ export function termSeo(y: YoastHead | undefined): YoastHead | undefined {
   return rest;
 }
 
+const ABSOLUTE = /^(https?:\/\/[^/?#]+)([^?#]*)(\?[^#]*)?(#.*)?$/i;
+
+/** The address a URL names — decoded path without its trailing slash, plus the query; null for anything not absolute. */
+function addressOf(url: string): string | null {
+  const m = ABSOLUTE.exec(url);
+  if (!m) return null;
+  let path = m[2];
+  try {
+    path = decodeURI(path);
+  } catch {
+    /* keep the raw path */
+  }
+  return path.replace(/\/+$/, "") + (m[3] ?? "");
+}
+
+const lastSegment = (address: string): string => address.split("/").pop() ?? "";
+
+/**
+ * Yoast's head with the page's own address moved to `path`, the post's real
+ * permalink. ~107 archive posts carry a stale Yoast indexable whose canonical,
+ * og:url and every schema @id/url name an address this app redirects back to
+ * the permalink — a canonical pointing at a redirect. Two shapes, both the
+ * same post: a category it has since left (same final slug), and the draft
+ * address /?p=ID the indexable was captured at. Anything else — an editor's
+ * deliberate cross-post canonical, a bare site root — is left alone, as is
+ * every URL that does not name the stale address (fragments like #article are
+ * kept). A head that already agrees is returned as-is.
+ */
+export function atPermalink(y: YoastHead | undefined, path: string): YoastHead | undefined {
+  const stale = y?.canonical ? addressOf(y.canonical) : null;
+  const realEncoded = path.replace(/\/?$/, "/");
+  let realDecoded = realEncoded;
+  try {
+    realDecoded = decodeURI(realEncoded);
+  } catch {
+    /* malformed escape: the encoded form serves for both */
+  }
+  const real = realDecoded.replace(/\/+$/, "");
+  if (!y || stale === null || stale === real) return y;
+  const samePost = /^\?p=\d+$/.test(stale) || (!stale.includes("?") && stale !== "" && lastSegment(stale) === lastSegment(real));
+  if (!samePost) return y;
+
+  const move = (v: unknown): unknown => {
+    if (typeof v === "string") {
+      const m = ABSOLUTE.exec(v);
+      if (!m || !isInternalUrl(v) || addressOf(v) !== stale) return v;
+      // Yoast writes the decoded form where it had one (canonical, og:url) and the encoded one in schema
+      return `${m[1]}${/[^\x00-\x7f]/.test(m[2]) ? realDecoded : realEncoded}${m[4] ?? ""}`;
+    }
+    if (Array.isArray(v)) return v.map(move);
+    if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, move(x)]));
+    return v;
+  };
+  return move(y) as YoastHead;
+}
+
 /** Yoast's robots values are strings ("max-snippet:-1"); Next wants the number. */
 function directiveNumber(value: string | undefined, key: string): number | undefined {
   const n = Number(value?.replace(`${key}:`, ""));
@@ -296,11 +352,27 @@ function deep(value: unknown): unknown {
  * the properties Google asks for that Yoast sometimes omits.
  */
 function normalizeGraph(nodes: unknown[], y: YoastHead, hints: SchemaHints): unknown[] {
-  const list = nodes.filter((n): n is Node => !!n && typeof n === "object");
+  /* An ImageObject with no address is what Yoast leaves behind when a post's
+     featured file was deleted (url and contentUrl ""). Schema validators flag
+     it as invalid, so the node goes, and so does every reference to it. */
+  const blankImages = new Set(
+    nodes
+      .filter((n): n is Node => !!n && typeof n === "object" && hasType(n as Node, "ImageObject") && !(n as Node).url && !(n as Node).contentUrl)
+      .map((n) => n["@id"])
+      .filter((id): id is string => typeof id === "string")
+  );
+  const list = nodes.filter(
+    (n): n is Node => !!n && typeof n === "object" && !(hasType(n as Node, "ImageObject") && blankImages.has((n as Node)["@id"] as string))
+  );
   const person = list.find((n) => hasType(n, "Person"));
 
   return list.map((raw) => {
     const node = deep(raw) as Node;
+    for (const key of ["image", "primaryImageOfPage"]) {
+      const ref = node[key] as { "@id"?: unknown } | undefined;
+      if (ref && typeof ref === "object" && blankImages.has(ref["@id"] as string)) delete node[key];
+    }
+    if (node.thumbnailUrl === "") delete node.thumbnailUrl;
 
     if (hasType(node, "WebSite")) {
       node.name = SITE_NAME;

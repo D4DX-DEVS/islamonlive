@@ -85,7 +85,7 @@ export function smoothPath(points: [number, number][], baseline: number): string
 export type Point = { date: string; value: number };
 
 /** `format` writes a value (the tooltip, the peak); `tick` an axis label. Both default to counts of `unit`. */
-export function DailyChart({ points, unit, gradientId, emptyText, format, tick }: { points: Point[]; unit: [string, string]; gradientId: string; emptyText: string; format?: (value: number) => string; tick?: (value: number) => string }) {
+export function DailyChart({ points, unit, gradientId, emptyText, format, tick, fill }: { points: Point[]; unit: [string, string]; gradientId: string; emptyText: string; format?: (value: number) => string; tick?: (value: number) => string; fill?: boolean }) {
   const [hover, setHover] = useState<number | null>(null);
   const count = points.length;
   const maxValue = Math.max(...points.map((point) => point.value), 0);
@@ -115,12 +115,13 @@ export function DailyChart({ points, unit, gradientId, emptyText, format, tick }
   const point = active === null ? null : points[active];
   // Near the top of the plot the tooltip would sit over the heading, so it drops below the point instead.
   const tooltipBelow = point ? yPercent(point.value) < 28 : false;
-  return <div className="mt-5 flex gap-3 pr-5">
-    <div aria-hidden className="relative h-52 w-10 shrink-0 text-right text-xs text-slate-500 lg:h-56">
+  // `fill` lets the plot grow on xl to match a taller sibling card; the axis column skips the 28px date row.
+  return <div className={`mt-5 flex gap-3 pr-5 ${fill ? "xl:flex-1" : ""}`}>
+    <div aria-hidden className={`relative h-52 w-10 shrink-0 text-right text-xs text-slate-500 lg:h-56 ${fill ? "xl:mb-7 xl:h-auto" : ""}`}>
       {ticks.map((value) => <span key={value} className="absolute right-0 -translate-y-1/2 whitespace-nowrap" style={{ top: `${yPercent(value)}%` }}>{tick ? tick(value) : value.toLocaleString()}</span>)}
     </div>
-    <div className="min-w-0 flex-1">
-      <div role="group" aria-label={`${unit[1]} per day. ${maxValue ? `Peak ${label(maxValue)} on ${fullDate.format(utcDay(points[peak!].date))}.` : "None yet."} Use the left and right arrow keys to inspect a day.`} tabIndex={0} onPointerMove={moveTo} onPointerDown={moveTo} onPointerLeave={() => setHover(null)} onKeyDown={onKey} onBlur={() => setHover(null)} className="relative h-52 touch-pan-y rounded-md outline-none focus-visible:ring-2 focus-visible:ring-violet-300 lg:h-56">
+    <div className={`min-w-0 flex-1 ${fill ? "xl:flex xl:flex-col" : ""}`}>
+      <div role="group" aria-label={`${unit[1]} per day. ${maxValue ? `Peak ${label(maxValue)} on ${fullDate.format(utcDay(points[peak!].date))}.` : "None yet."} Use the left and right arrow keys to inspect a day.`} tabIndex={0} onPointerMove={moveTo} onPointerDown={moveTo} onPointerLeave={() => setHover(null)} onKeyDown={onKey} onBlur={() => setHover(null)} className={`relative h-52 touch-pan-y rounded-md outline-none focus-visible:ring-2 focus-visible:ring-violet-300 lg:h-56 ${fill ? "xl:h-auto xl:min-h-56 xl:flex-1" : ""}`}>
         <svg aria-hidden viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="absolute inset-0 h-full w-full overflow-visible">
           <defs><linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#8b5cf6" stopOpacity=".32" /><stop offset="1" stopColor="#8b5cf6" stopOpacity="0" /></linearGradient></defs>
           {ticks.map((tick) => <line key={tick} x1="0" x2={W} y1={(yPercent(tick) / 100) * H} y2={(yPercent(tick) / 100) * H} stroke="#eceaf5" strokeWidth="1" vectorEffect="non-scaling-stroke" />)}

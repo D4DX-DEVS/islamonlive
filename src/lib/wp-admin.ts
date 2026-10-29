@@ -233,6 +233,7 @@ async function mongoSignedRequest(path: string, init: RequestInit): Promise<Resp
     id: user._id,
     username: user.username ?? "",
     role: user.role,
+    name: user.name || user.username || "",
   };
 
   return adminRest(path, init, adminUser);
