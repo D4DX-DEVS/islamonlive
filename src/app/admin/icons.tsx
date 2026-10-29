@@ -54,6 +54,7 @@ const shapes = {
   layers: <><path d="M12 4l8.5 4.5L12 13 3.5 8.5z" /><path d="M3.5 12.5L12 17l8.5-4.5M3.5 16.5L12 21l8.5-4.5" /></>,
   history: <><path d="M4 12a8 8 0 102.4-5.7M4 4.5V9h4.5" /><path d="M12 8v4.5l3 1.8" /></>,
   arrowLeft: <path d="M19 12H5M11 6l-6 6 6 6" />,
+  logout: <path d="M14 4h3.5A2.5 2.5 0 0120 6.5v11a2.5 2.5 0 01-2.5 2.5H14M10 16.5L14.5 12 10 7.5M14.5 12H4" />,
 } as const;
 
 export type IconName = keyof typeof shapes;

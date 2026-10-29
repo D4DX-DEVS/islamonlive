@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import type { StaffRole, Tab } from "./ui";
+import ConfirmDialog from "./ConfirmDialog";
 
 const iconProps = { "aria-hidden": true, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round" } as const;
 
@@ -24,6 +25,14 @@ const ADMIN_ONLY = new Set<Tab>(["homepage", "team", "activity"]);
 /** The phone bar holds four; the rest go under "More". */
 const PHONE_BAR = 4;
 
+/** Phone bar tab: the active one sits in a soft violet pill with a dot under its label. */
+function BarButton({ active, label, onClick, children, ...rest }: { active: boolean; label: string; onClick: () => void; children: React.ReactNode } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return <button type="button" aria-current={active ? "page" : undefined} onClick={onClick} {...rest} className={`relative flex min-h-14 w-full flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[10.5px] font-semibold tracking-wide transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-200 active:scale-95 ${active ? "bg-violet-100/80 text-violet-700" : "text-slate-500 hover:text-slate-800"}`}>
+    <span className={`flex h-6 items-center justify-center transition ${active ? "-translate-y-px" : ""}`}>{children}</span>
+    <span className="leading-none">{label}</span>
+  </button>;
+}
+
 function MoreMenu({ items, activeTab, onPick }: { items: NavItem[]; activeTab: Tab; onPick: (tab: Tab) => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -36,11 +45,10 @@ function MoreMenu({ items, activeTab, onPick }: { items: NavItem[]; activeTab: T
   }, [open]);
   const active = items.some((item) => item.key === activeTab);
   return <div ref={ref} className="relative">
-    <button type="button" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((current) => !current)} className={`flex min-h-16 w-full flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-semibold transition ${active ? "text-violet-700" : "text-slate-500"}`}>
-      <span className="flex h-6 items-center justify-center"><svg {...iconProps} className="h-5 w-5"><circle cx="5.5" cy="12" r="1.3" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none" /><circle cx="18.5" cy="12" r="1.3" fill="currentColor" stroke="none" /></svg></span>
-      <span>More</span><span className={`mt-0.5 block h-1 w-8 rounded-full ${active ? "bg-violet-700" : "bg-transparent"}`} />
-    </button>
-    {open && <div role="menu" className="absolute bottom-full right-2 mb-2 w-52 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+    <BarButton active={active || open} label="More" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((current) => !current)}>
+      <svg {...iconProps} className="h-[22px] w-[22px]"><circle cx="5.5" cy="12" r="1.4" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" /><circle cx="18.5" cy="12" r="1.4" fill="currentColor" stroke="none" /></svg>
+    </BarButton>
+    {open && <div role="menu" className="absolute bottom-full right-0 mb-3 w-56 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 p-1.5 shadow-[0_18px_40px_-14px_rgba(76,29,149,0.45)] backdrop-blur-xl transition duration-150 starting:translate-y-2 starting:opacity-0">
       {items.map((item) => <button key={item.key} type="button" role="menuitem" onClick={() => { setOpen(false); onPick(item.key); }} className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium ${activeTab === item.key ? "bg-violet-50 text-violet-800" : "text-slate-700 hover:bg-violet-50"}`}><NavIcon tab={item.key} className="h-5 w-5" />{item.label}</button>)}
     </div>}
   </div>;
@@ -93,6 +101,8 @@ export default function AdminShell({ children, tab, setTab, username, onLogout, 
   const overflow = items.length > PHONE_BAR + 1;
   const barItems = overflow ? items.filter((item) => ["overview", "articles", "new", "homepage", "authors"].includes(item.key)).slice(0, PHONE_BAR) : items;
   const moreItems = overflow ? items.filter((item) => !barItems.includes(item)) : [];
+  const [confirmLogout, setConfirmLogout] = useState(false);
+  const askLogout = () => setConfirmLogout(true);
   return <div className="fixed inset-0 z-[100] flex bg-[#f7f6fc] text-slate-900">
     <aside className="relative z-30 hidden w-64 shrink-0 flex-col overflow-y-auto bg-white shadow-[10px_0_32px_-14px_rgba(76,29,149,0.3)] lg:flex">
       <div className="flex h-[68px] shrink-0 items-center border-b border-slate-200/70 px-6"><Image src="/logo.png" alt="Islamonlive" width={132} height={36} priority className="h-9 w-auto object-contain" /></div>
@@ -121,18 +131,24 @@ export default function AdminShell({ children, tab, setTab, username, onLogout, 
         <Image src="/logo.png" alt="Islamonlive" width={132} height={36} priority className="h-8 w-auto object-contain sm:h-9 lg:hidden" />
         <SearchBar onSearch={onSearch} />
         <div className="ml-auto flex items-center gap-1.5 sm:gap-3">
-          <UserMenu username={username} onLogout={onLogout} />
-          <button type="button" onClick={onLogout} className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 sm:px-4"><svg {...iconProps} className="h-[18px] w-[18px]"><path d="M14 4h3.5A2.5 2.5 0 0120 6.5v11a2.5 2.5 0 01-2.5 2.5H14M10 16.5L14.5 12 10 7.5M14.5 12H4" /></svg>Log out</button>
+          <UserMenu username={username} onLogout={askLogout} />
+          <button type="button" onClick={askLogout} className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 sm:px-4"><svg {...iconProps} className="h-[18px] w-[18px]"><path d="M14 4h3.5A2.5 2.5 0 0120 6.5v11a2.5 2.5 0 01-2.5 2.5H14M10 16.5L14.5 12 10 7.5M14.5 12H4" /></svg>Log out</button>
         </div>
       </header>
       <main className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-[1400px] p-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:p-7 lg:pb-7">{children}</div>
+        <div className="mx-auto max-w-[1400px] p-4 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-[calc(7rem+env(safe-area-inset-bottom))] lg:p-7 lg:pb-7">{children}</div>
       </main>
     </div>
 
-    <nav aria-label="Admin navigation" className={`fixed inset-x-0 bottom-0 z-50 grid ${barItems.length + (moreItems.length ? 1 : 0) === 5 ? "grid-cols-5" : "grid-cols-4"} border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_16px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden`}>
-      {barItems.map((item) => <button key={item.key} type="button" aria-current={activeTab === item.key ? "page" : undefined} onClick={() => setTab(item.key)} className={`flex min-h-16 flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-semibold transition ${activeTab === item.key ? "text-violet-700" : "text-slate-500"}`}><span className="flex h-6 items-center justify-center"><NavIcon tab={item.key} className="h-5 w-5" /></span><span>{item.short ?? item.label}</span><span className={`mt-0.5 block h-1 w-8 rounded-full ${activeTab === item.key ? "bg-violet-700" : "bg-transparent"}`} /></button>)}
-      {moreItems.length > 0 && <MoreMenu items={moreItems} activeTab={activeTab} onPick={setTab} />}
+    <nav aria-label="Admin navigation" className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-50 lg:hidden">
+      <div className={`grid ${barItems.length + (moreItems.length ? 1 : 0) === 5 ? "grid-cols-5" : "grid-cols-4"} items-center gap-1 rounded-[22px] border border-white/70 bg-white/85 p-1.5 shadow-[0_18px_40px_-14px_rgba(76,29,149,0.45),0_2px_6px_rgba(15,23,42,0.06)] ring-1 ring-violet-950/5 backdrop-blur-xl`}>
+        {barItems.map((item) => item.key === "new"
+          ? <button key={item.key} type="button" aria-label={item.label} aria-current={activeTab === item.key ? "page" : undefined} onClick={() => setTab(item.key)} className="flex min-h-14 flex-col items-center justify-center rounded-2xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-200"><span className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#8b5cf6,#6d28d9)] text-white shadow-[0_10px_20px_-8px_rgba(109,40,217,0.9)] transition active:scale-95 ${activeTab === item.key ? "ring-4 ring-violet-200" : ""}`}><svg {...iconProps} strokeWidth={2.2} className="h-6 w-6"><path d="M12 5v14M5 12h14" /></svg></span></button>
+          : <BarButton key={item.key} active={activeTab === item.key} label={item.short ?? item.label} onClick={() => setTab(item.key)}><NavIcon tab={item.key} className="h-[22px] w-[22px]" /></BarButton>)}
+        {moreItems.length > 0 && <MoreMenu items={moreItems} activeTab={activeTab} onPick={setTab} />}
+      </div>
     </nav>
+    <ConfirmDialog open={confirmLogout} tone="warning" icon="logout" title="Log out of the admin?" body="You will need to sign in again to manage articles." confirmLabel="Log out" pendingLabel="Logging out…"
+      onConfirm={async () => { setConfirmLogout(false); onLogout(); }} onCancel={() => setConfirmLogout(false)} />
   </div>;
 }
