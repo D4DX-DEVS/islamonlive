@@ -49,10 +49,41 @@ const LOOKUPS: [param: string, type: "post" | "page" | "category"][] = [
   ["cat", "category"],
 ];
 
+/* --- Admin API: cross-site request forgery ---
+
+   The session cookie is SameSite=Lax, which stops another *site* from sending
+   it on a POST — but islamonlive.in's subdomains are the same site, so a page on
+   any of them (an old WordPress host, a hijacked CNAME) could still drive the
+   admin API with a signed-in editor's cookie. Every browser sends Origin on a
+   POST/PUT/PATCH/DELETE, so a state-changing call whose Origin is not this host
+   is refused. A request with no Origin is not from a page and carries no
+   ambient cookie worth forging, so it passes to the handler's own auth check. */
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+function crossSite(request: NextRequest): boolean {
+  if (SAFE_METHODS.has(request.method)) return false;
+  const origin = request.headers.get("origin");
+  if (!origin) return request.headers.get("sec-fetch-site") === "cross-site";
+  let originHost: string;
+  try {
+    originHost = new URL(origin).host;
+  } catch {
+    return true; // "null" (sandboxed frames, file:) and garbage
+  }
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? "";
+  return originHost !== host && originHost !== new URL(SITE_URL).host;
+}
+
 /** Hosts that serve this app but are not the address readers are given. */
 const FOREIGN_HOST = /\.ondigitalocean\.app$/i;
 
 export default async function proxy(request: NextRequest): Promise<NextResponse> {
+  // the only /api paths the matcher lets in; see the matcher note for why the rest stay out
+  if (request.nextUrl.pathname.startsWith("/api/")) {
+    if (crossSite(request)) return NextResponse.json({ error: "Cross-site request refused" }, { status: 403 });
+    return NextResponse.next();
+  }
+
   const host = request.headers.get("host") ?? "";
   if (FOREIGN_HOST.test(host)) {
     /* Built by assigning onto a URL that is already the apex, never by handing
@@ -120,5 +151,8 @@ export default async function proxy(request: NextRequest): Promise<NextResponse>
    revalidate webhook aimed at the wrong host would then land on this route's
    GET handler, get a cheerful 200, and invalidate nothing. Leaving /api
    unredirected makes that case work instead of failing silently; robots.txt
-   disallows /api anyway, so there was never an index to protect. */
-export const config = { matcher: "/((?!_next/|api/|wp-content/|wp-includes/).*)" };
+   disallows /api anyway, so there was never an index to protect.
+
+   /api/admin is matched separately, and only for the cross-site check above —
+   never the host redirect. */
+export const config = { matcher: ["/((?!_next/|api/|wp-content/|wp-includes/).*)", "/api/admin/:path*"] };

@@ -8,6 +8,7 @@ import { getUserBySlug, getPostsPage, userAvatar, stripHtml } from "@/lib/wordpr
 import { seoMetadata, seoSchema } from "@/lib/seo";
 import { breadcrumbSchema, graph, siteNodes, SITE_ID } from "@/lib/schema";
 import { siteUrl } from "@/lib/env";
+import { sanitizeHtml } from "@/lib/sanitize";
 import { pagePath, splitPage } from "@/lib/paging";
 import PageView from "@/components/PageView";
 
@@ -64,7 +65,7 @@ export default async function AuthorPage({ params }: { params: Promise<{ slug: s
 
   const avatar = userAvatar(user);
   // WP hands the bio back as HTML (paragraphs, <br>, the odd inline style)
-  const bio = user.description?.trim() ?? "";
+  const bio = sanitizeHtml(user.description?.trim() ?? "");
   const url = siteUrl(pagePath(path, page));
   const personId = `${siteUrl(path)}#person`;
 

@@ -64,8 +64,41 @@ const SPLIT_HOSTS = WP_HOST !== new URL(SITE_URL).hostname;
    post-sitemap2.xml). */
 const SITEMAP_TYPES = ["post", "page", "category", "post_tag", "author"] as const;
 
+/* Content Security Policy, in two parts.
+
+   ENFORCED is what can be switched on without testing a single page: no
+   plugins, no <base> hijack, no form posting off-site, no framing by others.
+
+   REPORT_ONLY is the full allow-list, reported but not enforced, so a missed
+   origin shows up as a console warning instead of a broken embed. Scripts need
+   'unsafe-inline' — Next's bootstrap, the install-prompt capture and JSON-LD are
+   inline, and nonces would force every page dynamic and end ISR — so the gain
+   is in pinning *where* scripts and connections may come from. frame-src stays
+   https: because twenty years of articles embed from dozens of hosts. Once the
+   console stays clean across article, home, reels, listen and admin, move it to
+   the enforced header. */
+const CSP_ENFORCED = "frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'";
+const CSP_REPORT_ONLY = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' https://cdn.onesignal.com https://*.onesignal.com https://static.cloudflareinsights.com https://challenges.cloudflare.com",
+  "style-src 'self' 'unsafe-inline' https://onesignal.com https://*.onesignal.com",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  "media-src 'self' blob: https:",
+  "connect-src 'self' https://onesignal.com https://*.onesignal.com https://cloudflareinsights.com",
+  "frame-src https:",
+  "worker-src 'self' blob:",
+  "manifest-src 'self'",
+  // frame-ancestors is left out: browsers ignore it here and log that on every page
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join("; ");
+
 const nextConfig: NextConfig = {
   env: { NEXT_PUBLIC_APP_VERSION: version },
+  // no free framework fingerprint for scanners
+  poweredByHeader: false,
   // lets a prod build/start run beside the dev server (unset = normal .next)
   distDir: process.env.NEXT_DIST_DIR || ".next",
   // allow opening the dev server from other devices on the LAN
@@ -80,7 +113,13 @@ const nextConfig: NextConfig = {
 
   // client router cache: `dynamic` defaults to 0s since Next 15, so navigating back
   // re-rendered the page from scratch. 5 min matches the WP fetch revalidate.
-  experimental: { staleTimes: { dynamic: 300, static: 300 } },
+  experimental: {
+    staleTimes: { dynamic: 300, static: 300 },
+    /* /api/admin now runs through the proxy (its cross-site check), and Next
+       buffers a proxied body up to this size, truncating beyond it. Featured
+       images may be 10 MB, so the cap sits above that plus the form fields. */
+    proxyClientMaxBodySize: "12mb",
+  },
 
   images: {
     /* Next's own optimizer (sharp), running in the DO App container. It replaced
@@ -290,22 +329,44 @@ const nextConfig: NextConfig = {
         source: "/:path((?!_next/|wp-content/|wp-includes/|api/|feed(?:/|$)|comments/feed).*)",
         headers: [{ key: "CDN-Cache-Control", value: "no-store" }],
       },
+      /* The admin, its API and the homepage preview are for signed-in staff:
+         never indexed (robots.txt asks; this tells a crawler that followed a
+         link anyway) and never kept by Cloudflare or the DO edge. */
+      ...["/admin", "/preview", "/api/admin", "/api/cron"].map((area) => ({
+        source: `${area}/:path*`,
+        headers: [
+          { key: "X-Robots-Tag", value: "noindex, nofollow" },
+          { key: "CDN-Cache-Control", value: "no-store" },
+        ],
+      })),
       {
         source: "/:path*",
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "X-Frame-Options", value: "SAMEORIGIN" },
-          // the CSP spelling of the line above; a full policy is an open item
-          // (docs/MIGRATION.md §9) — the embeds and OneSignal need an allow-list
-          // that has to be tested page by page before it can be enforced
-          { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
-          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          { key: "Content-Security-Policy", value: CSP_ENFORCED },
+          { key: "Content-Security-Policy-Report-Only", value: CSP_REPORT_ONLY },
+          // popups (share sheets, OneSignal's prompt) keep working; nothing else gets a handle on this window
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()" },
           // two years, the value Vercel sets on its own; no includeSubDomains
           // until every islamonlive.in subdomain is confirmed HTTPS-only
           { key: "Strict-Transport-Security", value: "max-age=63072000" },
         ],
       },
+      /* After the rule above so these win (the last match sets a header). The
+         admin is never framed, not even by this origin: an article an editor
+         wrote is same-origin, and could lay an invisible /admin/team over a
+         decoy button for an administrator to click. /preview stays 'self', since
+         the homepage builder frames it. */
+      ...["/admin", "/api/admin"].map((area) => ({
+        source: `${area}/:path*`,
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Content-Security-Policy", value: CSP_ENFORCED.replace("frame-ancestors 'self'", "frame-ancestors 'none'") },
+        ],
+      })),
     ];
   },
 };

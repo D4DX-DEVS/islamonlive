@@ -11,6 +11,7 @@ import SectionList, { sectionName } from "./SectionList";
 import SectionSettings from "./SectionSettings";
 import AddSectionDialog from "./AddSectionDialog";
 import LayoutMap from "./LayoutMap";
+import ThemeSettings from "./ThemeSettings";
 import { ChangeList, compareLayouts } from "./changes";
 import { useLayoutDraft } from "./useLayoutDraft";
 
@@ -46,6 +47,7 @@ export default function HomeLayoutPage({ categories, onExit }: { categories: Cat
   const [device, setDevice] = useState<Device>(() => (window.innerWidth < 768 ? "phone" : "desktop"));
   const [panel, setPanel] = useState<Panel>("preview");
   const [adding, setAdding] = useState(false);
+  const [pageTab, setPageTab] = useState<"layout" | "style">("layout");
   const [pending, setPending] = useState<Pending>(null);
   const [toast, setToast] = useState<Toast | null>(null);
   const selected = draft.find((s) => s.id === selectedId) ?? null;
@@ -101,7 +103,7 @@ export default function HomeLayoutPage({ categories, onExit }: { categories: Cat
   };
 
   function dialogFor(action: NonNullable<Pending>): Omit<ConfirmDialogProps, "open" | "onCancel"> {
-    const changes = server ? compareLayouts(server.sections, draft) : null;
+    const changes = server ? compareLayouts(server.sections, draft, server.theme, layout.theme) : null;
     switch (action.kind) {
       case "publish": return {
         title: "Publish to the homepage?", tone: "primary", icon: "send", confirmLabel: "Publish now", pendingLabel: "Publishing…",
@@ -171,14 +173,19 @@ export default function HomeLayoutPage({ categories, onExit }: { categories: Cat
     </div>
     {!selected.enabled && <p className="mx-4 mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">Hidden: readers do not see this section. <button type="button" onClick={() => toggle(selected.id)} className="font-semibold underline">Show it</button></p>}
     {selected.enabled && selected.visibility !== "all" && <p className="mx-4 mt-3 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">Shown on {selected.visibility === "desktop" ? "computers" : "phones and tablets"} only. Switch the preview size to see it.</p>}
-    <div className="min-h-0 flex-1 overflow-y-auto"><SectionSettings key={selected.id} section={selected} categories={categories} onChange={update} /></div>
+    <div className="min-h-0 flex-1 overflow-y-auto"><SectionSettings key={selected.id} section={selected} categories={categories} pageAccent={layout.theme?.accentColor ?? ""} onChange={update} /></div>
   </div> : <div className="h-full overflow-y-auto p-4">
     <h2 className="text-base font-bold text-[#12093a]">Page</h2>
-    <p className="mt-1 text-sm leading-relaxed text-slate-500">Click a section in the preview or the list to edit it. Changes save as a draft straight away; readers see them only when you publish.</p>
+    <div role="tablist" aria-label="Page settings" className="mt-3 grid grid-cols-2 rounded-xl bg-slate-100 p-1">
+      {(["layout", "style"] as const).map((t) => <button key={t} type="button" role="tab" aria-selected={pageTab === t} onClick={() => setPageTab(t)} className={`min-h-10 rounded-lg text-sm font-semibold transition ${pageTab === t ? "bg-white text-violet-700 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>{t === "layout" ? "Layout" : "Fonts & colours"}</button>)}
+    </div>
+    {pageTab === "style" && layout.theme ? <div className="mt-4"><ThemeSettings theme={layout.theme} onChange={layout.commitTheme} /></div> : <>
+    <p className="mt-3 text-sm leading-relaxed text-slate-500">Click a section in the preview or the list to edit it. Changes save as a draft straight away; readers see them only when you publish.</p>
     <h3 className="mb-2 mt-5 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">Structure on a computer</h3>
     <LayoutMap sections={draft} selectedId={selectedId} onSelect={(id) => select(id)} />
     <button type="button" onClick={() => setAdding(true)} className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-violet-300 text-sm font-semibold text-violet-700 hover:bg-violet-50"><Icon name="plus" className="h-4 w-4" />Add a section</button>
     <ul className="mt-5 space-y-2 text-xs text-slate-500"><li><kbd className="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-sans">Ctrl Z</kbd> undo · <kbd className="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-sans">Ctrl Shift Z</kbd> redo</li><li>Drag sections in the list to reorder them.</li><li>The clock icon above lists earlier published versions.</li></ul>
+    </>}
   </div>;
 
   const tabs: { key: Panel; label: string }[] = [{ key: "sections", label: "Sections" }, { key: "preview", label: "Preview" }, { key: "settings", label: selected ? "Edit" : "Page" }];

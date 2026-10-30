@@ -24,13 +24,14 @@ const ACTIONS = [
   { value: "user", label: "Account changes" },
   { value: "layout", label: "Homepage layout" },
   { value: "analytics", label: "Analytics data deleted" },
+  { value: "auth", label: "Sign-ins and sign-outs" },
 ];
 const SIZES = [10, 20, 50, 100];
 const time = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
 function iconFor(action: string): IconName {
   if (action.startsWith("media")) return "image";
-  if (action.startsWith("user")) return "users";
+  if (action.startsWith("user") || action.startsWith("auth")) return "users";
   if (action.startsWith("layout")) return "table";
   if (action.startsWith("analytics")) return "trash";
   if (action === "post.publish") return "send";

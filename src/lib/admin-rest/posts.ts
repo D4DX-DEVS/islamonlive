@@ -6,6 +6,7 @@ import { escapeRegex, json, list, notFound, pastTheEnd, paging, pickFields, read
 import { recordActivity, type ActivityTarget } from "@/lib/activity";
 import { nextId } from "@/lib/admin-rest/ids";
 import { sanitizeTitle, uniqueSlug } from "@/lib/admin-rest/slug";
+import { sanitizeHtml } from "@/lib/sanitize";
 import { fromWallClock, postClocks, siteTimezone } from "@/lib/admin-rest/site-time";
 import { toWPPost, type ListPostDoc } from "@/lib/db/adapt";
 import { loadRefs } from "@/lib/db/posts";
@@ -76,7 +77,9 @@ async function adminPost(doc: PostDoc, full: boolean): Promise<Record<string, un
     featured_media: doc.featured_media_id ?? 0,
     title: { raw: rawTitleOf(doc.title), rendered: doc.title },
     excerpt: { raw: decodeEntities(excerptRaw), rendered: doc.excerpt },
-    ...(full ? { content: { raw: doc.content_raw ?? doc.content, rendered: doc.content } } : {}),
+    // sanitized on the way out as well: the editor puts this into a live contentEditable,
+    // and an article stored before the save-time check must not run there
+    ...(full ? { content: { raw: sanitizeHtml(doc.content_raw ?? doc.content), rendered: sanitizeHtml(doc.content) } } : {}),
     meta: doc.meta ?? {},
     // not a WordPress field: lets the admin routes purge cached pages at URLs the post has left
     old_paths: doc.old_paths ?? [],
@@ -178,7 +181,8 @@ async function applyBody(body: Record<string, unknown>, prev: PostDoc | null, id
   const now = new Date(Math.floor(Date.now() / 1000) * 1000);
 
   const title = typeof body.title === "string" ? body.title.trim() : prev ? rawTitleOf(prev.title) : "";
-  const content = typeof body.content === "string" ? body.content.trim() : prev ? prev.content_raw ?? prev.content : "";
+  // only what the editor sent is sanitized: a status or quick edit must not rewrite a legacy body
+  const content = typeof body.content === "string" ? sanitizeHtml(body.content.trim()) : prev ? prev.content_raw ?? prev.content : "";
   if (!prev && !title && !content) return wpError("empty_content", "Content, title, and excerpt are empty.", 400);
 
   let status = (typeof body.status === "string" ? body.status : prev?.status ?? "draft") as PostStatus;

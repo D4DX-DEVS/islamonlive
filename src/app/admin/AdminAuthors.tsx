@@ -204,7 +204,7 @@ export default function Authors({ authors, refresh, loading, error, wordpressAdm
           </div>
         </div>
         <IconField label="Temporary password" icon="lock">
-          <input className={`${inputClass} pl-10 pr-11`} type={showPassword ? "text" : "password"} value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} placeholder="Enter temporary password" autoComplete="new-password" minLength={8} required />
+          <input className={`${inputClass} pl-10 pr-11`} type={showPassword ? "text" : "password"} value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} placeholder="Enter temporary password" autoComplete="new-password" minLength={12} required />
           <button type="button" aria-label={showPassword ? "Hide password" : "Show password"} title={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword((current) => !current)} className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-500 transition hover:text-violet-700"><Icon name={showPassword ? "eyeOff" : "eye"} className="h-5 w-5" /></button>
         </IconField>
         <label className="block"><FieldLabel required>Role</FieldLabel>

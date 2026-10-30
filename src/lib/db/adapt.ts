@@ -1,3 +1,4 @@
+import { safeTitle } from "@/lib/sanitize";
 import type { CategoryDoc, MediaDoc, PageDoc, PostDoc, TagDoc, UserDoc } from "@/lib/db/types";
 import type { WPCategory, WPPage, WPPost, WPUser } from "@/lib/wp-model";
 
@@ -106,7 +107,8 @@ export function toWPPost(doc: ListPostDoc, refs: PostRefs, full = false): WPPost
     slug: doc.slug,
     link: doc.link,
     author: doc.author_id,
-    title: { rendered: doc.title },
+    // printed as HTML by every card and header, so no tag may survive in it
+    title: { rendered: safeTitle(doc.title) },
     excerpt: { rendered: doc.excerpt },
     ...(full ? { content: { rendered: doc.content ?? "" } } : {}),
     categories: doc.categories,
@@ -152,7 +154,7 @@ export function toWPPage(doc: PageDoc): WPPage {
     slug: doc.slug,
     link: doc.link,
     modified: doc.modified,
-    title: { rendered: doc.title },
+    title: { rendered: safeTitle(doc.title) },
     content: { rendered: doc.content },
     ...(doc.seo ? { yoast_head_json: doc.seo } : {}),
   };

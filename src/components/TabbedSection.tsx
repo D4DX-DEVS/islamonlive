@@ -13,7 +13,7 @@ export interface Tab {
 }
 
 /* section whose content swaps between category tabs, like the live site's Read block */
-export default function TabbedSection({ title, tabs }: { title: string; tabs: Tab[] }) {
+export default function TabbedSection({ title, tabs, linkLabel = "" }: { title: string; tabs: Tab[]; /** "" = "See all". */ linkLabel?: string }) {
   const [active, setActive] = useState(0);
   const tab = tabs[active];
   if (!tab) return null;
@@ -23,7 +23,7 @@ export default function TabbedSection({ title, tabs }: { title: string; tabs: Ta
 
   return (
     <section>
-      <SectionTabs title={title} labels={tabs.map((t) => t.label)} active={active} onSelect={setActive} href={tab.href} />
+      <SectionTabs title={title} labels={tabs.map((t) => t.label)} active={active} onSelect={setActive} href={tab.href} linkLabel={linkLabel} />
 
       {/* top row: image + headline side by side, cards in a full-width row under it.
           The image takes its height from the text column (sm:h-full, no aspect), so
@@ -40,7 +40,7 @@ export default function TabbedSection({ title, tabs }: { title: string; tabs: Ta
               />
             </Link>
             {featured.excerpt && (
-              <p className="mt-3 line-clamp-7 text-sm leading-relaxed text-zinc-600">{featured.excerpt}</p>
+              <p data-meta="excerpt" className="mt-3 line-clamp-7 text-sm leading-relaxed text-zinc-600">{featured.excerpt}</p>
             )}
             <Link href={featured.href} className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-purple-800 hover:underline">
               Read more →

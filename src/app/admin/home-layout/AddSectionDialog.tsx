@@ -6,7 +6,7 @@ import { Dialog, secondaryButton } from "./parts";
 /* The "Add section" gallery: a picture of each kind of block, the way page
    builders offer them, so the choice is made by looking rather than reading. */
 
-type Thumb = "grid" | "tabbed" | "featured" | "topics" | "slider" | "tiles" | "image" | "hero" | "reels" | "watch" | "listen" | "banners";
+type Thumb = "grid" | "tabbed" | "featured" | "topics" | "slider" | "tiles" | "image" | "hero" | "reels" | "watch" | "listen" | "banners" | "custom";
 
 interface Preset {
   key: string;
@@ -37,7 +37,8 @@ const GROUPS: { title: string; presets: Preset[] }[] = [
     presets: [
       { key: "hero", label: "Hero slider", hint: "Rotating top stories", thumb: "hero", make: () => blankSection("hero") },
       { key: "image", label: "Image banner", hint: "One linked picture", thumb: "image", make: () => blankSection("image") },
-      { key: "banners", label: "Promo banners", hint: "The saved promo strip", thumb: "banners", make: () => blankSection("banners") },
+      { key: "banners", label: "Promo banners", hint: "Linked pictures, one under another", thumb: "banners", make: () => blankSection("banners") },
+      { key: "custom", label: "Text & embed", hint: "Words, a button, a video, form or map", thumb: "custom", make: () => blankSection("custom") },
       { key: "reels", label: "Reels", hint: "Instagram reels", thumb: "reels", make: () => blankSection("reels") },
       { key: "watch", label: "Watch", hint: "YouTube player + list", thumb: "watch", make: () => blankSection("watch") },
       { key: "listen", label: "Listen", hint: "Podcast player", thumb: "listen", make: () => blankSection("listen") },
@@ -63,6 +64,7 @@ export function SectionThumb({ kind, className = "" }: { kind: Thumb; className?
     watch: <><rect x="4" y="6" width="114" height="58" rx="5" fill="#27272a" /><rect x="10" y="12" width="66" height="40" rx="3" fill={dark} /><path d="M39 27l10 6-10 6z" fill="#fff" />{[0, 1, 2].map((i) => <rect key={i} x="82" y={14 + i * 13} width="30" height="9" rx="2" fill="#52525b" />)}</>,
     listen: <><rect x="6" y="8" width="110" height="54" rx="5" fill="#4c1d95" /><rect x="14" y="16" width="20" height="20" rx="3" fill={img} /><rect x="40" y="20" width="50" height="4" rx="2" fill="#ddd6fe" /><rect x="14" y="44" width="94" height="3" rx="1.5" fill="#7c3aed" /><circle cx="61" cy="54" r="4" fill="#22c55e" /></>,
     banners: <><rect x="6" y="26" width="110" height="18" rx="4" fill={img} /><rect x="14" y="32" width="40" height="6" rx="3" fill="#fff" /></>,
+    custom: <><rect x="6" y="8" width="3" height="10" rx="1.5" fill={dark} /><rect x="13" y="10" width="40" height="5" rx="2.5" fill={line} />{[0, 1].map((i) => <rect key={i} x="6" y={24 + i * 7} width={i ? 80 : 110} height="3" rx="1.5" fill={line} />)}<rect x="6" y="42" width="30" height="10" rx="5" fill={dark} /><rect x="44" y="40" width="72" height="24" rx="4" fill={img} /><path d="M76 47l8 5-8 5z" fill="#fff" /></>,
   };
   return <svg viewBox="0 0 122 70" aria-hidden className={className}>{shapes[kind]}</svg>;
 }

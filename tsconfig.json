@@ -42,7 +42,9 @@
     ".next-mongo-dev/types/**/*.ts",
     ".next-mongo-dev/dev/types/**/*.ts",
     ".next-dev-check/types/**/*.ts",
-    ".next-dev-check/dev/types/**/*.ts"
+    ".next-dev-check/dev/types/**/*.ts",
+    ".next-sec/types/**/*.ts",
+    ".next-sec/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

@@ -317,6 +317,39 @@ async function journey({ db, categories }) {
     check("an author page keeps its Yoast canonical and Person schema", authorHtml.includes(`<link rel="canonical" href="${author.seo.canonical}"/>`) && authorHtml.includes('"Person"'));
   }
 
+  // the homepage builder: a page style, a text block, card details, a section scheduled for later, then the same style site-wide
+  const asJson = { "Content-Type": "application/json" };
+  const fiveDaysOn = new Date(Date.now() + 5 * 86_400_000).toISOString().slice(0, 10);
+  const layout = {
+    sections: [
+      { kind: "custom", id: "e2e-note", title: "E2E note", text: "Plain <b>text</b> only", buttonLabel: "Go", buttonHref: "/listen", embedUrl: "https://youtu.be/dQw4w9WgXcQ" },
+      { kind: "custom", id: "e2e-later", title: "E2E later", text: "Not yet", showFrom: fiveDaysOn },
+      { kind: "posts", id: "e2e-list", title: "E2E list", href: "/listen", style: "list", categoryIds: [catA.id], count: 4, linkLabel: "More", look: { hide: ["author"], background: "dark" } },
+    ],
+    theme: { accentColor: "#0f766e", mlHeadingFont: "manjari", spacing: "roomy" },
+  };
+  const publishLayout = (who, body) => who("/api/admin/home-layout/", { method: "PUT", headers: asJson, body: JSON.stringify(body) });
+  check("an editor cannot publish the homepage", (await publishLayout(ed, layout)).status === 403);
+  check("an administrator publishes a layout with a page style", (await publishLayout(ad, layout)).status === 200);
+  const home = (await eventually(async () => { const html = await text("/"); return { ok: html.includes("E2E note"), html }; })).html ?? "";
+  check("the homepage carries the page style", home.includes("--color-purple-800:#0f766e") && home.includes("var(--font-manjari)") && home.includes("margin-block-end:3rem"));
+  check("the text block renders as plain text, its embed rebuilt", home.includes("Plain &lt;b&gt;text&lt;/b&gt; only") && home.includes("https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ") && !home.includes("<b>text</b>"));
+  check("a section scheduled for later stays off the homepage", !home.includes("E2E later"));
+  check("a section's look and card details reach the page", home.includes('data-hide="author"') && home.includes('data-tone="dark"') && /More(<!-- -->)? →/.test(home));
+  const articlePath = fixture("posts").find((p) => p.status === "publish").path;
+  check("a homepage-only style stays off article pages", !(await text(articlePath)).includes("site-theme"));
+
+  const draftRes = await ad("/api/admin/home-layout/draft/", { method: "PUT", headers: asJson, body: JSON.stringify({ ...layout, theme: { ...layout.theme, accentColor: "#b91c1c" } }) });
+  const preview = await (await ad("/preview/home/")).text();
+  check("the builder preview shows the draft style and the scheduled section", draftRes.status === 200 && preview.includes("--color-purple-800:#b91c1c") && preview.includes("E2E later") && preview.includes("not shown today"));
+  check("the preview is for administrators only", (await page("/preview/home/")).status === 404 && (await ed("/preview/home/")).status === 404);
+  check("the draft style stays off the public homepage", !(await text("/")).includes("#b91c1c"));
+  await ad("/api/admin/home-layout/draft/", { method: "DELETE" });
+
+  check("the style can be published site-wide", (await publishLayout(ad, { ...layout, theme: { ...layout.theme, scope: "site" } })).status === 200);
+  const siteWide = await eventually(async () => { const html = await text(articlePath); return { ok: html.includes("site-theme") && html.includes("body.site-theme:not(:has([data-admin-root],[data-preview-root]))") && html.includes("--color-purple-800:#0f766e") }; });
+  check("a site-wide style reaches article pages, scoped away from the admin", siteWide.ok);
+
   // what never changes
   check("WordPress admin URLs lead to the new admin", (await page("/wp-admin/")).headers.get("location")?.endsWith("/admin/"));
   check("xmlrpc.php is gone (410)", (await page("/xmlrpc.php")).status === 410);

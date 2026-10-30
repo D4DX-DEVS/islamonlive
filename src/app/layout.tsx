@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Noto_Sans_Malayalam, Anek_Malayalam, Noto_Serif_Malayalam, Manjari } from "next/font/google";
 import "./globals.css";
+import { themeFontVariables } from "./fonts";
 import Header, { NavPreviewItem } from "@/components/Header";
 import Footer from "@/components/Footer";
 import BackToTop from "@/components/BackToTop";
@@ -10,6 +11,8 @@ import ReadingPrefsSetup from "@/components/ReadingPrefsSetup";
 import ImageRetry from "@/components/ImageRetry";
 import { getPosts, featuredImage, postPath, primaryCategory, formatDate } from "@/lib/wordpress";
 import { SITE_URL } from "@/lib/env";
+import { getHomeTheme } from "@/lib/home-layout/store";
+import { SITE_SCOPE, themeCss } from "@/lib/home-layout/theme";
 
 // which categories feed each nav item's hover preview
 const NAV_PREVIEW: Record<string, number[]> = {
@@ -83,10 +86,12 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const previews = await navPreviews();
+  const [previews, theme] = await Promise.all([navPreviews(), getHomeTheme()]);
+  // the builder's page style, when it is set to apply to every page (otherwise the homepage carries it)
+  const siteStyle = theme.scope === "site" ? themeCss(theme, SITE_SCOPE, SITE_SCOPE, `${SITE_SCOPE} main`) : "";
   return (
     <html lang="ml">
-      <body className={`${notoMalayalam.variable} ${anekMalayalam.variable} ${serifMalayalam.variable} ${manjari.variable} bg-zinc-50 font-sans text-zinc-900 antialiased flex min-h-dvh flex-col`}>
+      <body className={`${notoMalayalam.variable} ${anekMalayalam.variable} ${serifMalayalam.variable} ${manjari.variable} ${themeFontVariables} ${siteStyle ? "site-theme" : ""} bg-zinc-50 font-sans text-zinc-900 antialiased flex min-h-dvh flex-col`}>
         {/* Every card image comes from Photon, and the first one pays for the DNS
             lookup and TLS handshake before a byte moves — ~200ms of the ~700ms a
             cold rendition takes. Opening that connection while the HTML is still
@@ -114,6 +119,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               "window.__iolInstalled=true;dispatchEvent(new Event('iol:installready'));});})();",
           }}
         />
+        {/* every value in it is validated (lib/home-layout/theme); SITE_SCOPE keeps it off the admin and the builder preview */}
+        {siteStyle && <style dangerouslySetInnerHTML={{ __html: siteStyle }} />}
         {/* feed autodiscovery — WordPress printed this in <head>; React hoists it there from here */}
         <link rel="alternate" type="application/rss+xml" title="Islamonlive.in" href={`${SITE_URL}/feed/`} />
         <Header previews={previews} />

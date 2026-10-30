@@ -2,16 +2,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { collection } from "@/lib/db/client";
 
 vi.mock("@/lib/env", async (original) => ({ ...(await original<typeof import("@/lib/env")>()), DATA_SOURCE: "mongo" }));
-vi.mock("next/cache", () => ({ revalidateTag: () => undefined, revalidatePath: () => undefined, unstable_cache: (fn: unknown) => fn }));
+const { revalidatePath } = vi.hoisted(() => ({ revalidatePath: vi.fn() }));
+vi.mock("next/cache", () => ({ revalidateTag: () => undefined, revalidatePath, unstable_cache: (fn: unknown) => fn }));
 vi.mock("@/lib/cloudflare", () => ({ purgePaths: async () => ({ ok: true }) }));
 
 const store = await import("./store");
-const { DEFAULT_LAYOUT } = await import("./schema");
+const { DEFAULT_LAYOUT, sanitizeLayout } = await import("./schema");
+const { DEFAULT_THEME } = await import("./theme");
 const ME = { id: 1, name: "Chief", role: "administrator" };
 
 describe("homepage layout drafts", () => {
   beforeEach(async () => {
     await (await collection("home_layout")).deleteMany({});
+    revalidatePath.mockClear();
   });
 
   it("keeps a draft out of the public layout until it is published", async () => {
@@ -45,5 +48,48 @@ describe("homepage layout drafts", () => {
     const [only, ...rest] = await store.getPreviewLayout();
     expect(rest).toHaveLength(0);
     expect(only).toMatchObject({ kind: "image", img: "", href: "" });
+  });
+
+  it("keeps a draft style out of the public page until it is published, and restores it with its version", async () => {
+    const teal = { accentColor: "#0f766e", headingSize: 120 };
+    await store.saveDraft([{ kind: "banners", id: "a" }], ME, teal);
+    expect((await store.getHomeTheme()).accentColor).toBe("");
+    expect((await store.getPreviewTheme()).accentColor).toBe("#0f766e");
+    expect((await store.getLayoutState()).draftTheme?.headingSize).toBe(120);
+
+    await store.saveHomeLayout([{ kind: "banners", id: "a" }], ME, teal);
+    expect((await store.getLayoutState()).theme.accentColor).toBe("#0f766e");
+    await store.saveHomeLayout([{ kind: "banners", id: "a" }], ME, { accentColor: "#b91c1c" });
+    await store.restoreHomeLayout(0, ME);
+    expect((await store.getLayoutState()).theme.accentColor).toBe("#0f766e");
+  });
+
+  it("refreshes every page only when a site-wide style changes", async () => {
+    const layout = [{ kind: "banners", id: "a" }];
+    const wholeLayout = () => revalidatePath.mock.calls.some(([, type]) => type === "layout");
+    await store.saveHomeLayout(layout, ME, { accentColor: "#0f766e" });
+    expect(wholeLayout()).toBe(false);
+    await store.saveHomeLayout(layout, ME, { accentColor: "#0f766e", scope: "site" });
+    expect(wholeLayout()).toBe(true);
+    revalidatePath.mockClear();
+    await store.saveHomeLayout([{ kind: "banners", id: "b" }], ME, { accentColor: "#0f766e", scope: "site" });
+    expect(wholeLayout()).toBe(false);
+    await store.saveHomeLayout(layout, ME, { accentColor: "#0f766e", scope: "home" });
+    expect(wholeLayout()).toBe(true);
+  });
+
+  it("restores a version from before page styles with the built-in style", async () => {
+    await (await collection("home_layout")).insertOne({ _id: "home", sections: [], history: [{ sections: sanitizeLayout([{ kind: "banners", id: "old" }]), saved_at: new Date(0), saved_by: null }] });
+    await store.saveHomeLayout([{ kind: "banners", id: "new" }], ME, { accentColor: "#0f766e" });
+    await store.restoreHomeLayout(1, ME);
+    const state = await store.getLayoutState();
+    expect(state.sections.map((s) => s.id)).toEqual(["old"]);
+    expect(state.theme).toEqual(DEFAULT_THEME);
+  });
+
+  it("keeps the draft's style when an autosave sends none", async () => {
+    await store.saveDraft([{ kind: "banners", id: "a" }], ME, { accentColor: "#b91c1c" });
+    await store.saveDraft([{ kind: "banners", id: "b" }], ME);
+    expect((await store.getPreviewTheme()).accentColor).toBe("#b91c1c");
   });
 });

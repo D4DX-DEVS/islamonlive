@@ -2,6 +2,7 @@ import type { Filter } from "mongodb";
 import { TTL } from "@/lib/cache";
 import { toWPPost, type ListPostDoc } from "@/lib/db/adapt";
 import { cached } from "@/lib/db/cache";
+import { safeTitle } from "@/lib/sanitize";
 import { collection } from "@/lib/db/client";
 import { loadRefs, paging, publicFilter } from "@/lib/db/posts";
 import type { PostDoc } from "@/lib/db/types";
@@ -231,7 +232,7 @@ async function suggestImpl(q: string, limit: number): Promise<{ title: string; u
     .sort({ published_at: -1, _id: -1 })
     .limit(Math.min(Math.max(limit, 1), 10))
     .toArray();
-  return docs.map((d) => ({ title: d.title, url: d.link }));
+  return docs.map((d) => ({ title: safeTitle(d.title), url: d.link }));
 }
 
 export const suggestPosts = cached("posts:suggest", suggestImpl, { revalidate: 300, tags: SEARCH_TAGS });

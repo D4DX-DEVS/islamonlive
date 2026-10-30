@@ -15,7 +15,8 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminPage() {
-  const session = await getAdminSession();
+  // database trouble shows the sign-in form rather than an error page
+  const session = await getAdminSession().catch(() => null);
   const lostPasswordUrl = DATA_SOURCE === "mongo" ? "mongodb" : `${WP_URL}/wp-login.php?action=lostpassword`;
   // the Analytics tab is shown to administrators only; its APIs check again
   const analytics = session ? await canSeeAnalytics() : false;

@@ -1,6 +1,6 @@
 import InstallBanner from "@/components/InstallBanner";
-import HomeSections from "@/components/home/HomeSections";
-import { getHomeLayout } from "@/lib/home-layout/store";
+import HomeSections, { HomeThemeStyle } from "@/components/home/HomeSections";
+import { getHomeLayout, getHomeTheme } from "@/lib/home-layout/store";
 import { graph, organizationSchema, websiteSchema } from "@/lib/schema";
 import JsonLd from "@/components/JsonLd";
 import PageView from "@/components/PageView";
@@ -21,9 +21,11 @@ export const metadata = {
    Homepage layout (lib/home-layout; components/home/HomeSections renders it).
    Until an administrator saves one, DEFAULT_LAYOUT reproduces the hand-built page. */
 export default async function Home() {
-  const sections = await getHomeLayout();
+  const [sections, theme] = await Promise.all([getHomeLayout(), getHomeTheme()]);
   return (
-    <div className="space-y-8 sm:space-y-12">
+    // home-theme scopes the admin's page style (fonts, colours, sizes) to the homepage
+    <div className="home-theme space-y-8 sm:space-y-12">
+      <HomeThemeStyle theme={theme} />
       <PageView kind="home" />
       {/* Organization, WebSite and the SearchAction that earns a sitelinks
           search box, declared once on the front page. Article pages carry their

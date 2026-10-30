@@ -1,6 +1,6 @@
 import { SITE_URL } from "@/lib/env";
 import { rewriteUrl } from "@/lib/urls";
-import { createHash } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 import type { NextRequest } from "next/server";
 
 /* Server-side OneSignal plumbing, shared by /api/notify (new-post push) and
@@ -32,12 +32,18 @@ export function uuidFor(key: string): string {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`;
 }
 
+// hashed first so the comparison takes the same time whatever was sent, and whatever its length
+const sameSecret = (given: string, expected: string) =>
+  timingSafeEqual(createHash("sha256").update(given).digest(), createHash("sha256").update(expected).digest());
+
+/* Header only. The old `?secret=` form put the key that pushes to every
+   subscriber into access logs, CDN logs and browser history. */
 export function authed(req: NextRequest): boolean {
-  // the scheduled run carries no secret of ours — Vercel signs it with CRON_SECRET
-  if (CRON_SECRET && req.headers.get("authorization") === `Bearer ${CRON_SECRET}`) return true;
+  // the scheduled run carries no secret of ours — the scheduler signs it with CRON_SECRET
+  const bearer = (req.headers.get("authorization") ?? "").replace(/^bearer\s+/i, "");
+  if (CRON_SECRET.length >= 16 && bearer && sameSecret(bearer, CRON_SECRET)) return true;
   if (!SECRET) return false; // no secret configured = endpoint stays shut
-  const given = req.headers.get("x-notify-secret") ?? req.nextUrl.searchParams.get("secret") ?? "";
-  return given === SECRET;
+  return sameSecret(req.headers.get("x-notify-secret") ?? "", SECRET);
 }
 
 export function configured(): boolean {

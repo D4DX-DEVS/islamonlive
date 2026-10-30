@@ -259,6 +259,17 @@ button,
   .skel::after { animation: none; }
 }
 
+/* Homepage sections can leave card details out (builder: Look → Card details).
+   Slot puts the list on data-hide; Byline, the cards and the sliders mark their
+   parts with data-meta. Hiding the author takes the "·" before the date with it. */
+[data-hide~="category"] [data-meta="category"],
+[data-hide~="author"] :is([data-meta="author"], [data-meta="sep"]),
+[data-hide~="date"] [data-meta="date"],
+[data-hide~="excerpt"] [data-meta="excerpt"],
+[data-hide~="author"][data-hide~="date"] [data-meta="byline"] {
+  display: none;
+}
+
 /* The article body honours the reader's own text size and face, set on /settings
    and published onto <html> by components/ReadingPrefsSetup.tsx. Defaults keep a
    reader who never opens Settings exactly where they were. */

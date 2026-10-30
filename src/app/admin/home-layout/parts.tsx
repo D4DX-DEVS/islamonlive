@@ -37,8 +37,8 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
   return <label className="block text-sm font-semibold text-slate-900">{label}<span className="mt-1.5 block font-normal">{children}</span>{hint && <span className="mt-1 block text-xs font-normal text-slate-500">{hint}</span>}</label>;
 }
 
-export function TextInput({ value, onChange, placeholder, type = "text" }: { value: string; onChange: (value: string) => void; placeholder?: string; type?: string }) {
-  return <input type={type} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className={inputClass} />;
+export function TextInput({ value, onChange, placeholder, type = "text", maxLength }: { value: string; onChange: (value: string) => void; placeholder?: string; type?: string; maxLength?: number }) {
+  return <input type={type} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} maxLength={maxLength} className={inputClass} />;
 }
 
 export function NumberInput({ value, onChange, min, max }: { value: number; onChange: (value: number) => void; min: number; max: number }) {
@@ -85,5 +85,23 @@ export function TagPicker({ value, onChange }: { value: number | null; onChange:
   return <div className="space-y-2">
     <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Type 2+ letters of a tag…" aria-label="Search tags" className={inputClass} />
     {query.trim().length >= 2 && hits.length > 0 && <ul className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 p-1">{hits.map((t) => <li key={t.id}><button type="button" onClick={() => { setChosen(t); onChange(t.id); setQuery(""); }} className="flex min-h-10 w-full items-center justify-between rounded-lg px-3 text-left text-sm text-slate-700 hover:bg-violet-50"><span className="truncate">{t.name}</span><span className="text-xs text-slate-400">{t.count.toLocaleString()}</span></button></li>)}</ul>}
+  </div>;
+}
+
+/** A colour: swatch picker, hex box and a reset to the site default ("" = default). */
+export function ColorField({ label, value, fallback, onChange, hint }: { label: string; value: string; /** Shown in the swatch while the value is the default. */ fallback: string; onChange: (value: string) => void; hint?: string }) {
+  const [typed, setTyped] = useState(value);
+  const [synced, setSynced] = useState(value);
+  // undo/redo and resets change the value from outside: follow them
+  if (synced !== value) { setSynced(value); if (typed.trim().toLowerCase() !== value) setTyped(value); }
+  const commitTyped = (text: string) => { setTyped(text); const v = text.trim().toLowerCase(); if (v === "" || /^#[0-9a-f]{6}$/.test(v)) onChange(v); };
+  return <div>
+    <p className="text-sm font-semibold text-slate-900">{label}</p>
+    <div className="mt-1.5 flex items-center gap-2">
+      <input type="color" aria-label={`${label}: pick a colour`} value={value || fallback} onChange={(event) => onChange(event.target.value)} className="h-11 w-12 shrink-0 cursor-pointer rounded-lg border border-slate-200 bg-white p-1" />
+      <input type="text" aria-label={`${label}: hex code`} value={typed} placeholder={`Default (${fallback})`} onChange={(event) => commitTyped(event.target.value)} spellCheck={false} className={`${inputClass} min-w-0 flex-1 font-mono`} />
+      <button type="button" aria-label={`Reset ${label} to default`} title="Use the default" disabled={!value} onClick={() => onChange("")} className={iconButton}><Icon name="reset" className="h-4 w-4" /></button>
+    </div>
+    {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
   </div>;
 }

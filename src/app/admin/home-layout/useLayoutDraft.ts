@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { HomeSection } from "@/lib/home-layout/schema";
+import type { HomeTheme } from "@/lib/home-layout/theme";
 
 /* The homepage builder's state: the published layout, the working draft, undo
    and redo, and the autosave that keeps the draft in the database (so the
@@ -10,12 +11,17 @@ import type { HomeSection } from "@/lib/home-layout/schema";
    Every edit lands in the draft at once and is saved ~0.7 s after typing stops.
    Saves run one after another, never overlapping, so an older draft can never
    overwrite a newer one. A successful save bumps `version`, which tells the
-   canvas to reload the preview. */
+   canvas to reload the preview.
+
+   The page style (fonts, colours, sizes) travels with the sections: one undo
+   history, one draft, one publish. */
 
 export type StaffRef = { id: number; name: string } | null;
 export type LayoutState = {
   sections: HomeSection[];
   draft: HomeSection[] | null;
+  theme: HomeTheme;
+  draftTheme: HomeTheme | null;
   draftUpdatedAt: string | null;
   draftUpdatedBy: StaffRef;
   isDefault: boolean;
@@ -32,6 +38,9 @@ const COALESCE_MS = 1500;
 const API = "/api/admin/home-layout/";
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
+/** One undo step: everything the builder edits. */
+type Snapshot = { sections: HomeSection[]; theme: HomeTheme };
+
 async function call(url: string, method: string, body?: unknown): Promise<Record<string, unknown>> {
   const response = await fetch(url, { method, headers: body === undefined ? undefined : { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body), cache: "no-store", keepalive: method !== "GET" });
   const data = await response.json().catch(() => ({})) as Record<string, unknown>;
@@ -41,9 +50,9 @@ async function call(url: string, method: string, body?: unknown): Promise<Record
 
 export function useLayoutDraft() {
   const [server, setServer] = useState<LayoutState | null>(null);
-  const [draft, setDraft] = useState<HomeSection[]>([]);
-  const [past, setPast] = useState<HomeSection[][]>([]);
-  const [future, setFuture] = useState<HomeSection[][]>([]);
+  const [work, setWork] = useState<Snapshot | null>(null);
+  const [past, setPast] = useState<Snapshot[]>([]);
+  const [future, setFuture] = useState<Snapshot[]>([]);
   const [save, setSave] = useState<SaveStatus>("idle");
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
@@ -54,14 +63,15 @@ export function useLayoutDraft() {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queue = useRef<Promise<void>>(Promise.resolve());
   const coalesce = useRef<{ key: string; at: number } | null>(null);
-  const live = useRef<HomeSection[]>([]);
+  const live = useRef<Snapshot | null>(null);
 
-  const accept = useCallback((state: LayoutState, working?: HomeSection[]) => {
+  const accept = useCallback((state: LayoutState) => {
     setServer(state);
-    live.current = state.sections;
-    const next = working ?? state.draft ?? state.sections;
-    setDraft(next);
-    stored.current = JSON.stringify(state.draft ?? state.sections);
+    const published: Snapshot = { sections: state.sections, theme: state.theme };
+    live.current = published;
+    const next: Snapshot = state.draft ? { sections: state.draft, theme: state.draftTheme ?? state.theme } : published;
+    setWork(next);
+    stored.current = JSON.stringify(next);
     setSavedAt(state.draftUpdatedAt);
   }, []);
 
@@ -75,7 +85,7 @@ export function useLayoutDraft() {
     return () => { cancelled = true; };
   }, [accept]);
 
-  const persist = useCallback((next: HomeSection[]) => {
+  const persist = useCallback((next: Snapshot) => {
     queue.current = queue.current.then(async () => {
       const json = JSON.stringify(next);
       if (json === stored.current) { setSave("saved"); return; }
@@ -83,7 +93,7 @@ export function useLayoutDraft() {
       try {
         // back to exactly what is live: there is no draft any more
         if (same(next, live.current)) await call(`${API}draft/`, "DELETE");
-        else { const result = await call(`${API}draft/`, "PUT", { sections: next }); setSavedAt(typeof result.savedAt === "string" ? result.savedAt : new Date().toISOString()); }
+        else { const result = await call(`${API}draft/`, "PUT", next); setSavedAt(typeof result.savedAt === "string" ? result.savedAt : new Date().toISOString()); }
         stored.current = json;
         setSave("saved");
         setError("");
@@ -96,7 +106,7 @@ export function useLayoutDraft() {
     return queue.current;
   }, []);
 
-  const schedule = useCallback((next: HomeSection[]) => {
+  const schedule = useCallback((next: Snapshot) => {
     setSave("pending");
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => { timer.current = null; void persist(next); }, AUTOSAVE_MS);
@@ -105,39 +115,44 @@ export function useLayoutDraft() {
   /** Save now whatever is waiting for the autosave (before leaving, publishing, or on retry). */
   const flush = useCallback(async () => {
     if (timer.current) { clearTimeout(timer.current); timer.current = null; }
-    await persist(draft);
-  }, [persist, draft]);
+    if (work) await persist(work);
+  }, [persist, work]);
 
-  /** Apply an edit. Edits with the same `key` in quick succession are one undo step. */
-  const commit = useCallback((next: HomeSection[], key?: string) => {
+  const apply = useCallback((next: Snapshot, key?: string) => {
+    if (!work) return;
     const now = Date.now();
     const merge = key !== undefined && coalesce.current?.key === key && now - coalesce.current.at < COALESCE_MS;
-    if (!merge) setPast((p) => [...p.slice(-(UNDO_LIMIT - 1)), draft]);
+    if (!merge) setPast((p) => [...p.slice(-(UNDO_LIMIT - 1)), work]);
     coalesce.current = key ? { key, at: now } : null;
     setFuture([]);
-    setDraft(next);
+    setWork(next);
     schedule(next);
-  }, [draft, schedule]);
+  }, [work, schedule]);
+
+  /** Apply an edit to the sections. Edits with the same `key` in quick succession are one undo step. */
+  const commit = useCallback((sections: HomeSection[], key?: string) => { if (work) apply({ ...work, sections }, key); }, [work, apply]);
+  /** Apply an edit to the page style, undoable like any section edit. */
+  const commitTheme = useCallback((theme: HomeTheme, key?: string) => { if (work) apply({ ...work, theme }, key); }, [work, apply]);
 
   const undo = useCallback(() => {
     const previous = past[past.length - 1];
-    if (!previous) return;
+    if (!previous || !work) return;
     setPast(past.slice(0, -1));
-    setFuture((f) => [draft, ...f].slice(0, UNDO_LIMIT));
+    setFuture((f) => [work, ...f].slice(0, UNDO_LIMIT));
     coalesce.current = null;
-    setDraft(previous);
+    setWork(previous);
     schedule(previous);
-  }, [past, draft, schedule]);
+  }, [past, work, schedule]);
 
   const redo = useCallback(() => {
     const next = future[0];
-    if (!next) return;
+    if (!next || !work) return;
     setFuture(future.slice(1));
-    setPast((p) => [...p, draft].slice(-UNDO_LIMIT));
+    setPast((p) => [...p, work].slice(-UNDO_LIMIT));
     coalesce.current = null;
-    setDraft(next);
+    setWork(next);
     schedule(next);
-  }, [future, draft, schedule]);
+  }, [future, work, schedule]);
 
   /** Publish / discard / restore. A failure is thrown, so the confirmation modal that started it can show it and offer a retry. */
   async function run(work: () => Promise<void>) {
@@ -147,7 +162,8 @@ export function useLayoutDraft() {
   }
 
   const publish = () => run(async () => {
-    const state = await call(API, "PUT", { sections: draft }) as unknown as LayoutState;
+    if (!work) return;
+    const state = await call(API, "PUT", work) as unknown as LayoutState;
     accept(state);
     setSave("idle");
     setVersion((v) => v + 1);
@@ -156,22 +172,24 @@ export function useLayoutDraft() {
   const discard = () => run(async () => {
     await call(`${API}draft/`, "DELETE");
     if (!server) return;
-    setPast((p) => [...p, draft].slice(-UNDO_LIMIT));
+    if (work) setPast((p) => [...p, work].slice(-UNDO_LIMIT));
     setFuture([]);
-    accept({ ...server, draft: null, draftUpdatedAt: null, draftUpdatedBy: null });
+    accept({ ...server, draft: null, draftTheme: null, draftUpdatedAt: null, draftUpdatedBy: null });
     setSave("idle");
     setVersion((v) => v + 1);
   });
 
   const restore = (index: number) => run(async () => {
     const state = await call(API, "POST", { restore: index }) as unknown as LayoutState;
-    setPast((p) => [...p, draft].slice(-UNDO_LIMIT));
+    if (work) setPast((p) => [...p, work].slice(-UNDO_LIMIT));
     setFuture([]);
     accept(state);
     setSave("idle");
     setVersion((v) => v + 1);
   });
 
-  const hasChanges = server !== null && !same(draft, server.sections);
-  return { server, draft, commit, undo, redo, canUndo: past.length > 0, canRedo: future.length > 0, save, savedAt, version, error, setError, busy, hasChanges, publish, discard, restore, flush, load, retry: () => void persist(draft) };
+  const draft = work?.sections ?? [];
+  const theme = work?.theme ?? server?.theme ?? null;
+  const hasChanges = server !== null && work !== null && !same(work, { sections: server.sections, theme: server.theme });
+  return { server, draft, theme, commit, commitTheme, undo, redo, canUndo: past.length > 0, canRedo: future.length > 0, save, savedAt, version, error, setError, busy, hasChanges, publish, discard, restore, flush, load, retry: () => { if (work) void persist(work); } };
 }

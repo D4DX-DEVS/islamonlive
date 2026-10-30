@@ -19,7 +19,12 @@ const reason = (result: PromiseRejectedResult) => (result.reason instanceof Erro
  * with one still leaves the other on screen.
  */
 export async function GET(request: Request) {
-  const session = await getAdminSession();
+  let session: Awaited<ReturnType<typeof getAdminSession>>;
+  try {
+    session = await getAdminSession();
+  } catch {
+    return NextResponse.json({ error: "The database could not be reached. Try again shortly." }, { status: 503 });
+  }
   if (!session) return NextResponse.json({ error: "Admin authentication required" }, { status: 401 });
   const requested = Number(new URL(request.url).searchParams.get("days"));
   const days = WINDOWS.includes(requested) ? requested : 30;

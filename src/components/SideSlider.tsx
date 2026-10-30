@@ -41,7 +41,7 @@ export default function SideSlider({ slides, interval = 6000, className = "" }: 
         {/* right padding clears the advance disc so long titles never run under it */}
         <div className="absolute inset-x-0 bottom-0 p-5 pr-16">
           {s.category && (
-            <span className="pill mb-2 inline-flex items-center justify-center bg-[#693FE2] px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">{s.category}</span>
+            <span data-meta="category" className="pill mb-2 inline-flex items-center justify-center bg-[var(--accent-chip,#693FE2)] px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">{s.category}</span>
           )}
           <h3 className="line-clamp-2 text-base font-bold leading-snug text-white lg:text-lg" dangerouslySetInnerHTML={{ __html: s.title }} />
           <Byline className="mt-1.5" light name={s.author} avatar={s.authorAvatar} date={s.date} />

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireAdministrator, staffRole, privateNoStore } from "@/lib/auth/actor";
 import { recordActivity } from "@/lib/activity";
 import { hashPassword } from "@/lib/auth/password";
+import { passwordProblem } from "@/lib/auth/password-policy";
+import { reissueAdminSession } from "@/lib/wp-admin";
 import { collection } from "@/lib/db/client";
 import { nextId } from "@/lib/admin-rest/ids";
 import { escapeRegex } from "@/lib/admin-rest/http";
@@ -17,7 +19,6 @@ export const dynamic = "force-dynamic";
 
 const ROLES = ["editor", "administrator"] as const;
 type Role = (typeof ROLES)[number];
-const MIN_PASSWORD = 8;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const USERNAME = /^[A-Za-z0-9._@-]{3,60}$/;
 const STAFF_FILTER = { $or: [{ role: { $in: [...ROLES] } }, { roles: { $in: [...ROLES] } }] };
@@ -115,8 +116,8 @@ export async function POST(request: Request) {
   if (!name) return bad("Enter the person's name.");
   if (!USERNAME.test(username)) return bad("The username must be 3–60 letters, numbers, dots, dashes or underscores.");
   if (!EMAIL.test(email)) return bad("Enter a valid email address.");
-  if (password.length < MIN_PASSWORD) return bad(`The password must be at least ${MIN_PASSWORD} characters.`);
-  if (password.length > 200) return bad("The password is too long.");
+  const weak = passwordProblem(password, { username, email });
+  if (weak) return bad(weak);
   if (!role) return bad("Choose Editor or Administrator.");
   try {
     const users = await collection("users");
@@ -187,13 +188,17 @@ export async function PATCH(request: Request) {
     if (nextRole !== currentRole) { update.role = nextRole; update.roles = [nextRole]; changes.push(`role → ${nextRole}`); }
     if (nextActive !== user.is_active) { update.is_active = nextActive; changes.push(nextActive ? "reactivated" : "deactivated"); }
     if (typeof body.password === "string" && body.password) {
-      if (body.password.length < MIN_PASSWORD) return bad(`The password must be at least ${MIN_PASSWORD} characters.`);
-      if (body.password.length > 200) return bad("The password is too long.");
+      const weak = passwordProblem(body.password, { username: update.username ?? user.username ?? "", email: update.email ?? user.email ?? "" });
+      if (weak) return bad(weak);
       update.password_hash = await hashPassword(body.password);
       changes.push("password reset");
     }
     if (!changes.length) return NextResponse.json({ ok: true, changed: [] }, { headers: privateNoStore });
-    await users.updateOne({ _id: id }, { $set: update });
+    const reset = Boolean(update.password_hash);
+    // a reset also ends every session the old password opened ($inc, so a concurrent logout's bump is not lost)
+    await users.updateOne({ _id: id }, reset ? { $set: update, $inc: { session_version: 1 } } : { $set: update });
+    // ...except the one making the change, when it is your own password
+    if (reset && id === actor.id) await reissueAdminSession();
     invalidateAdminTaxonomyCache(`admin-taxonomy:${actor.username}:authors`);
     await recordActivity(actor, "user.update", { type: "user", id, title: `${update.name ?? user.name}: ${changes.join(", ")}`, link: null });
     return NextResponse.json({ ok: true, changed: changes }, { headers: privateNoStore });
