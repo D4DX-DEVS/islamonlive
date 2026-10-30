@@ -73,7 +73,7 @@ export async function POST(request: Request) {
     const password = String(form.get("password") || "");
     const name = field("name");
     if (!username || !email || !password || !name) return NextResponse.json({ error: "Name, username, email and password are required" }, { status: 400 });
-    if (password.length < 8) return NextResponse.json({ error: "The temporary password must be at least 8 characters." }, { status: 400 });
+    if (password.length < 12) return NextResponse.json({ error: "The temporary password must be at least 12 characters." }, { status: 400 });
     // only administrators reach a successful create (WordPress and the MongoDB backend both refuse anyone else)
     const role = field("role") || "author";
     if (!ACCOUNT_ROLES.includes(role)) return NextResponse.json({ error: "Choose Author, Editor or Administrator." }, { status: 400 });

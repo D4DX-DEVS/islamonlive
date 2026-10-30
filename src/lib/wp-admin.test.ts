@@ -35,7 +35,7 @@ vi.mock("@/lib/admin-rest", () => ({
 }));
 
 // Import after mocking dependencies
-import { createAdminSession, getAdminSession, wpAdminFetch, wpAdminRoute } from "./wp-admin";
+import { createAdminSession, getAdminSession, revokeAdminSessions, wpAdminFetch, wpAdminRoute } from "./wp-admin";
 
 describe("MongoDB admin authentication (mongo mode)", () => {
   beforeEach(async () => {
@@ -413,5 +413,53 @@ describe("MongoDB admin authentication (mongo mode)", () => {
         createAdminSession("testadmin", password, false)
       ).resolves.not.toThrow();
     });
+  });
+});
+
+describe("session revocation (mongo mode)", () => {
+  // a real jar, so a cookie set by createAdminSession is read back by getAdminSession
+  const jar = new Map<string, string>();
+  beforeEach(async () => {
+    jar.clear();
+    const { cookies } = await import("next/headers");
+    vi.mocked(cookies).mockImplementation((async () => ({
+      get: (name: string) => (jar.has(name) ? { name, value: jar.get(name)! } : undefined),
+      set: (name: string, value: string) => { if (value) jar.set(name, value); },
+    })) as unknown as typeof cookies);
+    await seedFixtures();
+    await (await collection("users")).updateOne({ _id: 1 }, {
+      $set: { username: "revoker", email: "revoker@example.com", password_hash: await hashPassword("Revocation-test-pass"), is_active: true, role: "editor", roles: ["editor"] },
+      $unset: { session_version: "" },
+    });
+  });
+
+  const signIn = () => createAdminSession("revoker", "Revocation-test-pass");
+
+  it("keeps a fresh session alive and reports how the account signed in", async () => {
+    expect(await signIn()).toMatchObject({ userId: 1, username: "revoker", viaEnv: false });
+    expect(await getAdminSession()).toMatchObject({ userId: 1, sv: 0 });
+  });
+
+  it("ends every copy of the cookie on logout", async () => {
+    await signIn();
+    const stolen = [...jar.values()][0];
+    expect((await revokeAdminSessions())?._id).toBe(1);
+    jar.set("iol_admin_session_v2", stolen); // the copy taken elsewhere
+    expect(await getAdminSession()).toBeNull();
+  });
+
+  it("ends the session when the account is deactivated or demoted, without waiting for expiry", async () => {
+    await signIn();
+    const users = await collection("users");
+    await users.updateOne({ _id: 1 }, { $set: { is_active: false } });
+    expect(await getAdminSession()).toBeNull();
+    await users.updateOne({ _id: 1 }, { $set: { is_active: true, role: "author", roles: ["author"] } });
+    expect(await getAdminSession()).toBeNull();
+  });
+
+  it("ends the session when the password is reset", async () => {
+    await signIn();
+    await (await collection("users")).updateOne({ _id: 1 }, { $inc: { session_version: 1 } });
+    expect(await getAdminSession()).toBeNull();
   });
 });

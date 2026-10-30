@@ -7,6 +7,7 @@ import { nextId } from "@/lib/admin-rest/ids";
 import { postClocks, siteTimezone, wallClock } from "@/lib/admin-rest/site-time";
 import { sanitizeTitle, uniqueSlug } from "@/lib/admin-rest/slug";
 import { deleteFromSpaces, existsInSpaces, uploadToSpaces } from "@/lib/spaces";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 /* /wp/v2/media — upload, alt/caption/title, delete, read. Files go to Spaces
    under the same wp-content/uploads/YYYY/MM/ keys the migrated library uses, so
@@ -76,7 +77,7 @@ function attachment(doc: MediaDoc): Record<string, unknown> {
     author: doc.author_id ?? 0,
     post: doc.post_id,
     alt_text: doc.alt_text,
-    caption: { raw: doc.caption, rendered: doc.caption ? `<p>${doc.caption}</p>\n` : "" },
+    caption: { raw: doc.caption, rendered: doc.caption ? `<p>${sanitizeHtml(doc.caption)}</p>\n` : "" },
     media_type: mediaType(doc.mime_type),
     mime_type: doc.mime_type,
     media_details: { width: doc.width ?? undefined, height: doc.height ?? undefined, file, filesize: doc.filesize ?? undefined, sizes: doc.sizes ?? {} },

@@ -129,7 +129,7 @@ export default function HeroSlider({ slides }: { slides: Slide[] }) {
               {/* w-fit: the pill is a flex item now, and a flex column stretches
                   its children to full width unless told not to */}
               {s.category ? (
-                <span className="pill inline-flex w-fit items-center justify-center bg-[#693FE2] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white">
+                <span data-meta="category" className="pill inline-flex w-fit items-center justify-center bg-[var(--accent-chip,#693FE2)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white">
                   {s.category}
                 </span>
               ) : (
@@ -163,7 +163,7 @@ export default function HeroSlider({ slides }: { slides: Slide[] }) {
                     aria-label="Next slide"
                     tabIndex={live ? undefined : -1}
                     onClick={() => go(i + 1)}
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#693FE2] text-white transition hover:bg-[#5a34c7]"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--accent-chip,#693FE2)] text-white transition hover:bg-[var(--accent-chip-hover,#5a34c7)]"
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="h-4 w-4">
                       <path d="M5 12h14M13 6l6 6-6 6" />

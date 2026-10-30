@@ -15,7 +15,8 @@ export type ActivityAction =
   | "media.upload" | "media.delete"
   | "user.create" | "user.update" | "user.delete" | "user.remove"
   | "layout.update" | "layout.restore"
-  | "analytics.delete";
+  | "analytics.delete"
+  | "auth.login" | "auth.logout";
 
 export const ACTION_LABELS: Record<ActivityAction, string> = {
   "post.create": "created an article",
@@ -31,6 +32,8 @@ export const ACTION_LABELS: Record<ActivityAction, string> = {
   "layout.update": "updated the homepage layout",
   "layout.restore": "restored an earlier homepage layout",
   "analytics.delete": "deleted all reader analytics",
+  "auth.login": "signed in",
+  "auth.logout": "signed out",
 };
 
 const holder = globalThis as typeof globalThis & { __iolActivityIndexes?: Promise<void> };
@@ -91,7 +94,7 @@ export async function listActivity({ actorId, action, page, perPage }: ActivityQ
   const filter: Record<string, unknown> = {};
   if (actorId) filter["actor.id"] = actorId;
   if (action && action in ACTION_LABELS) filter.action = action;
-  else if (action && /^(post|media|user|layout|analytics)$/.test(action)) filter.action = { $regex: `^${action}\\.` };
+  else if (action && /^(post|media|user|layout|analytics|auth)$/.test(action)) filter.action = { $regex: `^${action}\\.` };
   const col = await collection("admin_activity");
   const [docs, total] = await Promise.all([
     col.find(filter).sort({ at: -1 }).skip((page - 1) * perPage).limit(perPage).toArray(),

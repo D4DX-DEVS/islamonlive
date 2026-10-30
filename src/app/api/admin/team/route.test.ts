@@ -4,7 +4,11 @@ import { verifyPassword } from "@/lib/auth/password";
 import type { UserDoc } from "@/lib/db/types";
 
 const session = vi.hoisted(() => ({ current: null as null | { username: string; userId: number; role: string; expiresAt: number } }));
-vi.mock("@/lib/wp-admin", () => ({ getAdminSession: async () => session.current }));
+vi.mock("@/lib/wp-admin", () => ({
+  getAdminSession: async () => session.current,
+  // the real one also checks is_active/role/session_version; staffRole in actor.ts re-checks the first two
+  getAdminSessionUser: async () => session.current && { session: session.current, user: await (await collection("users")).findOne({ _id: session.current.userId }) },
+}));
 vi.mock("@/lib/env", async (original) => ({ ...(await original<typeof import("@/lib/env")>()), DATA_SOURCE: "mongo" }));
 vi.mock("next/cache", () => ({ revalidateTag: () => undefined, revalidatePath: () => undefined, unstable_cache: (fn: unknown) => fn }));
 vi.mock("@/lib/cloudflare", () => ({ purgePaths: async () => ({ ok: true }) }));
@@ -39,12 +43,12 @@ describe("team and homepage routes", () => {
 
   it("lets an administrator add an editor who can then sign in", async () => {
     as(9101, "boss2");
-    const response = await team.POST(send("POST", { name: "New Editor", username: "new.editor", email: "NEW@x.in", password: "longenough1", role: "editor" }));
+    const response = await team.POST(send("POST", { name: "New Editor", username: "new.editor", email: "NEW@x.in", password: "long-enough-pass1", role: "editor" }));
     expect(response.status).toBe(201);
     const user = await (await collection("users")).findOne({ username: "new.editor" });
     expect(user).toMatchObject({ role: "editor", roles: ["editor"], email: "new@x.in", is_active: true });
-    expect(await verifyPassword("longenough1", user!.password_hash!)).toBe(true);
-    expect((await team.POST(send("POST", { name: "Dup", username: "NEW.EDITOR", email: "z@x.in", password: "longenough1", role: "editor" }))).status).toBe(409);
+    expect(await verifyPassword("long-enough-pass1", user!.password_hash!)).toBe(true);
+    expect((await team.POST(send("POST", { name: "Dup", username: "NEW.EDITOR", email: "z@x.in", password: "long-enough-pass1", role: "editor" }))).status).toBe(409);
     expect((await team.POST(send("POST", { name: "Short", username: "short1", email: "s@x.in", password: "123", role: "editor" }))).status).toBe(400);
   });
 
@@ -66,7 +70,7 @@ describe("team and homepage routes", () => {
     const added = await team.PATCH(send("PATCH", { id: 9103, username: "desk.ed" }));
     expect(await added.json()).toMatchObject({ changed: ["username added"] });
     expect((await (await collection("users")).findOne({ _id: 9103 }))?.username).toBe("desk.ed");
-    expect((await team.POST(send("POST", { name: "Dup", username: "desk@x.in", email: "other@x.in", password: "longenough1", role: "editor" }))).status).toBe(409);
+    expect((await team.POST(send("POST", { name: "Dup", username: "desk@x.in", email: "other@x.in", password: "long-enough-pass1", role: "editor" }))).status).toBe(409);
     expect(await (await team.PATCH(send("PATCH", { id: 9102, username: "writer2", name: "Writer" }))).json()).toMatchObject({ changed: [] });
   });
 
@@ -94,7 +98,7 @@ describe("team and homepage routes", () => {
     const first = await layout.PUT(send("PUT", { sections: [{ kind: "banners", id: "b1" }, { kind: "evil" }] }, "/api/admin/home-layout"));
     expect(first.status).toBe(200);
     const state = await first.json();
-    expect(state.sections).toEqual([{ id: "b1", kind: "banners", enabled: true, placement: "full", visibility: "all" }]);
+    expect(state.sections).toEqual([{ id: "b1", kind: "banners", enabled: true, placement: "full", visibility: "all", look: { background: "", bgColor: "", accent: "", hide: [] }, showFrom: "", showUntil: "", items: [] }]);
     expect(state.updatedBy).toMatchObject({ id: 9101, name: "Boss" });
     expect(state.history).toHaveLength(1);
     const restored = await layout.POST(send("POST", { restore: 0 }, "/api/admin/home-layout"));

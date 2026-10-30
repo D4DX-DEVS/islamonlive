@@ -13,12 +13,14 @@ export interface LayoutChanges {
   hidden: string[];
   shown: string[];
   reordered: boolean;
+  /** The page style (fonts, colours, sizes) differs. */
+  style: boolean;
 }
 
-export function compareLayouts(live: HomeSection[], draft: HomeSection[]): LayoutChanges {
+export function compareLayouts(live: HomeSection[], draft: HomeSection[], liveTheme?: unknown, draftTheme?: unknown): LayoutChanges {
   const before = new Map(live.map((s) => [s.id, s]));
   const after = new Map(draft.map((s) => [s.id, s]));
-  const changes: LayoutChanges = { added: [], removed: [], edited: [], hidden: [], shown: [], reordered: false };
+  const changes: LayoutChanges = { added: [], removed: [], edited: [], hidden: [], shown: [], reordered: false, style: JSON.stringify(liveTheme ?? null) !== JSON.stringify(draftTheme ?? liveTheme ?? null) };
   for (const section of draft) {
     const old = before.get(section.id);
     if (!old) { changes.added.push(sectionName(section)); continue; }
@@ -48,6 +50,7 @@ export function ChangeList({ changes, verb = "will be" }: { changes: LayoutChang
   if (changes.hidden.length) rows.push({ tone: "bg-amber-500", label: "Hidden", text: names(changes.hidden) });
   if (changes.shown.length) rows.push({ tone: "bg-sky-500", label: "Shown again", text: names(changes.shown) });
   if (changes.reordered) rows.push({ tone: "bg-slate-400", label: "Order", text: "sections moved" });
+  if (changes.style) rows.push({ tone: "bg-fuchsia-500", label: "Style", text: "fonts, colours or text sizes" });
   if (!rows.length) return <p className="text-slate-500">No differences from the live homepage.</p>;
   return <div>
     <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">What {verb} changed</p>

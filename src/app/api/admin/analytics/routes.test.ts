@@ -3,7 +3,11 @@ import { collection } from "@/lib/db/client";
 import type { UserDoc } from "@/lib/db/types";
 
 const session = vi.hoisted(() => ({ current: null as null | { username: string; userId: number; role: string; expiresAt: number } }));
-vi.mock("@/lib/wp-admin", () => ({ getAdminSession: async () => session.current }));
+vi.mock("@/lib/wp-admin", () => ({
+  getAdminSession: async () => session.current,
+  // the real one also checks is_active/role/session_version; staffRole in actor.ts re-checks the first two
+  getAdminSessionUser: async () => session.current && { session: session.current, user: await (await collection("users")).findOne({ _id: session.current.userId }) },
+}));
 vi.mock("@/lib/wp-lookup", () => ({
   getArticleMeta: async (ids: number[]) => new Map(ids.map((id) => [id, { title: `Article ${id}`, path: `/x/a-${id}/`, date: null, categories: [], featuredMedia: 0 }])),
   getCategoryNames: async () => new Map(),

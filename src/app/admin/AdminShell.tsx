@@ -103,7 +103,7 @@ export default function AdminShell({ children, tab, setTab, username, onLogout, 
   const moreItems = overflow ? items.filter((item) => !barItems.includes(item)) : [];
   const [confirmLogout, setConfirmLogout] = useState(false);
   const askLogout = () => setConfirmLogout(true);
-  return <div className="fixed inset-0 z-[100] flex bg-[#f7f6fc] text-slate-900">
+  return <div data-admin-root className="fixed inset-0 z-[100] flex bg-[#f7f6fc] text-slate-900">
     <aside className="relative z-30 hidden w-64 shrink-0 flex-col overflow-y-auto bg-white shadow-[10px_0_32px_-14px_rgba(76,29,149,0.3)] lg:flex">
       <div className="flex h-[68px] shrink-0 items-center border-b border-slate-200/70 px-6"><Image src="/logo.png" alt="Islamonlive" width={132} height={36} priority className="h-9 w-auto object-contain" /></div>
       <nav aria-label="Admin navigation" className="space-y-3 p-4">

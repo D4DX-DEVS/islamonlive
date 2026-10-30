@@ -1,4 +1,5 @@
 import { rewriteUrl } from "@/lib/urls";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 /* WordPress article HTML, made fit to render on this site.
 
@@ -13,9 +14,10 @@ import { rewriteUrl } from "@/lib/urls";
       loses the image URL Google indexed.
 
    2. Safety. The content is trusted-ish — it comes from the editorial CMS — but
-      "trusted" here means "as trusted as the weakest editor password". Scripts,
-      inline event handlers and javascript: URLs are stripped, which costs
-      nothing and removes stored-XSS as a consequence of one compromised login.
+      "trusted" here means "as trusted as the weakest editor password". It goes
+      through an allow-list HTML sanitizer (lib/sanitize.ts) first, so scripts,
+      event handlers and javascript: URLs never reach the page and one
+      compromised login cannot become stored XSS.
 
    3. Leftover shortcodes. Codes belonging to retired plugins render as literal
       [su_box ...] text now that the theme is gone. Known embeds are converted,
@@ -24,8 +26,8 @@ import { rewriteUrl } from "@/lib/urls";
    4. Embeds. YouTube/Vimeo iframes get lazy-loading and the attributes the
       article stylesheet needs to size them.
 
-   Everything is a string transform: it runs on the server during render, adds no
-   dependency, and leaves the markup the .prose styles already target
+   Everything after the sanitizer is a string transform: it runs on the server
+   during render and leaves the markup the .prose styles already target
    (headings, lists, tables, blockquotes, figures, captions) untouched. */
 
 /** Attributes whose value is a URL we may need to move onto the public origin. */
@@ -59,17 +61,6 @@ function rewriteAttrs(html: string): string {
         .join(", ");
       return ` ${attr}="${next.replace(/"/g, "&quot;")}"`;
     });
-}
-
-function strip(html: string): string {
-  return (
-    html
-      .replace(/<script\b[\s\S]*?<\/script>/gi, "")
-      .replace(/<noscript\b[\s\S]*?<\/noscript>/gi, "")
-      // on* handlers, quoted or bare
-      .replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-      .replace(/\s(href|src)\s*=\s*("javascript:[^"]*"|'javascript:[^']*')/gi, "")
-  );
 }
 
 /* Shortcodes whose plugin is gone. The wrappers keep their inner text (it is
@@ -115,7 +106,8 @@ function embeds(html: string): string {
       })
       // WP writes width/height on old <img>; without loading=lazy a long article
       // fetches forty images at once
-      .replace(/<img\b((?:(?!loading=)[^>])*)>/gi, '<img$1 loading="lazy" decoding="async">')
+      // (the sanitizer writes void tags as <img … />, so the slash comes off first)
+      .replace(/<img\b((?:(?!loading=)[^>])*?)\s*\/?>/gi, '<img$1 loading="lazy" decoding="async">')
   );
 }
 
@@ -125,7 +117,7 @@ function embeds(html: string): string {
  */
 export function renderContent(html: string): string {
   if (!html) return "";
-  return embeds(bareEmbeds(shortcodes(rewriteAttrs(strip(html)))));
+  return embeds(bareEmbeds(shortcodes(rewriteAttrs(sanitizeHtml(html)))));
 }
 
 /** Plain text of the body — used for reading time and description fallbacks. */

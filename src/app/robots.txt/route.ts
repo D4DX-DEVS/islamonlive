@@ -44,6 +44,7 @@ const DISALLOW = [
   "/wp-json/",
   "/admin/",
   "/api/",
+  "/preview/",
   "/*?replytocom=",
   "/*?s=",
 ];

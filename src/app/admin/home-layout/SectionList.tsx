@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import { Icon, type IconName } from "../icons";
-import { KIND_LABELS, STYLE_LABELS, type HomeSection } from "@/lib/home-layout/schema";
+import { isScheduledOn, todayInIndia, KIND_LABELS, STYLE_LABELS, type HomeSection } from "@/lib/home-layout/schema";
 import { iconButton } from "./parts";
 
 /* The builder's left panel: the page's sections top to bottom. Drag or use the
    arrows to reorder, the eye to hide, click to select (the canvas scrolls to it). */
 
-const KIND_ICON: Record<HomeSection["kind"], IconName> = { hero: "layers", reels: "video", banners: "image", watch: "video", listen: "mic", image: "image", posts: "grid" };
+const KIND_ICON: Record<HomeSection["kind"], IconName> = { hero: "layers", reels: "video", banners: "image", watch: "video", listen: "mic", image: "image", posts: "grid", custom: "pencil" };
 const PLACEMENT = { full: "Full width", main: "Main column", side: "Sidebar" } as const;
 
 export function sectionName(section: HomeSection): string {
@@ -46,6 +46,8 @@ export default function SectionList({ sections, selectedId, onSelect, onMove, on
       : <ol className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-3">{sections.map((section, index) => {
         const selected = section.id === selectedId;
         const name = sectionName(section);
+        // a schedule that hides the section today is easy to forget: flag it where the name is, not at the end of a truncated line
+        const offToday = Boolean(section.showFrom || section.showUntil) && !isScheduledOn(section, todayInIndia());
         return <li key={section.id} draggable
           onDragStart={(event) => { setDragFrom(index); event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", section.id); }}
           onDragOver={(event) => { event.preventDefault(); if (dragOver !== index) setDragOver(index); }}
@@ -57,8 +59,8 @@ export default function SectionList({ sections, selectedId, onSelect, onMove, on
             <span aria-hidden className="cursor-grab text-slate-300 active:cursor-grabbing"><svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor"><circle cx="9" cy="6" r="1.5" /><circle cx="15" cy="6" r="1.5" /><circle cx="9" cy="12" r="1.5" /><circle cx="15" cy="12" r="1.5" /><circle cx="9" cy="18" r="1.5" /><circle cx="15" cy="18" r="1.5" /></svg></span>
             <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${selected ? "bg-violet-600 text-white" : "bg-slate-100 text-slate-500"}`}><Icon name={KIND_ICON[section.kind]} className="h-4 w-4" /></span>
             <button type="button" onClick={() => onSelect(section.id)} aria-current={selected ? "true" : undefined} className="min-w-0 flex-1 py-0.5 text-left focus-visible:outline-none">
-              <span className={`block truncate text-[13px] font-semibold ${section.enabled ? "text-[#12093a]" : "text-slate-400 line-through decoration-slate-300"}`}>{name}</span>
-              <span className="block truncate text-[11px] text-slate-500">{section.enabled ? meta(section) : "Hidden from the page"}</span>
+              <span className={`flex items-center gap-1 text-[13px] font-semibold ${section.enabled ? "text-[#12093a]" : "text-slate-400 line-through decoration-slate-300"}`}>{(section.showFrom || section.showUntil) && <span role="img" aria-label={offToday ? "Scheduled, not shown today" : "Scheduled, showing now"} title={offToday ? "Scheduled: not shown today" : "Scheduled: showing now"} className={`shrink-0 ${offToday ? "text-amber-600" : "text-sky-600"}`}><Icon name="clock" className="h-3.5 w-3.5" /></span>}<span className="truncate">{name}</span></span>
+              <span className="block truncate text-[11px] text-slate-500">{!section.enabled ? "Hidden from the page" : offToday ? "Not shown today (scheduled)" : meta(section)}</span>
             </button>
             <button type="button" aria-label={section.enabled ? `Hide ${name}` : `Show ${name}`} title={section.enabled ? "Hide" : "Show"} onClick={() => onToggle(section.id)} className={`${iconButton} h-8 w-8`}><Icon name={section.enabled ? "eye" : "eyeOff"} className="h-4 w-4" /></button>
           </div>

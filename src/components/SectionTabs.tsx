@@ -9,12 +9,15 @@ export default function SectionTabs({
   active,
   onSelect,
   href,
+  linkLabel = "",
 }: {
   title: string;
   labels: string[];
   active: number;
   onSelect: (n: number) => void;
   href: string;
+  /** "" = "See all". */
+  linkLabel?: string;
 }) {
   return (
     <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-l-4 border-purple-800 pl-3 pr-2 sm:mb-4">
@@ -40,7 +43,7 @@ export default function SectionTabs({
         ))}
       </div>
       <Link href={href} className="ml-auto text-sm font-medium text-purple-800 hover:underline sm:ml-0">
-        See all →
+        {linkLabel || "See all"} →
       </Link>
     </div>
   );

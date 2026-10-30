@@ -1,5 +1,6 @@
 import type { ObjectId } from "mongodb";
 import type { HomeSection } from "@/lib/home-layout/schema";
+import type { HomeTheme } from "@/lib/home-layout/theme";
 import type { YoastHead } from "@/lib/seo";
 import type { Device, PageKind, Source } from "@/lib/analytics/shared";
 
@@ -155,6 +156,8 @@ export interface UserDoc {
   role: string;
   registered_at: Date | null;
   password_hash: string | null;
+  /** Bumped on logout and password reset; a session cookie carrying an older value is refused. */
+  session_version?: number;
   is_active: boolean;
   seo: YoastHead | null;
 }
@@ -266,6 +269,8 @@ export interface StaffRef {
 
 export interface HomeLayoutVersion {
   sections: HomeSection[];
+  /** Absent on versions published before page styles existed. */
+  theme?: HomeTheme;
   saved_at: Date;
   saved_by: StaffRef | null;
 }
@@ -275,12 +280,15 @@ export interface HomeLayoutDoc {
   _id: "home";
   /** What readers see; absent until the first publish (the built-in default shows). */
   sections?: HomeSection[];
+  /** Page-wide fonts, colours and sizes (lib/home-layout/theme). */
+  theme?: HomeTheme;
   updated_at?: Date;
   updated_by?: StaffRef | null;
   /** Earlier publishes, newest first, capped. */
   history?: HomeLayoutVersion[];
   /** The builder's work in progress: autosaved, shown only in the preview, null when there is none. */
   draft?: HomeSection[] | null;
+  draft_theme?: HomeTheme;
   draft_updated_at?: Date;
   draft_updated_by?: StaffRef | null;
 }

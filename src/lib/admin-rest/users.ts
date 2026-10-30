@@ -2,7 +2,9 @@ import { collection } from "@/lib/db/client";
 import { nextId } from "@/lib/admin-rest/ids";
 import { SITE_URL } from "@/lib/env";
 import { sanitizeTitle, uniqueSlug } from "@/lib/admin-rest/slug";
+import { sanitizeHtml } from "@/lib/sanitize";
 import { hashPassword } from "@/lib/auth/password";
+import { passwordProblem } from "@/lib/auth/password-policy";
 import { splitAvatars } from "@/lib/db/adapt";
 import { json, wpError, list, readJson, pickFields, paging, pastTheEnd, forbidden, escapeRegex, staffRef } from "@/lib/admin-rest/http";
 import { recordActivity } from "@/lib/activity";
@@ -114,6 +116,11 @@ async function handleCreate(req: AdminRequest): Promise<Response> {
     }
   }
 
+  if (typeof body.password === "string" && body.password) {
+    const weak = passwordProblem(body.password, { username, email });
+    if (weak) return wpError("rest_user_invalid_password", weak, 400);
+  }
+
   const id = await nextId("user");
   const slug = await uniqueSlug(sanitizeTitle(username), async (candidate) => {
     return (await col.findOne({ slug: candidate })) !== null;
@@ -124,7 +131,7 @@ async function handleCreate(req: AdminRequest): Promise<Response> {
     _id: id,
     name: String(body.name || username).trim(),
     slug,
-    description: String(body.description || "").trim(),
+    description: sanitizeHtml(String(body.description || "").trim()),
     link: `${SITE_URL}/author/${slug}/`,
     path: `/author/${slug}/`,
     avatar_url: null,
@@ -159,7 +166,7 @@ async function handleUpdate(req: AdminRequest, userId: number): Promise<Response
   if (!doc) return wpError("rest_user_invalid_id", "Invalid user ID.", 404);
 
   const update: Partial<UserDoc> = {};
-  if ("description" in body && typeof body.description === "string") update.description = body.description;
+  if ("description" in body && typeof body.description === "string") update.description = sanitizeHtml(body.description);
   if ("name" in body && typeof body.name === "string") update.name = body.name;
   if ("first_name" in body && typeof body.first_name === "string") update.first_name = body.first_name;
   if ("last_name" in body && typeof body.last_name === "string") update.last_name = body.last_name;

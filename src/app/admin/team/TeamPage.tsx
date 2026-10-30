@@ -46,8 +46,8 @@ function MemberDialog({ member, me, onClose, onSaved }: { member: Member | null;
 
   async function submit(event?: FormEvent) {
     event?.preventDefault(); setProblem("");
-    if (creating && form.password.length < 8) { setProblem("The password must be at least 8 characters."); return; }
-    if (!creating && form.password && form.password.length < 8) { setProblem("The new password must be at least 8 characters."); return; }
+    if (creating && form.password.length < 12) { setProblem("The password must be at least 12 characters."); return; }
+    if (!creating && form.password && form.password.length < 12) { setProblem("The new password must be at least 12 characters."); return; }
     setSaving(true);
     try {
       const payload = creating ? form : { id: member.id, name: form.name, username: form.username.trim(), email: form.email, role: form.role, active: form.active, ...(form.password ? { password: form.password } : {}) };
@@ -67,7 +67,7 @@ function MemberDialog({ member, me, onClose, onSaved }: { member: Member | null;
       <Field label="Username" hint={creating ? "Used to sign in. Letters, numbers, dots, dashes." : member.username ? "Signs in with this or the email address. A change applies from their next sign-in." : "No username yet, so this account signs in with its email. Add one to allow both."}><input value={form.username} onChange={(event) => set({ username: event.target.value })} autoCapitalize="none" spellCheck={false} required={creating || Boolean(member.username)} className={inputClass} /></Field>
       <Field label="Email"><input type="email" value={form.email} onChange={(event) => set({ email: event.target.value })} required className={inputClass} /></Field>
       <Field label="Role" hint={self ? "You cannot change your own role." : undefined}>{self ? <RoleChip role={form.role} /> : <Select label="Role" value={form.role} onChange={(role) => set({ role: role as Role })} options={ROLE_OPTIONS} />}</Field>
-      <Field label={creating ? "Password" : "New password"} hint={creating ? "At least 8 characters. They can sign in with it straight away." : "Leave empty to keep the current password."}>
+      <Field label={creating ? "Password" : "New password"} hint={creating ? "At least 12 characters, not containing the username or email. They can sign in with it straight away." : "Leave empty to keep the current password."}>
         <PasswordInput value={form.password} onChange={(password) => set({ password })} label={creating ? "Password" : "New password"} />
         <button type="button" onClick={() => set({ password: suggestPassword() })} className="mt-2 text-xs font-semibold text-violet-700 hover:underline">Suggest a strong password</button>
       </Field>

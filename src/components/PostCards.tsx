@@ -26,7 +26,7 @@ export function OverlayCard({ item, className = "" }: { item: PostItem; classNam
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
       <div className="absolute inset-x-0 bottom-0 p-4">
         {item.category && (
-          <span className="pill mb-1.5 inline-flex items-center justify-center rounded bg-purple-700 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">{item.category}</span>
+          <span data-meta="category" className="pill mb-1.5 inline-flex items-center justify-center rounded bg-purple-700 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">{item.category}</span>
         )}
         <h3 className="line-clamp-2 text-base font-bold leading-snug text-white lg:text-lg" dangerouslySetInnerHTML={{ __html: item.title }} />
         <Byline className="mt-1.5" light name={item.author} avatar={item.authorAvatar} date={item.date} />
@@ -54,7 +54,7 @@ export function ListRow({ item, thumb = true, compact = false }: { item: PostIte
       <div className="min-w-0">
         {/* phones: 3 lines so long Malayalam titles fit; desktop rows stay 2 */}
         <h3
-          className={`line-clamp-3 min-h-[2.75em] [overflow-wrap:anywhere] font-bold leading-snug group-hover:text-purple-800 sm:line-clamp-2 ${compact ? "text-sm" : "text-[15px]"}`}
+          className={`line-clamp-3 min-h-[2.75em] [overflow-wrap:anywhere] font-bold leading-snug text-zinc-900 group-hover:text-purple-800 sm:line-clamp-2 ${compact ? "text-sm" : "text-[length:calc(var(--text-sm)*15/14)]"}`}
           dangerouslySetInnerHTML={{ __html: item.title }}
         />
         <Byline className="mt-1.5" name={item.author} avatar={item.authorAvatar} date={item.date} />

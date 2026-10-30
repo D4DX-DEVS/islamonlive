@@ -7,7 +7,7 @@ import type { Tab } from "@/components/TabbedSection";
 
 /* sidebar section whose topic is picked from a "…" menu — the sidebar column is
    too narrow for the pill tabs the main column uses */
-export default function SideListTabs({ title, tabs, rows = 4 }: { title: string; tabs: Tab[]; rows?: number }) {
+export default function SideListTabs({ title, tabs, rows = 4, linkLabel = "" }: { title: string; tabs: Tab[]; rows?: number; /** "" = "See all". */ linkLabel?: string }) {
   const [active, setActive] = useState(0);
   const [open, setOpen] = useState(false);
 
@@ -26,7 +26,7 @@ export default function SideListTabs({ title, tabs, rows = 4 }: { title: string;
           {active > 0 && <span className="truncate text-sm font-semibold text-purple-800">{tab.label}</span>}
         </h2>
         <div className="flex shrink-0 items-center gap-1">
-          <Link href={tab.href} className="text-sm font-medium text-purple-800 hover:underline">See all →</Link>
+          <Link href={tab.href} className="text-sm font-medium text-purple-800 hover:underline">{linkLabel || "See all"} →</Link>
           <div className="relative">
             <button
               type="button"

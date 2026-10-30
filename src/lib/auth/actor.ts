@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { DATA_SOURCE } from "@/lib/env";
-import { collection } from "@/lib/db/client";
-import { getAdminSession } from "@/lib/wp-admin";
+import { getAdminSessionUser } from "@/lib/wp-admin";
 import type { StaffRef, UserDoc } from "@/lib/db/types";
 
 /* Who is signed in to the admin, read from the users collection on every call
@@ -24,13 +23,14 @@ export function staffRole(user: Pick<UserDoc, "role" | "roles" | "is_active"> | 
 }
 
 export async function getAdminActor(): Promise<AdminActor | null> {
-  const session = await getAdminSession();
-  if (!session) return null;
+  const current = await getAdminSessionUser();
+  if (!current) return null;
+  const { session, user } = current;
   if (DATA_SOURCE !== "mongo") {
     // WordPress decides permissions there; the session carries no role
     return { id: session.userId, name: session.username, username: session.username, role: "editor" };
   }
-  const user = await (await collection("users")).findOne({ _id: session.userId });
+  // getAdminSessionUser has already checked the account is live staff with a current session
   const role = staffRole(user);
   if (!user || !role) return null;
   return { id: user._id, name: user.name || user.username || "", username: user.username ?? "", role };

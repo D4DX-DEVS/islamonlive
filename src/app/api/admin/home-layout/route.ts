@@ -36,14 +36,14 @@ export async function GET(request: Request) {
   }
 }
 
-/** Publish a new arrangement: { sections }. */
+/** Publish a new arrangement: { sections, theme? }. */
 export async function PUT(request: Request) {
   const actor = await requireAdministrator();
   if (actor instanceof Response) return actor;
-  const body = await request.json().catch(() => null) as { sections?: unknown } | null;
+  const body = await request.json().catch(() => null) as { sections?: unknown; theme?: unknown } | null;
   if (!body || !Array.isArray(body.sections)) return NextResponse.json({ error: "Send the layout as { sections: [...] }." }, { status: 400 });
   try {
-    await saveHomeLayout(body.sections, actor);
+    await saveHomeLayout(body.sections, actor, body.theme);
     await recordActivity(actor, "layout.update", { type: "layout", id: "home", title: "Homepage", link: "/" });
     return NextResponse.json(await getLayoutState(), { headers: privateNoStore });
   } catch (error) {

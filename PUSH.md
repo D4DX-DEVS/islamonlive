@@ -26,7 +26,7 @@ the same time, or the existing subscribers stop matching the origin).
 
 ## Firing a notification
 
-`POST /api/notify` — auth by `X-Notify-Secret` header or `?secret=`.
+`POST /api/notify` — auth by the `X-Notify-Secret` header (the `?secret=` query form was removed: it put the key in access logs).
 
 ```
 curl -X POST https://islamonlive.vercel.app/api/notify \
@@ -38,7 +38,7 @@ curl -X POST https://islamonlive.vercel.app/api/notify \
 Only `title` and `url` are required. `id` becomes the OneSignal `external_id`, so
 re-posting the same id is a no-op instead of a second buzz.
 
-`GET /api/notify?secret=…` pushes the newest WP post — a cron fallback if the
+`GET /api/notify` (with the `X-Notify-Secret` header) pushes the newest WP post — a cron fallback if the
 plugin can't reach the site. Same idempotency, so a 5-minute schedule won't spam.
 
 ## Scheduled fallback (Vercel Cron)

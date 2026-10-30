@@ -24,9 +24,9 @@ async function isAdministrator(session: { userId: number; username: string }): P
 
 /** Null when the request may see analytics, otherwise the response to send instead. */
 export async function analyticsAccessDenied(): Promise<Response | null> {
-  const session = await getAdminSession();
-  if (!session) return NextResponse.json({ error: "Admin authentication required" }, { status: 401 });
   try {
+    const session = await getAdminSession();
+    if (!session) return NextResponse.json({ error: "Admin authentication required" }, { status: 401 });
     if (!(await isAdministrator(session))) return NextResponse.json({ error: "Reader analytics are available to administrators only." }, { status: 403 });
   } catch {
     return NextResponse.json({ error: "Analytics are unavailable: the database could not be reached." }, { status: 503 });

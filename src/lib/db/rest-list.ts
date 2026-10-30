@@ -1,5 +1,6 @@
 import type { Collection, Filter, Sort } from "mongodb";
 import { cached } from "@/lib/db/cache";
+import { safeTitle } from "@/lib/sanitize";
 import { collection } from "@/lib/db/client";
 import { publicFilter } from "@/lib/db/posts";
 import { allTermCounts } from "@/lib/db/taxonomy";
@@ -82,7 +83,7 @@ async function listImpl(path: Path, query: string): Promise<RestList> {
       modified_gmt: d.modified_gmt,
       date: d.date,
       date_gmt: d.date_gmt,
-      title: { rendered: d.title },
+      title: { rendered: safeTitle(d.title) },
       yoast_head_json: robots(d.seo),
     }));
     return { items, total };

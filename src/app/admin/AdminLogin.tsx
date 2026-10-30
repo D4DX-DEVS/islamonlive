@@ -74,7 +74,7 @@ export default function AdminLogin({ lostPasswordUrl }: { lostPasswordUrl: strin
   const field = "block min-h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-[15px] text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus-visible:border-violet-500 focus-visible:ring-4 focus-visible:ring-violet-100 aria-[invalid=true]:border-red-300";
   const fieldIcon = "pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400";
 
-  return <div className="fixed inset-0 z-[100] overflow-auto bg-white text-slate-900">
+  return <div data-admin-root className="fixed inset-0 z-[100] overflow-auto bg-white text-slate-900">
     <div className="grid min-h-full lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
       <aside className="relative hidden overflow-hidden bg-[#160a35] lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-16">
         <div aria-hidden className="absolute inset-0 bg-[radial-gradient(80%_60%_at_100%_0%,rgba(139,92,246,0.45),transparent_60%),radial-gradient(70%_60%_at_0%_100%,rgba(79,70,229,0.35),transparent_60%)]" />

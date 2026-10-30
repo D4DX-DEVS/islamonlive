@@ -1,5 +1,6 @@
 import { getPageBySlug, stripHtml, type WPPage } from "@/lib/wordpress";
 import { renderContent } from "@/lib/content";
+import { safeTitle, sanitizeHtml } from "@/lib/sanitize";
 import { toSitePath } from "@/lib/urls";
 
 /* The WP static pages (about, contact, privacy-policy, ...) are Elementor
@@ -68,8 +69,9 @@ export async function getStaticPage(slug: string): Promise<StaticPage | null> {
   const page = await getPageBySlug(slug);
   if (!page) return null;
   return {
-    title: page.title.rendered,
-    paragraphs: pageParagraphs(page.content.rendered),
+    title: safeTitle(page.title.rendered),
+    // picked out of the raw page so the Elementor checks still see it, then sanitized one by one
+    paragraphs: pageParagraphs(page.content.rendered).map(sanitizeHtml),
     // renderContent moves the hosts and strips scripts; cleanPageHtml then takes
     // out the Elementor scaffolding this site has no theme to style
     html: cleanPageHtml(renderContent(page.content.rendered), page.title.rendered),

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import HomeSections from "@/components/home/HomeSections";
+import HomeSections, { HomeThemeStyle } from "@/components/home/HomeSections";
 import { getAdminActor } from "@/lib/auth/actor";
-import { getPreviewLayout } from "@/lib/home-layout/store";
+import { getPreviewLayout, getPreviewTheme } from "@/lib/home-layout/store";
 
 export const dynamic = "force-dynamic";
 
@@ -33,11 +33,13 @@ export default async function HomePreview({ searchParams }: { searchParams: Prom
   const actor = await getAdminActor().catch(() => null);
   if (actor?.role !== "administrator") notFound();
   const { source } = await searchParams;
-  const sections = await getPreviewLayout(source === "live" ? "live" : "draft");
+  const from = source === "live" ? "live" : "draft";
+  const [sections, theme] = await Promise.all([getPreviewLayout(from), getPreviewTheme(from)]);
   // the builder sets data-builder here from outside React, often before hydration
   return (
-    <div className="space-y-8 sm:space-y-12" data-preview-root suppressHydrationWarning>
+    <div className="home-theme space-y-8 sm:space-y-12" data-preview-root suppressHydrationWarning>
       <style dangerouslySetInnerHTML={{ __html: BUILDER_CSS }} />
+      <HomeThemeStyle theme={theme} preview />
       <h1 className="sr-only">Homepage preview</h1>
       <HomeSections sections={sections} preview />
     </div>
