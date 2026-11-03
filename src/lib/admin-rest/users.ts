@@ -170,7 +170,13 @@ async function handleUpdate(req: AdminRequest, userId: number): Promise<Response
   if ("name" in body && typeof body.name === "string") update.name = body.name;
   if ("first_name" in body && typeof body.first_name === "string") update.first_name = body.first_name;
   if ("last_name" in body && typeof body.last_name === "string") update.last_name = body.last_name;
-  if ("email" in body && typeof body.email === "string") update.email = body.email;
+  if ("email" in body && typeof body.email === "string") {
+    const email = body.email.trim();
+    if (email && email !== doc.email && await col.findOne({ email, _id: { $ne: userId } })) {
+      return wpError("existing_user_email", "Sorry, that email address is already used!", 400);
+    }
+    update.email = email || null;
+  }
 
   if (Object.keys(update).length > 0) {
     await col.updateOne({ _id: userId }, { $set: update });

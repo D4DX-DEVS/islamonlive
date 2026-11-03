@@ -94,6 +94,20 @@ function IconSelect({ label, icon, value, onChange, disabled = false, title, chi
   </label>;
 }
 
+/** The tag the homepage "Editor's Picks" sections list (slug editorspicks). */
+const PICKS_TAG = "Editor's Picks";
+/** True for the picks tag however its apostrophe or spacing was typed. */
+const isPicksTag = (tag: string) => tag.toLocaleLowerCase().replace(/[^a-z]/g, "") === "editorspicks";
+
+function PicksToggle({ tags, onChange }: { tags: string[]; onChange: (tags: string[]) => void }) {
+  const on = tags.some(isPicksTag);
+  const flip = () => onChange(on ? tags.filter((tag) => !isPicksTag(tag)) : [...tags, PICKS_TAG]);
+  return <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3.5 py-2">
+    <span className="flex items-center gap-3"><Icon name="tag" className="h-5 w-5 shrink-0 text-violet-600" /><span><span className="block text-sm font-semibold text-slate-900">Editor&apos;s Pick</span><span className="block text-xs text-slate-500">Show in the homepage Editor&apos;s Picks.</span></span></span>
+    <input type="checkbox" role="switch" checked={on} onChange={flip} disabled={!on && tags.length >= MAX_TAGS} className="h-5 w-5 shrink-0 rounded border-slate-300 accent-violet-700" />
+  </label>;
+}
+
 function TagInput({ tags, onChange }: { tags: string[]; onChange: (tags: string[]) => void }) {
   const [draft, setDraft] = useState("");
   function add(raw: string) {
@@ -409,6 +423,7 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
             <IconSelect label="Visibility" icon="globe" value={visibility} onChange={setVisibility} disabled={status !== "publish"} title={status !== "publish" ? "Visibility applies once the article is published" : undefined}>
               <option value="public">Public</option><option value="private">Private</option>
             </IconSelect>
+            <PicksToggle tags={tags} onChange={setTags} />
             <div>
               <div className="flex items-center justify-between"><span className="block text-sm font-semibold text-slate-900">{publishDate ? "Publish on" : "Publish immediately"}</span>{dateTouched && <button type="button" onClick={() => { setDateTouched(false); setPublishDate(""); setPublishTime(""); }} className="text-xs font-semibold text-violet-700 hover:underline">Clear</button>}</div>
               <div className="mt-2 flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 transition focus-within:border-violet-500 focus-within:ring-4 focus-within:ring-violet-100">

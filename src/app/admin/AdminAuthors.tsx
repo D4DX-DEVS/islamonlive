@@ -28,13 +28,8 @@ const roleOf = (author: Author) => roleRank.find((role) => author.roles?.include
 const roleLabel = (role: string) => `${role[0].toUpperCase()}${role.slice(1)}`;
 
 type Activity = { days: number; active: Set<number> };
-const emptyForm = { name: "", username: "", email: "", password: "", description: "", role: "author" };
-/** What each role can do here; only editors and administrators can sign in to this admin. */
-const roleNotes: Record<string, string> = {
-  author: "Shown as the byline, with photo and bio, on their articles. Authors cannot sign in to this admin.",
-  editor: "Can sign in to this admin and write, edit and publish every article.",
-  administrator: "Can sign in to this admin with full access, including creating accounts.",
-};
+/** Only authors (bylines) are created here; editors and administrators who sign in are added on the Team page. */
+const emptyForm = { name: "", username: "", email: "", description: "" };
 type Filters = { search: string; role: string; status: string; sort: string; page: number };
 const emptyFilters: Filters = { search: "", role: "", status: "", sort: "name", page: 1 };
 
@@ -44,7 +39,7 @@ function AuthorsSkeleton() {
   return <div aria-busy="true" aria-label="Loading authors" className="space-y-5 sm:space-y-6"><div className="space-y-2"><Skeleton className="h-3 w-24" /><Skeleton className="h-9 w-64 max-w-full" /><Skeleton className="h-4 w-96 max-w-full" /></div><div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]"><div className={`${cardClass} space-y-4`}><Skeleton className="h-8 w-40" /><div className="grid gap-4 sm:grid-cols-[10rem_1fr]"><Skeleton className="h-44 w-full" /><div className="space-y-4">{Array.from({ length: 3 }, (_, index) => <Skeleton className="h-11 w-full" key={index} />)}</div></div><Skeleton className="h-11 w-full" /><Skeleton className="h-36 w-full" /></div><div className={cardClass}><Skeleton className="h-8 w-56" /><div className="mt-4 grid gap-3 sm:grid-cols-3"><Skeleton className="h-11 w-full sm:col-span-3" />{Array.from({ length: 3 }, (_, index) => <Skeleton className="h-11 w-full" key={index} />)}</div><div className="mt-5 space-y-4">{Array.from({ length: 6 }, (_, index) => <div className="flex items-center gap-3" key={index}><Skeleton className="h-10 w-10 rounded-full" /><div className="flex-1 space-y-2"><Skeleton className="h-4 w-2/5" /><Skeleton className="h-3 w-3/5" /></div><Skeleton className="h-6 w-20" /></div>)}</div></div></div></div>;
 }
 
-function PhotoPicker({ file, problem, onChange }: { file: File | null; problem: string; onChange: (file: File | null) => void }) {
+function PhotoPicker({ file, current, problem, onChange }: { file: File | null; /** The saved photo, shown while editing until a new one is chosen. */ current?: string | null; problem: string; onChange: (file: File | null) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const preview = useObjectUrl(file);
   const [dragging, setDragging] = useState(false);
@@ -59,6 +54,10 @@ function PhotoPicker({ file, problem, onChange }: { file: File | null; problem: 
       {preview ? <img src={preview} alt="Selected profile photo" className="h-24 w-24 rounded-full object-cover ring-2 ring-white shadow" /> : <span className="h-24 w-24 rounded-full bg-slate-200" />}
       <p className="mt-2 max-w-full break-all text-xs text-slate-500">{file.name} · {Math.ceil(file.size / 1024).toLocaleString()} KB</p>
       <div className="mt-3 flex gap-2">{canEditImage(file) && <button type="button" onClick={() => setEditing(file)} className="min-h-9 rounded-lg border border-violet-300 bg-white px-3 text-xs font-semibold text-violet-700 hover:bg-violet-50">Edit</button>}<button type="button" onClick={() => inputRef.current?.click()} className="min-h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold hover:bg-slate-50">Change</button><button type="button" onClick={() => onChange(null)} className="min-h-9 rounded-lg border border-red-200 bg-white px-3 text-xs font-semibold text-red-700 hover:bg-red-50">Remove</button></div>
+    </div> : current ? <div className="mt-2 flex flex-col items-center rounded-2xl border border-slate-200 bg-slate-50/50 px-3 py-4 text-center">
+      <img src={current} alt="Current profile photo" className="h-24 w-24 rounded-full object-cover ring-2 ring-white shadow" />
+      <p className="mt-2 text-xs text-slate-500">Current photo</p>
+      <button type="button" onClick={() => inputRef.current?.click()} className="mt-3 min-h-9 rounded-lg border border-violet-300 bg-white px-3 text-xs font-semibold text-violet-700 hover:bg-violet-50">Change photo</button>
     </div> : <div role="button" tabIndex={0} aria-label="Upload a profile photo" onClick={() => inputRef.current?.click()} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); inputRef.current?.click(); } }} onDragOver={(event) => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); choose(event.dataTransfer.files?.[0] ?? null); }} className={`mt-2 flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-3 py-5 text-center transition ${dragging ? "border-violet-500 bg-violet-100/60" : "border-violet-300 bg-violet-50/40 hover:bg-violet-50"}`}>
       <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-violet-100 text-violet-500"><Icon name="user" className="h-8 w-8" /><span className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-violet-700 text-white ring-2 ring-white"><Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2.4} /></span></span>
       <p className="mt-3 text-sm font-semibold text-slate-900">Upload photo</p>
@@ -96,7 +95,7 @@ export default function Authors({ authors, refresh, loading, error, wordpressAdm
   const [form, setForm] = useState(emptyForm);
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoProblem, setPhotoProblem] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [editing, setEditing] = useState<Author | null>(null);
   const [message, setMessage] = useState<{ kind: "ok" | "warn" | "error"; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [filters, setFilters] = useState<Filters>(emptyFilters);
@@ -126,13 +125,14 @@ export default function Authors({ authors, refresh, loading, error, wordpressAdm
     setSaving(true); setMessage(null);
     const data = new FormData();
     for (const [key, value] of Object.entries(form)) data.set(key, value);
+    if (editing) data.set("id", String(editing.id));
     if (photo) data.set("photo", photo);
     try {
-      const response = await fetch("/api/admin/authors/", { method: "POST", body: data });
+      const response = await fetch("/api/admin/authors/", { method: editing ? "PUT" : "POST", body: data });
       const body = await response.json().catch(() => ({}));
-      if (!response.ok) { setMessage({ kind: "error", text: body.error || "Could not create author" }); return; }
-      setMessage(body.warning ? { kind: "warn", text: body.warning } : { kind: "ok", text: form.role === "author" ? "Author created successfully." : `${roleLabel(form.role)} account created. They can sign in with the temporary password.` });
-      setForm(emptyForm); setPhoto(null); setShowPassword(false);
+      if (!response.ok) { setMessage({ kind: "error", text: body.error || (editing ? "Could not save the profile" : "Could not create author") }); return; }
+      setMessage(body.warning ? { kind: "warn", text: body.warning } : { kind: "ok", text: editing ? `${form.name}'s profile was saved.` : "Author created successfully." });
+      setForm(emptyForm); setPhoto(null); setEditing(null);
       refresh();
     } catch { setMessage({ kind: "error", text: "Could not reach the author service." }); }
     finally { setSaving(false); }
@@ -177,8 +177,15 @@ export default function Authors({ authors, refresh, loading, error, wordpressAdm
     download("authors.csv", lines.join("\r\n"));
     setNotice(`Exported ${list.length.toLocaleString()} ${list.length === 1 ? "author" : "authors"}.`);
   }
+  function startEdit(item: Author) {
+    setEditing(item); setPhoto(null); setPhotoProblem(""); setMessage(null);
+    setForm({ name: item.name, username: item.slug || "", email: item.email || "", description: item.description || "" });
+    document.getElementById("author-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  function cancelEdit() { setEditing(null); setForm(emptyForm); setPhoto(null); setPhotoProblem(""); setMessage(null); }
   function menuFor(item: Author): MenuEntry[] {
     const entries: MenuEntry[] = [{ label: "View articles", icon: "doc", onSelect: () => onViewArticles(item.id) }];
+    if (canCreate) entries.unshift({ label: "Edit profile", icon: "pencil", onSelect: () => startEdit(item) });
     if (item.email) entries.push({ label: "Copy email", icon: "copy", onSelect: () => void copyEmails([item]) });
     if (wordpressAdmin) entries.push({ label: "Open in WordPress", icon: "external", href: `/wp-admin/user-edit.php?user_id=${item.id}` });
     return entries;
@@ -194,39 +201,25 @@ export default function Authors({ authors, refresh, loading, error, wordpressAdm
       <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-slate-500"><span>Authors</span><Icon name="chevronRight" className="h-3.5 w-3.5" strokeWidth={2} /><span className="font-medium text-slate-900">{canCreate ? "Create author" : "All authors"}</span></nav>
       <p className="pill mt-4 text-xs font-bold uppercase tracking-[0.18em] text-violet-700">Authors</p>
       <h1 className="mt-2 text-2xl font-extrabold text-[#12093a] sm:text-3xl">Authors and editors</h1>
-      <p className="mt-1.5 text-sm text-slate-500">{canCreate ? "Create author profiles without touching existing user records. Administrators and editors who can publish are included." : "Everyone with a byline, plus the editors and administrators. Only administrators can add authors."}</p>
+      <p className="mt-1.5 text-sm text-slate-500">{canCreate ? "Create and edit author profiles: the name, photo and bio shown on their articles. Editors and administrators who sign in are managed on the Team page." : "Everyone with a byline, plus the editors and administrators. Only administrators can add authors."}</p>
     </div>
 
     <div className={`grid grid-cols-[minmax(0,1fr)] items-start gap-5 ${canCreate ? "xl:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]" : ""}`}>
-      {canCreate && <form onSubmit={(event) => void submit(event)} className={`${cardClass} space-y-5`}>
-        <CardTitle icon="users">Create author</CardTitle>
+      {canCreate && <form id="author-form" onSubmit={(event) => void submit(event)} className={`${cardClass} scroll-mt-24 space-y-5`}>
+        <div className="flex items-center justify-between gap-3"><CardTitle icon="users">{editing ? `Edit ${editing.name}` : "Create author"}</CardTitle>{editing && <button type="button" onClick={cancelEdit} className="min-h-9 shrink-0 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>}</div>
         <div className="grid gap-5 sm:grid-cols-[10.5rem_minmax(0,1fr)]">
-          <PhotoPicker file={photo} problem={photoProblem} onChange={choosePhoto} />
+          <PhotoPicker file={photo} current={editing?.avatar} problem={photoProblem} onChange={choosePhoto} />
           <div className="space-y-4">
             <label className="block"><FieldLabel required>Display name</FieldLabel><input className={`${inputClass} mt-2`} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Enter display name" required /></label>
-            <label className="block"><FieldLabel required>Username</FieldLabel><input className={`${inputClass} mt-2`} value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} placeholder="Enter username" autoComplete="off" required /><span className="mt-1.5 block text-xs text-slate-500">A unique user name for the author.</span></label>
+            <label className="block"><FieldLabel required>Username</FieldLabel><input className={`${inputClass} mt-2 disabled:bg-slate-50 disabled:text-slate-500`} value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} placeholder="Enter username" autoComplete="off" required disabled={Boolean(editing)} /><span className="mt-1.5 block text-xs text-slate-500">{editing ? "The username cannot be changed." : "A unique user name for the author."}</span></label>
             <IconField label="Email" icon="mail"><input className={`${inputClass} pl-10`} type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="example@mail.com" autoComplete="off" required /></IconField>
           </div>
         </div>
-        <IconField label="Temporary password" icon="lock">
-          <input className={`${inputClass} pl-10 pr-11`} type={showPassword ? "text" : "password"} value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} placeholder="Enter temporary password" autoComplete="new-password" minLength={12} required />
-          <button type="button" aria-label={showPassword ? "Hide password" : "Show password"} title={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword((current) => !current)} className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-500 transition hover:text-violet-700"><Icon name={showPassword ? "eyeOff" : "eye"} className="h-5 w-5" /></button>
-        </IconField>
-        <label className="block"><FieldLabel required>Role</FieldLabel>
-          <span className="relative mt-2 block">
-            <Icon name="users" className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-500" />
-            <select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })} className={`${inputClass} appearance-none pl-10 pr-9`}>
-              <option value="author">Author</option><option value="editor">Editor</option><option value="administrator">Administrator</option>
-            </select>
-            <Icon name="chevronDown" className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" strokeWidth={2} />
-          </span>
-          <span className="mt-1.5 block text-xs text-slate-500">{roleNotes[form.role]}</span>
-        </label>
         <HtmlEditor compact label="Bio" placeholder="Write a short bio about the author…" value={form.description} onChange={(description) => setForm({ ...form, description })} minHeight="min-h-28 sm:min-h-32" />
         {message && <p role={message.kind === "error" ? "alert" : "status"} className={`rounded-xl px-3 py-2 text-sm ${messageStyle[message.kind]}`}>{message.text}</p>}
         <div className="flex flex-col gap-3 rounded-xl bg-violet-50/70 p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-          <div className="flex items-start gap-3 text-xs leading-snug text-slate-600"><Icon name="info" className="mt-0.5 h-[18px] w-[18px] shrink-0 text-violet-600" /><p><span className="block font-medium text-slate-800">The account will be created with the role {roleLabel(form.role)}.</span>{form.role === "author" ? "A byline profile; it cannot sign in." : "Share the temporary password with them privately."}</p></div>
-          <button disabled={saving} className="flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[linear-gradient(90deg,#7c3aed,#6d28d9)] px-5 text-sm font-bold text-white shadow-[0_10px_22px_-10px_rgba(109,40,217,0.8)] transition hover:brightness-110 disabled:opacity-60"><Icon name="users" className="h-[18px] w-[18px]" />{saving ? "Creating…" : `Create ${form.role === "author" ? "author" : roleLabel(form.role).toLowerCase()}`}</button>
+          <div className="flex items-start gap-3 text-xs leading-snug text-slate-600"><Icon name="info" className="mt-0.5 h-[18px] w-[18px] shrink-0 text-violet-600" /><p><span className="block font-medium text-slate-800">{editing ? `Editing the profile of this ${roleLabel(roleOf(editing)).toLowerCase()}.` : "Creates an author byline."}</span>{editing ? "Their role and sign-in are not changed; those are on the Team page." : "Authors cannot sign in. Add editors and administrators on the Team page."}</p></div>
+          <button disabled={saving} className="flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[linear-gradient(90deg,#7c3aed,#6d28d9)] px-5 text-sm font-bold text-white shadow-[0_10px_22px_-10px_rgba(109,40,217,0.8)] transition hover:brightness-110 disabled:opacity-60"><Icon name="users" className="h-[18px] w-[18px]" />{editing ? (saving ? "Saving…" : "Save changes") : saving ? "Creating…" : "Create author"}</button>
         </div>
       </form>}
 
