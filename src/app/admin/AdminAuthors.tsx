@@ -7,6 +7,7 @@ import Avatar from "./avatar";
 import { CardTitle, FieldLabel } from "./form-parts";
 import HtmlEditor from "./HtmlEditor";
 import { Icon, type IconName } from "./icons";
+import ImageEditor, { canEditImage } from "./ImageEditor";
 import { useObjectUrl } from "./media-client";
 import { cardClass, inputClass, Skeleton, type Author } from "./ui";
 
@@ -47,14 +48,18 @@ function PhotoPicker({ file, problem, onChange }: { file: File | null; problem: 
   const inputRef = useRef<HTMLInputElement>(null);
   const preview = useObjectUrl(file);
   const [dragging, setDragging] = useState(false);
+  const [editing, setEditing] = useState<File | null>(null);
+  // a picked photo opens the editor square-cropped; the parent checks type and size on what comes out
+  const choose = (next: File | null) => { if (next && canEditImage(next) && PHOTO_TYPES.includes(next.type)) setEditing(next); else onChange(next); };
   return <div>
     <FieldLabel>Profile photo</FieldLabel>
-    <input ref={inputRef} className="hidden" type="file" accept={PHOTO_TYPES.join(",")} onChange={(event) => { onChange(event.target.files?.[0] ?? null); event.target.value = ""; }} />
+    {editing && <ImageEditor file={editing} initialAspect={1} onApply={(edited) => { setEditing(null); onChange(edited); }} onCancel={() => setEditing(null)} />}
+    <input ref={inputRef} className="hidden" type="file" accept={PHOTO_TYPES.join(",")} onChange={(event) => { choose(event.target.files?.[0] ?? null); event.target.value = ""; }} />
     {file ? <div className="mt-2 flex flex-col items-center rounded-2xl border border-slate-200 bg-slate-50/50 px-3 py-4 text-center">
       {preview ? <img src={preview} alt="Selected profile photo" className="h-24 w-24 rounded-full object-cover ring-2 ring-white shadow" /> : <span className="h-24 w-24 rounded-full bg-slate-200" />}
       <p className="mt-2 max-w-full break-all text-xs text-slate-500">{file.name} · {Math.ceil(file.size / 1024).toLocaleString()} KB</p>
-      <div className="mt-3 flex gap-2"><button type="button" onClick={() => inputRef.current?.click()} className="min-h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold hover:bg-slate-50">Change</button><button type="button" onClick={() => onChange(null)} className="min-h-9 rounded-lg border border-red-200 bg-white px-3 text-xs font-semibold text-red-700 hover:bg-red-50">Remove</button></div>
-    </div> : <div role="button" tabIndex={0} aria-label="Upload a profile photo" onClick={() => inputRef.current?.click()} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); inputRef.current?.click(); } }} onDragOver={(event) => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); onChange(event.dataTransfer.files?.[0] ?? null); }} className={`mt-2 flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-3 py-5 text-center transition ${dragging ? "border-violet-500 bg-violet-100/60" : "border-violet-300 bg-violet-50/40 hover:bg-violet-50"}`}>
+      <div className="mt-3 flex gap-2">{canEditImage(file) && <button type="button" onClick={() => setEditing(file)} className="min-h-9 rounded-lg border border-violet-300 bg-white px-3 text-xs font-semibold text-violet-700 hover:bg-violet-50">Edit</button>}<button type="button" onClick={() => inputRef.current?.click()} className="min-h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold hover:bg-slate-50">Change</button><button type="button" onClick={() => onChange(null)} className="min-h-9 rounded-lg border border-red-200 bg-white px-3 text-xs font-semibold text-red-700 hover:bg-red-50">Remove</button></div>
+    </div> : <div role="button" tabIndex={0} aria-label="Upload a profile photo" onClick={() => inputRef.current?.click()} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); inputRef.current?.click(); } }} onDragOver={(event) => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); choose(event.dataTransfer.files?.[0] ?? null); }} className={`mt-2 flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-3 py-5 text-center transition ${dragging ? "border-violet-500 bg-violet-100/60" : "border-violet-300 bg-violet-50/40 hover:bg-violet-50"}`}>
       <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-violet-100 text-violet-500"><Icon name="user" className="h-8 w-8" /><span className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-violet-700 text-white ring-2 ring-white"><Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2.4} /></span></span>
       <p className="mt-3 text-sm font-semibold text-slate-900">Upload photo</p>
       <p className="mt-0.5 text-[11px] leading-snug text-slate-500">PNG, JPG or WebP<br />(Max 2 MB)</p>

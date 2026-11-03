@@ -106,7 +106,7 @@ export default function AnalyticsPage({ categories }: { categories: Category[] }
         </Panel>
       </div>
 
-      <LivePanel key={wipes} onOpenArticle={setArticle} />
+      <LivePanel key={`live-${wipes}`} onOpenArticle={setArticle} />
 
       <Panel title="Site totals" subtitle={`Every page in this period${data.previous ? ", against the period before" : ""}.`}>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -176,7 +176,7 @@ export default function AnalyticsPage({ categories }: { categories: Category[] }
         </div>
       </section>
 
-      <ArticleTable key={wipes} filters={filters} onOpen={setArticle} />
+      <ArticleTable key={`table-${wipes}`} filters={filters} onOpen={setArticle} />
     </div>}
 
     {article !== null && <ArticleDrawer id={article} filters={filters} onClose={closeArticle} />}

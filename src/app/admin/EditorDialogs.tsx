@@ -6,6 +6,7 @@ import { IMAGE_TYPES, UPLOAD_LIMIT_LABEL } from "@/lib/admin-upload";
 import { parseEmbed, type Embed } from "@/lib/video-embed";
 import { Icon } from "./icons";
 import { inputClass } from "./ui";
+import ImageEditor, { canEditImage } from "./ImageEditor";
 import { prepareImage, uploadMedia, useObjectUrl, type UploadedMedia } from "./media-client";
 
 /* eslint-disable @next/next/no-img-element -- previews are local blob files, not app images */
@@ -36,12 +37,13 @@ export function ImageDialog({ onInsert, onClose }: { onInsert: (image: UploadedM
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState("");
   const [dragging, setDragging] = useState(false);
+  const [editing, setEditing] = useState<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const preview = useObjectUrl(file);
   function choose(next?: File) {
     if (!next) return;
     if (!IMAGE_TYPES.includes(next.type)) { setProblem(`${next.name} is not a PNG, JPG, WebP or GIF image.`); return; }
-    setProblem(""); setFile(next);
+    setProblem(""); if (canEditImage(next)) setEditing(next); else setFile(next);
   }
   async function insert() {
     if (!file) return;
@@ -53,9 +55,10 @@ export function ImageDialog({ onInsert, onClose }: { onInsert: (image: UploadedM
     <button type="button" onClick={onClose} className={secondaryButton}>Cancel</button>
     <button type="button" disabled={!file || busy} onClick={() => void insert()} className={primaryButton}><Icon name="upload" className="h-[18px] w-[18px]" />{busy ? "Uploading…" : "Insert image"}</button>
   </>}>
+    {editing && <ImageEditor file={editing} onApply={(edited) => { setEditing(null); setFile(edited); }} onCancel={() => setEditing(null)} />}
     <input ref={inputRef} className="hidden" type="file" accept={IMAGE_TYPES.join(",")} onChange={(event) => { choose(event.target.files?.[0]); event.target.value = ""; }} />
     {file && preview
-      ? <div className="space-y-2"><img src={preview} alt="Selected image preview" className="max-h-56 w-full rounded-xl border border-slate-200 bg-slate-50 object-contain" /><div className="flex items-center justify-between gap-3 text-xs text-slate-500"><span className="min-w-0 break-all">{file.name} · {Math.ceil(file.size / 1024).toLocaleString()} KB</span><button type="button" disabled={busy} onClick={() => inputRef.current?.click()} className="shrink-0 font-semibold text-violet-700 hover:underline">Choose another</button></div></div>
+      ? <div className="space-y-2"><img src={preview} alt="Selected image preview" className="max-h-56 w-full rounded-xl border border-slate-200 bg-slate-50 object-contain" /><div className="flex items-center justify-between gap-3 text-xs text-slate-500"><span className="min-w-0 break-all">{file.name} · {Math.ceil(file.size / 1024).toLocaleString()} KB</span><span className="flex shrink-0 gap-3">{canEditImage(file) && <button type="button" disabled={busy} onClick={() => setEditing(file)} className="font-semibold text-violet-700 hover:underline">Edit</button>}<button type="button" disabled={busy} onClick={() => inputRef.current?.click()} className="font-semibold text-violet-700 hover:underline">Choose another</button></span></div></div>
       : <div role="button" tabIndex={0} onClick={() => inputRef.current?.click()} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); inputRef.current?.click(); } }} onDragOver={(event) => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); choose(event.dataTransfer.files?.[0]); }} className={`flex cursor-pointer flex-col items-center rounded-2xl border-2 border-dashed px-4 py-8 text-center transition ${dragging ? "border-violet-500 bg-violet-50" : "border-slate-300 bg-slate-50/50 hover:border-violet-400"}`}>
         <span className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-600"><Icon name="image" className="h-7 w-7" /></span>
         <p className="mt-3 text-sm font-semibold text-slate-900">Choose an image</p>
