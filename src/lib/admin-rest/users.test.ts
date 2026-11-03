@@ -190,6 +190,15 @@ describe("users handler", () => {
       const data = (await res?.json()) as Record<string, unknown>;
       expect(data.slug).toMatch(/unique.*user/);
     });
+
+    it("creates an author with no password, who therefore cannot sign in", async () => {
+      const req = await makeRequest("POST", "/wp/v2/users", { username: "bylineonly", name: "Byline Only", email: "byline@example.com", roles: ["author"] });
+      const res = await handleUsers(req);
+      expect(res?.status).toBe(201);
+      const doc = await (await collection("users")).findOne({ username: "bylineonly" });
+      expect(doc?.password_hash).toBeNull();
+      expect(doc?.role).toBe("author");
+    });
   });
 
   describe("POST /wp/v2/users/:id (update)", () => {
@@ -202,6 +211,42 @@ describe("users handler", () => {
       expect(res?.status).toBe(200);
       const updated = await (await collection("users")).findOne({ _id: user._id });
       expect(updated?.description).toBe("Updated description");
+    });
+
+    it("edits the profile's name, email and bio but leaves username, role and password alone", async () => {
+      const col = await collection("users");
+      const user = loadFixture("users")[0];
+      const before = await col.findOne({ _id: user._id });
+      const req = await makeRequest("POST", `/wp/v2/users/${user._id}`, { name: "Renamed Author", email: "  renamed@example.com ", description: "<p>New bio</p>", username: "hijack", roles: ["administrator"], password: "Another-pass-123" });
+      const res = await handleUsers(req);
+      expect(res?.status).toBe(200);
+      const updated = await col.findOne({ _id: user._id });
+      expect(updated?.name).toBe("Renamed Author");
+      expect(updated?.email).toBe("renamed@example.com");
+      expect(updated?.description).toBe("<p>New bio</p>");
+      expect(updated?.username).toBe(before?.username);
+      expect(updated?.roles).toEqual(before?.roles);
+      expect(updated?.password_hash).toBe(before?.password_hash);
+    });
+
+    it("refuses an email another account already uses", async () => {
+      const [first, second] = loadFixture("users");
+      const col = await collection("users");
+      await col.updateOne({ _id: second._id }, { $set: { email: "taken@example.com" } });
+      const before = await col.findOne({ _id: first._id });
+      const req = await makeRequest("POST", `/wp/v2/users/${first._id}`, { name: "Should Not Save", email: "taken@example.com" });
+      const res = await handleUsers(req);
+      expect(res?.status).toBe(400);
+      expect(((await res?.json()) as Record<string, unknown>).code).toBe("existing_user_email");
+      expect((await col.findOne({ _id: first._id }))?.name).toBe(before?.name);
+    });
+
+    it("keeps a user's own email when it is sent back unchanged", async () => {
+      const user = loadFixture("users")[0];
+      const col = await collection("users");
+      await col.updateOne({ _id: user._id }, { $set: { email: "same@example.com" } });
+      const req = await makeRequest("POST", `/wp/v2/users/${user._id}`, { name: "Same Email", email: "same@example.com" });
+      expect((await handleUsers(req))?.status).toBe(200);
     });
 
     it("returns 404 for nonexistent user", async () => {

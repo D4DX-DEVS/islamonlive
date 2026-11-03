@@ -7,8 +7,6 @@ import { adminTaxonomyCacheHeaders, getAdminTaxonomyCached, invalidateAdminTaxon
 
 export const dynamic = "force-dynamic";
 
-/** Roles an account can be created with: authors are bylines; editors and administrators can sign in here. */
-const ACCOUNT_ROLES = ["author", "editor", "administrator"];
 
 /**
  * The author's own uploaded photo (Metronet Profile Picture). WordPress's
@@ -26,7 +24,7 @@ export async function GET() {
     const session = await getAdminSession();
     if (!session) throw new Error("Admin authentication required");
     const result = await getAdminTaxonomyCached(`admin-taxonomy:${session.username}:authors`, async () => {
-      const base = new URLSearchParams({ context: "edit", per_page: "100", orderby: "name", order: "asc", roles: "author,editor,administrator", _fields: "id,name,slug,email,roles,registered_date,mpp_avatar" });
+      const base = new URLSearchParams({ context: "edit", per_page: "100", orderby: "name", order: "asc", roles: "author,editor,administrator", _fields: "id,name,slug,email,description,roles,registered_date,mpp_avatar" });
       const first = await wpAdminFetch(`/users?${base}&page=1`);
       const firstData = await first.json();
       if (!first.ok) throw new Error(firstData?.message || "Could not load authors");
@@ -70,19 +68,17 @@ export async function POST(request: Request) {
     const field = (name: string) => String(form.get(name) || "").trim();
     const username = field("username");
     const email = field("email");
-    const password = String(form.get("password") || "");
     const name = field("name");
-    if (!username || !email || !password || !name) return NextResponse.json({ error: "Name, username, email and password are required" }, { status: 400 });
-    if (password.length < 12) return NextResponse.json({ error: "The temporary password must be at least 12 characters." }, { status: 400 });
-    // only administrators reach a successful create (WordPress and the MongoDB backend both refuse anyone else)
-    const role = field("role") || "author";
-    if (!ACCOUNT_ROLES.includes(role)) return NextResponse.json({ error: "Choose Author, Editor or Administrator." }, { status: 400 });
+    // only administrators reach a successful create (WordPress and the MongoDB backend both refuse anyone else);
+    // this creates bylines only: editors and administrators who sign in are added through /api/admin/team
+    if (field("role") && field("role") !== "author") return NextResponse.json({ error: "Only authors are created here. Add editors and administrators on the Team page." }, { status: 400 });
+    if (!username || !email || !name) return NextResponse.json({ error: "Name, username and email are required" }, { status: 400 });
     const upload = form.get("photo");
     const photo = upload instanceof File && upload.size > 0 ? upload : null;
     // Check the photo before anything is created, so a bad photo never leaves a half-made author behind.
     if (photo && !PHOTO_TYPES.includes(photo.type)) return NextResponse.json({ error: "The profile photo must be a PNG, JPG or WebP image." }, { status: 415 });
     if (photo && photo.size > PHOTO_LIMIT_BYTES) return NextResponse.json({ error: "The profile photo must be 2 MB or smaller." }, { status: 413 });
-    const payload = { username, email, password, name, slug: field("slug"), description: String(form.get("description") || ""), roles: [role] };
+    const payload = { username, email, name, slug: field("slug"), description: String(form.get("description") || ""), roles: ["author"] };
     const response = await wpAdminFetch("/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     const data = await response.json();
     if (!response.ok) return NextResponse.json({ error: data?.message || "Author could not be created" }, { status: response.status });
@@ -92,6 +88,35 @@ export async function POST(request: Request) {
     return NextResponse.json({ item: data, ...(problem ? { warning: `The author was created, but the profile photo was not saved: ${problem}.` } : {}) }, { status: 201 });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Author could not be created";
+    return NextResponse.json({ error: message }, { status: message.includes("authentication") ? 401 : 502 });
+  }
+}
+
+/** Edits an existing profile: display name, email, bio and (optionally) a new photo. Username and role stay as they are. */
+export async function PUT(request: Request) {
+  try {
+    const form = await request.formData();
+    const field = (name: string) => String(form.get(name) || "").trim();
+    const id = Number(field("id"));
+    const name = field("name");
+    const email = field("email");
+    if (!Number.isInteger(id) || id <= 0) return NextResponse.json({ error: "Choose an author to edit." }, { status: 400 });
+    if (!name || !email) return NextResponse.json({ error: "Name and email are required" }, { status: 400 });
+    const upload = form.get("photo");
+    const photo = upload instanceof File && upload.size > 0 ? upload : null;
+    if (photo && !PHOTO_TYPES.includes(photo.type)) return NextResponse.json({ error: "The profile photo must be a PNG, JPG or WebP image." }, { status: 415 });
+    if (photo && photo.size > PHOTO_LIMIT_BYTES) return NextResponse.json({ error: "The profile photo must be 2 MB or smaller." }, { status: 413 });
+    const payload = { name, email, description: String(form.get("description") || "") };
+    // only administrators reach a successful update (WordPress and the MongoDB backend both refuse anyone else)
+    const response = await wpAdminFetch(`/users/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const data = await response.json();
+    if (!response.ok) return NextResponse.json({ error: data?.message || "Author could not be updated" }, { status: response.status });
+    const problem = photo ? await setProfilePhoto(id, photo) : null;
+    const session = await getAdminSession();
+    if (session) invalidateAdminTaxonomyCache(`admin-taxonomy:${session.username}:authors`);
+    return NextResponse.json({ item: data, ...(problem ? { warning: `The profile was saved, but the new photo was not: ${problem}.` } : {}) });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Author could not be updated";
     return NextResponse.json({ error: message }, { status: message.includes("authentication") ? 401 : 502 });
   }
 }
