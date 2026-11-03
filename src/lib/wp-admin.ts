@@ -11,6 +11,14 @@ const SESSION_COOKIE = "iol_admin_session_v2";
 const SESSION_TTL = 8 * 60 * 60;
 // Matches WordPress's own "Remember Me" cookie lifetime.
 const REMEMBER_TTL = 14 * 24 * 60 * 60;
+/* A remembered session slides: used after a day, it is re-issued for another
+   REMEMBER_TTL, so an editor who visits weekly stays signed in. It still ends
+   MAX_SESSION_AGE after the password was typed, however often it is used, so a
+   copied cookie cannot be kept alive for ever by replaying it. */
+const RENEW_AFTER = 24 * 60 * 60;
+const MAX_SESSION_AGE = 30 * 24 * 60 * 60;
+
+const nowSeconds = () => Math.floor(Date.now() / 1000);
 
 type AdminSession = {
   username: string;
@@ -19,6 +27,10 @@ type AdminSession = {
   expiresAt: number;
   /** The user's session_version when this cookie was issued (MongoDB mode). */
   sv?: number;
+  /** When the password was typed (unix seconds); renewals keep it. */
+  iat?: number;
+  /** "Keep me signed in": the session slides instead of ending at expiresAt. */
+  rem?: boolean;
   // WordPress mode only:
   cookies?: string;
   nonce?: string;
@@ -60,7 +72,9 @@ function unpack(value: string | undefined): AdminSession | null {
     decipher.setAuthTag(encoded.subarray(12, 28));
     const plain = Buffer.concat([decipher.update(encoded.subarray(28)), decipher.final()]).toString("utf8");
     const session = JSON.parse(plain) as AdminSession;
-    return session.expiresAt > Math.floor(Date.now() / 1000) ? session : null;
+    const now = nowSeconds();
+    if (session.expiresAt <= now) return null;
+    return session.iat !== undefined && now - session.iat > MAX_SESSION_AGE ? null : session;
   } catch {
     return null;
   }
@@ -149,7 +163,7 @@ async function mongoLogin(username: string, password: string): Promise<{ session
       username: user.username ?? "",
       userId: user._id,
       role: user.role,
-      expiresAt: Math.floor(Date.now() / 1000) + SESSION_TTL,
+      expiresAt: nowSeconds() + SESSION_TTL,
       sv: user.session_version ?? 0,
     },
     who: { userId: user._id, username: user.username ?? "", name: user.name || user.username || "", role: user.role, viaEnv: !byPassword },
@@ -194,7 +208,7 @@ async function wordpressLogin(username: string, password: string, remember: bool
     role: "unknown", // WordPress sessions carry role in the nonce validation
     cookies: cookieHeader,
     nonce,
-    expiresAt: Math.floor(Date.now() / 1000) + (remember ? REMEMBER_TTL : SESSION_TTL),
+    expiresAt: nowSeconds() + (remember ? REMEMBER_TTL : SESSION_TTL),
   };
 }
 
@@ -210,22 +224,28 @@ export async function createAdminSession(username: string, password: string, rem
 
   // In mongo mode, adjust TTL for remember flag
   if (DATA_SOURCE === "mongo" && remember) {
-    session.expiresAt = Math.floor(Date.now() / 1000) + REMEMBER_TTL;
+    session.expiresAt = nowSeconds() + REMEMBER_TTL;
   }
+  session.iat = nowSeconds();
+  session.rem = remember;
 
   const store = await cookies();
   // Clear the earlier development build's narrower cookie if one exists.
   store.set(SESSION_COOKIE, "", { httpOnly: true, expires: new Date(0), path: "/admin" });
-  store.set(SESSION_COOKIE, pack(session), {
+  await writeSessionCookie(session);
+  return who;
+}
+
+async function writeSessionCookie(session: AdminSession): Promise<void> {
+  (await cookies()).set(SESSION_COOKIE, pack(session), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     // The dashboard calls /api/admin/* as well as /admin. The cookie remains
     // HTTP-only and encrypted; root scope is required for those API requests.
     path: "/",
-    maxAge: remember ? REMEMBER_TTL : SESSION_TTL,
+    maxAge: session.expiresAt - nowSeconds(),
   });
-  return who;
 }
 
 const isStaff = (user: UserDoc) =>
@@ -261,6 +281,29 @@ export async function revokeAdminSessions(): Promise<UserDoc | null> {
   return current.user;
 }
 
+/**
+ * Slides a remembered session forward (see RENEW_AFTER). Returns when the
+ * session now expires, or null when there is none. Only a route handler may
+ * call it, since it can set the cookie.
+ */
+export async function renewAdminSession(): Promise<number | null> {
+  const current = await getAdminSessionUser();
+  if (!current) return null;
+  const { session } = current;
+  const now = nowSeconds();
+  // cookies from before `rem` existed: only a remembered one outlives SESSION_TTL
+  const remembered = session.rem ?? session.expiresAt - now > SESSION_TTL;
+  // WordPress mode carries WordPress's own cookies, which end when they end
+  if (DATA_SOURCE !== "mongo" || !remembered) return session.expiresAt;
+  const lastIssued = session.expiresAt - REMEMBER_TTL;
+  if (now - lastIssued < RENEW_AFTER) return session.expiresAt;
+  const iat = session.iat ?? lastIssued;
+  const expiresAt = Math.min(now + REMEMBER_TTL, iat + MAX_SESSION_AGE);
+  if (expiresAt <= session.expiresAt) return session.expiresAt;
+  await writeSessionCookie({ ...session, iat, rem: true, expiresAt });
+  return expiresAt;
+}
+
 /** Re-stamps the current cookie with the account's present session_version, keeping its expiry: for a change that bumped it on purpose. */
 export async function reissueAdminSession(): Promise<void> {
   if (DATA_SOURCE !== "mongo") return;
@@ -268,15 +311,8 @@ export async function reissueAdminSession(): Promise<void> {
   const session = unpack(store.get(SESSION_COOKIE)?.value);
   if (!session) return;
   const user = await (await collection("users")).findOne({ _id: session.userId }, { projection: { session_version: 1 } });
-  const maxAge = session.expiresAt - Math.floor(Date.now() / 1000);
-  if (!user || maxAge <= 0) return;
-  store.set(SESSION_COOKIE, pack({ ...session, sv: user.session_version ?? 0 }), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge,
-  });
+  if (!user || session.expiresAt <= nowSeconds()) return;
+  await writeSessionCookie({ ...session, sv: user.session_version ?? 0 });
 }
 
 async function mongoSignedRequest(path: string, init: RequestInit): Promise<Response> {

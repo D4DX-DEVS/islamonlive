@@ -37,7 +37,8 @@ const highlights = [
   { title: "Know who did what", body: "Every save, publish and upload is signed." },
 ];
 
-export default function AdminLogin({ lostPasswordUrl }: { lostPasswordUrl: string }) {
+/** `onSignedIn` keeps the page as it is (a session that ended while the workspace was open); without it the page reloads into the workspace. */
+export default function AdminLogin({ lostPasswordUrl, notice, onSignedIn }: { lostPasswordUrl: string; notice?: string; onSignedIn?: () => void }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -62,8 +63,9 @@ export default function AdminLogin({ lostPasswordUrl }: { lostPasswordUrl: strin
         return;
       }
       setSignedIn(true);
-      // the page re-renders on the server with the session, straight into the workspace
-      window.location.replace("/admin/");
+      if (onSignedIn) { onSignedIn(); return; }
+      // the page re-renders on the server with the session, straight into the screen that was asked for
+      window.location.replace(window.location.pathname.startsWith("/admin") ? window.location.pathname : "/admin/");
     } catch {
       setError("Could not reach the server. Check your connection and try again.");
       setLoading(false);
@@ -74,7 +76,7 @@ export default function AdminLogin({ lostPasswordUrl }: { lostPasswordUrl: strin
   const field = "block min-h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-[15px] text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus-visible:border-violet-500 focus-visible:ring-4 focus-visible:ring-violet-100 aria-[invalid=true]:border-red-300";
   const fieldIcon = "pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400";
 
-  return <div data-admin-root className="fixed inset-0 z-[100] overflow-auto bg-white text-slate-900">
+  return <div data-admin-root className={`fixed inset-0 ${onSignedIn ? "z-[200]" : "z-[100]"} overflow-auto bg-white text-slate-900`}>
     <div className="grid min-h-full lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
       <aside className="relative hidden overflow-hidden bg-[#160a35] lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-16">
         <div aria-hidden className="absolute inset-0 bg-[radial-gradient(80%_60%_at_100%_0%,rgba(139,92,246,0.45),transparent_60%),radial-gradient(70%_60%_at_0%_100%,rgba(79,70,229,0.35),transparent_60%)]" />
@@ -98,6 +100,7 @@ export default function AdminLogin({ lostPasswordUrl }: { lostPasswordUrl: strin
           <Image src="/logo.png" alt="Islamonlive" width={132} height={36} priority className="h-9 w-auto object-contain lg:hidden" />
           <h1 className="mt-8 text-[28px] font-extrabold tracking-tight text-[#12093a] lg:mt-0">Sign in</h1>
           <p className="mt-2 text-[15px] text-slate-500">Welcome back. Use your team account to open the workspace.</p>
+          {notice && <p role="status" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{notice}</p>}
 
           <form onSubmit={submit} noValidate className="mt-8 space-y-5">
             <div>

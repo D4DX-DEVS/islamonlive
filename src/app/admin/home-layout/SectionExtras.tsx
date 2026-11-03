@@ -6,6 +6,7 @@ import { useRef, useState } from "react";
 import { Icon } from "../icons";
 import { IMAGE_TYPES } from "@/lib/admin-upload";
 import { prepareImage, uploadMedia, type UploadedMedia } from "../media-client";
+import ImageEditor, { canEditImage } from "../ImageEditor";
 import { MAX_BANNERS, MAX_EMBED_URL, embedFor, safeDay, safeHref, todayInIndia, type BannerItem, type CustomSection, type HomeSection } from "@/lib/home-layout/schema";
 import { META_PARTS, type MetaPart } from "@/lib/home-layout/theme";
 import { Field, TextInput, iconButton, secondaryButton } from "./parts";
@@ -19,13 +20,15 @@ export function ImageUpload({ alt, onUploaded, label = "Upload a picture" }: { a
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [editing, setEditing] = useState<File | null>(null);
   async function upload(file?: File) {
     if (!file) return;
     setBusy(true); setError("");
     try { onUploaded(await uploadMedia(await prepareImage(file), "image", alt)); } catch (problem) { setError(problem instanceof Error ? problem.message : "The upload did not go through."); } finally { setBusy(false); }
   }
   return <div>
-    <input ref={input} type="file" accept={IMAGE_TYPES.join(",")} className="hidden" onChange={(event) => { void upload(event.target.files?.[0]); event.target.value = ""; }} />
+    {editing && <ImageEditor file={editing} onApply={(edited) => { setEditing(null); void upload(edited); }} onCancel={() => setEditing(null)} />}
+    <input ref={input} type="file" accept={IMAGE_TYPES.join(",")} className="hidden" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file && canEditImage(file)) setEditing(file); else void upload(file); }} />
     <button type="button" disabled={busy} onClick={() => input.current?.click()} className={`${secondaryButton} w-full`}><Icon name="upload" className={`h-4 w-4 ${busy ? "animate-pulse" : ""}`} />{busy ? "Uploading…" : label}</button>
     {error && <p role="alert" className="mt-1 text-xs font-medium text-red-700">{error}</p>}
   </div>;

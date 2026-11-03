@@ -35,7 +35,7 @@ vi.mock("@/lib/admin-rest", () => ({
 }));
 
 // Import after mocking dependencies
-import { createAdminSession, getAdminSession, revokeAdminSessions, wpAdminFetch, wpAdminRoute } from "./wp-admin";
+import { createAdminSession, getAdminSession, renewAdminSession, revokeAdminSessions, wpAdminFetch, wpAdminRoute } from "./wp-admin";
 
 describe("MongoDB admin authentication (mongo mode)", () => {
   beforeEach(async () => {
@@ -461,5 +461,79 @@ describe("session revocation (mongo mode)", () => {
     await signIn();
     await (await collection("users")).updateOne({ _id: 1 }, { $inc: { session_version: 1 } });
     expect(await getAdminSession()).toBeNull();
+  });
+});
+
+describe("remembered sessions slide (mongo mode)", () => {
+  const jar = new Map<string, string>();
+  const DAY = 24 * 60 * 60;
+  let clock = 0;
+  const at = (days: number) => { clock = start + days * DAY * 1000; };
+  const start = Date.UTC(2026, 10, 1);
+  beforeEach(async () => {
+    jar.clear();
+    clock = start;
+    vi.spyOn(Date, "now").mockImplementation(() => clock);
+    const { cookies } = await import("next/headers");
+    vi.mocked(cookies).mockImplementation((async () => ({
+      get: (name: string) => (jar.has(name) ? { name, value: jar.get(name)! } : undefined),
+      set: (name: string, value: string) => { if (value) jar.set(name, value); },
+    })) as unknown as typeof cookies);
+    await seedFixtures();
+    await (await collection("users")).updateOne({ _id: 1 }, {
+      $set: { username: "slider", email: "slider@example.com", password_hash: await hashPassword("Sliding-test-pass"), is_active: true, role: "administrator", roles: ["administrator"] },
+      $unset: { session_version: "" },
+    });
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  const expiry = async () => (await getAdminSession())?.expiresAt;
+
+  it("lasts 14 days when remembered and 8 hours when not", async () => {
+    await createAdminSession("slider", "Sliding-test-pass", true);
+    expect(await expiry()).toBe(start / 1000 + 14 * DAY);
+    jar.clear();
+    await createAdminSession("slider", "Sliding-test-pass", false);
+    expect(await expiry()).toBe(start / 1000 + 8 * 60 * 60);
+  });
+
+  it("is re-issued for another 14 days when used after a day, so a weekly visit never signs out", async () => {
+    await createAdminSession("slider", "Sliding-test-pass", true);
+    at(0.5);
+    expect(await renewAdminSession()).toBe(start / 1000 + 14 * DAY); // too soon: same cookie
+    at(10);
+    expect(await renewAdminSession()).toBe(start / 1000 + 24 * DAY);
+    at(20);
+    expect(await expiry()).toBe(start / 1000 + 24 * DAY);
+  });
+
+  it("ends 14 days after the last visit", async () => {
+    await createAdminSession("slider", "Sliding-test-pass", true);
+    at(14.01);
+    expect(await renewAdminSession()).toBeNull();
+    expect(await getAdminSession()).toBeNull();
+  });
+
+  it("never outlives 30 days from the password, however often it is used", async () => {
+    await createAdminSession("slider", "Sliding-test-pass", true);
+    for (const day of [5, 10, 15, 20, 25]) { at(day); expect(await renewAdminSession()).not.toBeNull(); }
+    expect(await expiry()).toBe(start / 1000 + 30 * DAY);
+    at(29.9);
+    expect(await renewAdminSession()).toBe(start / 1000 + 30 * DAY);
+    at(30.01);
+    expect(await renewAdminSession()).toBeNull();
+  });
+
+  it("does not stretch a session that was not remembered", async () => {
+    await createAdminSession("slider", "Sliding-test-pass", false);
+    at(0.3);
+    expect(await renewAdminSession()).toBe(start / 1000 + 8 * 60 * 60);
+  });
+
+  it("is not renewed once revoked", async () => {
+    await createAdminSession("slider", "Sliding-test-pass", true);
+    await (await collection("users")).updateOne({ _id: 1 }, { $inc: { session_version: 1 } });
+    at(3);
+    expect(await renewAdminSession()).toBeNull();
   });
 });

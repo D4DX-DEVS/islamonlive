@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Embed } from "@/lib/video-embed";
 import { ImageDialog, TableDialog, VideoDialog } from "./EditorDialogs";
+import ImageEditor, { canEditImage } from "./ImageEditor";
 import { Icon, type IconName } from "./icons";
 import { prepareImage, uploadMedia, type UploadedMedia } from "./media-client";
 
@@ -213,6 +214,9 @@ export default function HtmlEditor({ label, value, onChange, minHeight = "min-h-
     commit();
   }
   function insertFromDialog(html: string) { setDialog(null); insertHtml(html); }
+  /** One picture pasted or dropped opens the editor first; several go straight up. */
+  const [editing, setEditing] = useState<File | null>(null);
+  function takeImages(files: File[]) { if (files.length === 1 && canEditImage(files[0])) setEditing(files[0]); else void addImages(files); }
   /** Uploads pictures pasted or dropped into the text and puts them in as they finish. */
   async function addImages(files: File[]) {
     setNotice({ kind: "busy", text: files.length > 1 ? `Uploading ${files.length} images…` : "Uploading image…" });
@@ -225,6 +229,7 @@ export default function HtmlEditor({ label, value, onChange, minHeight = "min-h-
   }
   const toolButton = "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-600 transition hover:bg-violet-50 hover:text-violet-700";
   return <div>
+    {editing && <ImageEditor file={editing} onApply={(edited) => { setEditing(null); void addImages([edited]); }} onCancel={() => { setEditing(null); savedRange.current = null; }} />}
     <div className="flex flex-wrap items-end justify-between gap-2">
       <span className="block text-sm font-semibold">{label}{required && <span className="text-red-500"> *</span>}</span>
       <div className="flex overflow-hidden rounded-xl border border-slate-200 bg-white text-xs font-semibold">
@@ -246,9 +251,9 @@ export default function HtmlEditor({ label, value, onChange, minHeight = "min-h-
         </div>
         {notice && <p role={notice.kind === "error" ? "alert" : "status"} className={`flex items-center justify-between gap-3 border-b px-4 py-2 text-xs ${notice.kind === "error" ? "border-red-100 bg-red-50 text-red-700" : "border-violet-100 bg-violet-50 text-violet-800"}`}><span>{notice.text}</span>{notice.kind === "error" && <button type="button" onClick={() => setNotice(null)} className="shrink-0 font-semibold hover:underline">Dismiss</button>}</p>}
         <div ref={editorRef} contentEditable suppressContentEditableWarning role="textbox" aria-multiline="true" aria-label={label} data-placeholder={placeholder} onInput={(event) => { const html = event.currentTarget.innerHTML; const next = html === "<br>" ? "" : html; if (!next) event.currentTarget.innerHTML = ""; lastValue.current = next; onChange(next); }}
-          onPaste={(event) => { const pictures = imageFiles(event.clipboardData.files); if (!pictures.length) return; event.preventDefault(); rememberCaret(); void addImages(pictures); }}
+          onPaste={(event) => { const pictures = imageFiles(event.clipboardData.files); if (!pictures.length) return; event.preventDefault(); rememberCaret(); takeImages(pictures); }}
           onDragOver={(event) => { if (event.dataTransfer.types.includes("Files")) event.preventDefault(); }}
-          onDrop={(event) => { const pictures = imageFiles(event.dataTransfer.files); if (!pictures.length) return; event.preventDefault(); const range = document.caretRangeFromPoint?.(event.clientX, event.clientY); if (range && editorRef.current?.contains(range.startContainer)) savedRange.current = range; else rememberCaret(); void addImages(pictures); }}
+          onDrop={(event) => { const pictures = imageFiles(event.dataTransfer.files); if (!pictures.length) return; event.preventDefault(); const range = document.caretRangeFromPoint?.(event.clientX, event.clientY); if (range && editorRef.current?.contains(range.startContainer)) savedRange.current = range; else rememberCaret(); takeImages(pictures); }}
           className={`${minHeight} prose prose-slate prose-sm max-w-none overflow-x-auto px-4 py-3 leading-relaxed outline-none empty:before:pointer-events-none empty:before:text-slate-400 empty:before:content-[attr(data-placeholder)] prose-headings:font-display prose-a:text-violet-700 prose-img:mx-auto prose-img:max-w-full [&_iframe]:aspect-video [&_iframe]:h-auto [&_iframe]:w-full [&_img]:h-auto [&_img]:max-w-full sm:prose-base`} />
       </> : <textarea aria-label={`${label} (HTML)`} className={`${minHeight} block w-full resize-y bg-white px-4 py-3 font-mono text-xs outline-none`} value={displayValue} onChange={(event) => onChange(event.target.value)} />}
       <div className="flex justify-end gap-5 border-t border-slate-100 bg-slate-50/60 px-4 py-2 text-xs text-slate-500"><span>Words: {words.toLocaleString()}</span><span>Characters: {characters.toLocaleString()}</span></div>

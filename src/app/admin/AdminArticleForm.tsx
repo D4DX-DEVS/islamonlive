@@ -9,6 +9,7 @@ import HtmlEditor from "./HtmlEditor";
 import { Icon, type IconName } from "./icons";
 import { cardClass, inputClass, Skeleton, stripHtml, type Author, type Category } from "./ui";
 import ConfirmDialog from "./ConfirmDialog";
+import ImageEditor, { canEditImage } from "./ImageEditor";
 import { articleConfirmation } from "./article-confirm";
 
 type PostDetail = {
@@ -128,14 +129,17 @@ function FeaturedImage({ file, altText, existing, onChange, onAltChange, onRemov
   const [dragging, setDragging] = useState(false);
   useEffect(() => { const url = file ? URL.createObjectURL(file) : null; let active = true; queueMicrotask(() => { if (active) setPreview(url); }); return () => { active = false; if (url) URL.revokeObjectURL(url); }; }, [file]);
   const shown = file ? preview : existing?.url;
-  function accept(next?: File) { if (next?.type.startsWith("image/")) onChange(next); }
+  const [editing, setEditing] = useState<File | null>(null);
+  function accept(next?: File) { if (!next?.type.startsWith("image/")) return; if (canEditImage(next)) setEditing(next); else onChange(next); }
   return <div>
+    {editing && <ImageEditor file={editing} onApply={(edited) => { setEditing(null); onChange(edited); }} onCancel={() => setEditing(null)} />}
     <input ref={inputRef} className="hidden" type="file" accept="image/*" onChange={(event) => { accept(event.target.files?.[0]); event.target.value = ""; }} />
     {shown ? <div className="space-y-3">
       <img src={shown} alt={file ? "Selected featured image preview" : existing?.alt || "Current featured image"} className="h-44 w-full rounded-xl border border-slate-200 bg-slate-50 object-cover" />
       {file && <p className="break-all text-xs text-slate-500">{file.name} · {Math.ceil(file.size / 1024)} KB</p>}
       <label className="block text-sm font-semibold">Image alt text<input className={`${inputClass} mt-1.5`} value={altText} onChange={(event) => onAltChange(event.target.value)} placeholder="Describe the image" /></label>
       <div className="flex gap-2">
+        {file && canEditImage(file) && <button type="button" onClick={() => setEditing(file)} className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border border-violet-300 bg-white px-3 text-sm font-semibold text-violet-700 hover:bg-violet-50"><Icon name="pencil" className="h-4 w-4" />Edit</button>}
         <button type="button" onClick={() => inputRef.current?.click()} className="min-h-10 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold hover:bg-slate-50">Replace</button>
         <button type="button" onClick={() => { if (file) { onChange(null); onAltChange(""); } else onRemoveExisting?.(); }} className="min-h-10 flex-1 rounded-xl border border-red-200 bg-white px-3 text-sm font-semibold text-red-700 hover:bg-red-50">Remove</button>
       </div>
