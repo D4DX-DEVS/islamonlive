@@ -14,6 +14,7 @@ import SaveButton from "@/components/SaveButton";
 import ReadTracker from "@/components/ReadTracker";
 import PageView from "@/components/PageView";
 import ReadingPrefsButton from "@/components/ReadingPrefsButton";
+import { spotifyEmbed } from "@/lib/spotify";
 
 export const revalidate = 60;
 
@@ -83,13 +84,27 @@ export async function generateMetadata({ params }: { params: Params }) {
 function AuthorName({ post, className = "" }: { post: WPPost; className?: string }) {
   const a = author(post);
   if (!a) return null;
-  const cls = `min-w-0 font-medium text-zinc-700 [overflow-wrap:anywhere] ${className}`;
+  const cls = `min-w-0 font-bold text-[#31094C] [overflow-wrap:anywhere] ${className}`;
   return a.slug ? (
-    <Link href={`/author/${a.slug}/`} className={`${cls} hover:text-[#31094C] hover:underline`}>
+    <Link href={`/author/${a.slug}/`} className={`${cls} hover:text-purple-700 hover:underline`}>
       {a.name}
     </Link>
   ) : (
     <span className={cls}>{a.name}</span>
+  );
+}
+
+/* the writer's photo beside their name in the byline; their initial on a
+   brand-coloured disc when they have none, so every byline has the same shape */
+function AuthorAvatar({ post }: { post: WPPost }) {
+  const a = author(post);
+  if (!a) return null;
+  return a.avatar ? (
+    <Image src={a.avatar} alt="" width={40} height={40} unoptimized className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-purple-100" />
+  ) : (
+    <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#31094C] text-base font-bold text-white ring-2 ring-purple-100">
+      {Array.from(a.name.trim())[0] ?? ""}
+    </span>
   );
 }
 
@@ -262,6 +277,7 @@ export default async function PostPage({ params }: { params: Params }) {
   }
 
   const a = author(post);
+  const audio = spotifyEmbed(post.spotify_url);
   // same-category reads, minus this post. A dead related-posts call must not 500 the article.
   const related: WPPost[] = post.categories?.[0]
     ? (await getPosts({ categories: [post.categories[0]], perPage: 5 }).catch(() => []))
@@ -285,7 +301,8 @@ export default async function PostPage({ params }: { params: Params }) {
         <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
           {a && (
             <>
-              <AuthorName post={post} />
+              <AuthorAvatar post={post} />
+              <AuthorName post={post} className="text-[15px] sm:text-base" />
               <span aria-hidden>·</span>
             </>
           )}
@@ -298,10 +315,21 @@ export default async function PostPage({ params }: { params: Params }) {
         </span>
         <span className="flex flex-wrap items-center gap-2 sm:ml-auto">{actions}</span>
       </div>
+      {post.manual_excerpt && (
+        // the summary the editor wrote in the admin, set apart from the body as the standfirst
+        <p className="mt-5 whitespace-pre-line rounded-r-xl border-l-4 border-purple-800 bg-purple-50 px-4 py-3 text-base font-medium leading-relaxed text-zinc-800 sm:mt-6 sm:px-5 sm:py-4 sm:text-[17px]">
+          {post.manual_excerpt}
+        </p>
+      )}
       {img && (
         <div className="relative mt-5 aspect-[16/9] w-full overflow-hidden rounded-xl bg-zinc-100 sm:mt-6">
           <Image src={img.url} alt={img.alt} fill priority sizes="(max-width: 1100px) 100vw, 1100px" className="object-cover" />
         </div>
+      )}
+      {audio && (
+        <section aria-label="Listen to this article" className="mt-5 sm:mt-6 print:hidden">
+          <iframe title="Spotify player" src={audio.src} height={audio.height} loading="lazy" allow="encrypted-media; clipboard-write" className="block w-full rounded-xl border-0" />
+        </section>
       )}
       <div
         className="reader-body prose prose-zinc mt-5 max-w-none leading-relaxed sm:mt-6 sm:text-justify sm:hyphens-auto prose-headings:text-left prose-headings:leading-snug prose-p:leading-relaxed prose-a:text-purple-800 prose-img:mx-auto prose-img:rounded-lg [&_iframe]:aspect-video [&_iframe]:h-auto [&_iframe]:w-full break-words [overflow-wrap:anywhere] [&_*]:max-w-full [&_img]:h-auto [&_table]:block [&_table]:overflow-x-auto"

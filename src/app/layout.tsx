@@ -9,6 +9,7 @@ import MobileTabBar from "@/components/MobileTabBar";
 import PwaSetup from "@/components/PwaSetup";
 import ReadingPrefsSetup from "@/components/ReadingPrefsSetup";
 import ImageRetry from "@/components/ImageRetry";
+import CopyAttribution from "@/components/CopyAttribution";
 import { getPosts, featuredImage, postPath, primaryCategory, formatDate } from "@/lib/wordpress";
 import { SITE_URL } from "@/lib/env";
 import { getHomeTheme } from "@/lib/home-layout/store";
@@ -139,6 +140,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <PwaSetup />
         <ReadingPrefsSetup />
         <ImageRetry />
+        <CopyAttribution />
       </body>
     </html>
   );

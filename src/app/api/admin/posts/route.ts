@@ -5,6 +5,7 @@ import { invalidateAdminTaxonomyCache } from "@/lib/admin-taxonomy-cache";
 import { parsePublishDate, parseSeo, POST_STATS_CACHE, resolveTagIds } from "@/lib/admin-posts";
 import { parseVideoChange, readFeaturedVideo, saveFeaturedVideo, type VideoChange } from "@/lib/featured-video";
 import { invalidatePublicPostCache } from "@/lib/admin-public-cache";
+import { parseSpotifyField } from "@/lib/spotify";
 import { absoluteUploads } from "@/lib/urls";
 
 export const dynamic = "force-dynamic";
@@ -18,11 +19,14 @@ function errorResponse(error: unknown) {
   return NextResponse.json({ error: message }, { status: message.includes("authentication") ? 401 : 502 });
 }
 
-/** The SEO fields and featured video the editor sent, or an error response when the video is not one WordPress would take. */
+/** The SEO fields, Spotify audio link and featured video the editor sent, or an error response when the video or audio link is not one we accept. */
 function readExtras(form: FormData): { meta: Record<string, string> | null; video: VideoChange | null } | NextResponse {
   const video = parseVideoChange(form.get("featuredVideo"));
   if (video === "invalid") return NextResponse.json({ error: "The featured video link is not a YouTube, Vimeo or Dailymotion address, or its upload is missing." }, { status: 400 });
-  return { meta: parseSeo(form.get("seo")), video };
+  const audio = parseSpotifyField(form.get("spotifyUrl"));
+  if (audio === "invalid") return NextResponse.json({ error: "The audio link must be a Spotify episode, show, track, playlist or album link." }, { status: 400 });
+  const meta = { ...parseSeo(form.get("seo")), ...audio };
+  return { meta: Object.keys(meta).length ? meta : null, video };
 }
 
 /** Attaches the featured video once the article exists; a failure is reported, not thrown, as the article is saved. */

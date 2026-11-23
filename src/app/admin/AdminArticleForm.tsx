@@ -3,6 +3,8 @@
 import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import FeaturedVideoCard, { noVideo, videoKey, videoPayload, type VideoChoice } from "./ArticleVideo";
+import ArticleAudioCard, { spotifyInvalid } from "./ArticleAudio";
+import { SPOTIFY_META_KEY } from "@/lib/spotify";
 import SeoCard, { keywordIdeas, type SeoFields } from "./ArticleSeo";
 import { CardTitle, FieldLabel } from "./form-parts";
 import HtmlEditor from "./HtmlEditor";
@@ -33,9 +35,9 @@ type FeaturedVideoInfo = { available: boolean; source: "" | "self" | "embed"; em
 const noSeo: SeoFields = { focusKeyword: "", title: "", description: "" };
 
 /** The fields that make an article different from when it was opened (the body is tracked by typing, see `typed`). */
-type Snapshot = { title: string; slug: string; excerpt: string; status: string; visibility: string; publishDate: string; publishTime: string; author: string; category: string; tags: string[]; image: string | null; imageAlt: string; removeImage: boolean; seo: SeoFields; video: string };
+type Snapshot = { title: string; slug: string; excerpt: string; status: string; visibility: string; publishDate: string; publishTime: string; author: string; category: string; tags: string[]; image: string | null; imageAlt: string; removeImage: boolean; seo: SeoFields; video: string; audio: string };
 const snapshot = (fields: Snapshot) => JSON.stringify(fields);
-const emptySnapshot = (): string => snapshot({ title: "", slug: "", excerpt: "", status: "draft", visibility: "public", publishDate: "", publishTime: "", author: "", category: "", tags: [], image: null, imageAlt: "", removeImage: false, seo: noSeo, video: videoKey(noVideo) });
+const emptySnapshot = (): string => snapshot({ title: "", slug: "", excerpt: "", status: "draft", visibility: "public", publishDate: "", publishTime: "", author: "", category: "", tags: [], image: null, imageAlt: "", removeImage: false, seo: noSeo, video: videoKey(noVideo), audio: "" });
 const whenFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 const metaText = (meta: Record<string, unknown> | undefined, key: string) => (typeof meta?.[key] === "string" ? meta[key] as string : "");
 
@@ -184,7 +186,7 @@ function PreviewDialog({ title, excerpt, content, imageUrl, onClose }: { title: 
       <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3"><h2 className="text-base font-bold">Preview</h2><button type="button" aria-label="Close preview" onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"><Icon name="close" /></button></div>
       <div className="overflow-y-auto p-5 sm:p-8">
         <h1 className="text-2xl font-extrabold leading-snug text-[#12093a] sm:text-3xl">{title || "Untitled article"}</h1>
-        {excerpt && <p className="mt-3 text-base italic text-slate-600">{excerpt}</p>}
+        {excerpt && <p className="mt-4 whitespace-pre-line rounded-r-xl border-l-4 border-violet-700 bg-violet-50 px-4 py-3 text-base font-medium leading-relaxed text-slate-800">{excerpt}</p>}
         {imageUrl && <img src={imageUrl} alt="" className="mt-5 max-h-96 w-full rounded-xl object-cover" />}
         <iframe title="Article body preview" sandbox="" srcDoc={srcDoc} className="mt-5 h-[50vh] w-full rounded-lg border border-slate-200" />
       </div>
@@ -222,6 +224,8 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
   const [initialVideoKey, setInitialVideoKey] = useState("none");
   const [videoUnavailable, setVideoUnavailable] = useState("");
   const [videoUploading, setVideoUploading] = useState(false);
+  const [audio, setAudio] = useState("");
+  const [initialAudio, setInitialAudio] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [loadingPost, setLoadingPost] = useState(editing);
@@ -273,13 +277,15 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
         : loadedVideo?.source === "self" ? { mode: "upload", url: "", media: { id: loadedVideo.mediaId, url: loadedVideo.url, name: decodeURIComponent(loadedVideo.url.split("/").pop() || "Uploaded video") } }
         : noVideo;
       setVideo(choice); setInitialVideoKey(videoKey(choice));
+      const loadedAudio = metaText(item.meta, SPOTIFY_META_KEY);
+      setAudio(loadedAudio); setInitialAudio(loadedAudio);
       setBaseline(snapshot({
         title: item.title?.raw || stripHtml(item.title?.rendered || ""), slug: item.slug || "", excerpt: item.excerpt?.raw || item.excerpt?.rendered || "",
         status: publishOnOpen || stored === "private" || stored === "future" ? "publish" : ["draft", "pending", "publish"].includes(stored) ? stored : "draft",
         visibility: stored === "private" ? "private" : "public",
         publishDate: ["publish", "future", "private"].includes(stored) && item.date ? item.date.slice(0, 10) : "", publishTime: ["publish", "future", "private"].includes(stored) && item.date ? item.date.slice(11, 16) : "",
         author: item.author ? String(item.author) : "", category: item.categories?.[0] ? String(item.categories[0]) : "", tags: loadedTags,
-        image: null, imageAlt: media?.alt_text || "", removeImage: false, seo: loadedSeo, video: videoKey(choice),
+        image: null, imageAlt: media?.alt_text || "", removeImage: false, seo: loadedSeo, video: videoKey(choice), audio: loadedAudio,
       }));
       setLoadingPost(false);
     }).catch(() => { if (!cancelled) { setMessage("Could not reach the article service"); setLoadingPost(false); } });
@@ -309,7 +315,7 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
   }
 
   const scheduled = status === "publish" && visibility === "public" && Boolean(publishDate) && new Date(`${publishDate}T${publishTime || "00:00"}`).getTime() > openedAt;
-  const dirty = typed || snapshot({ title, slug, excerpt, status, visibility, publishDate, publishTime, author, category, tags, image: image ? `${image.name}:${image.size}` : null, imageAlt, removeImage: removeExistingImage, seo, video: videoKey(video) }) !== baseline;
+  const dirty = typed || snapshot({ title, slug, excerpt, status, visibility, publishDate, publishTime, author, category, tags, image: image ? `${image.name}:${image.size}` : null, imageAlt, removeImage: removeExistingImage, seo, video: videoKey(video), audio: audio.trim() }) !== baseline;
   useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
   // closing the tab with unsaved changes asks first
@@ -325,6 +331,7 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
     event.preventDefault(); setMessage("");
     if (dateTouched && !publishDate) { setMessage("Choose a date to schedule this article, or clear the schedule."); return; }
     if (videoKey(video) === "invalid") { setMessage("The featured video link must be a YouTube, Vimeo or Dailymotion address. Fix it or clear it."); return; }
+    if (spotifyInvalid(audio)) { setMessage("The audio link must be a Spotify link. Fix it or clear it."); return; }
     const when = publishDate ? whenFormat.format(new Date(`${publishDate}T${publishTime || "00:00"}`)) : "";
     const check = articleConfirmation({ stored: storedStatus, status, visibility, scheduled, when, dateTouched });
     if (check) { setConfirming(check); return; }
@@ -354,6 +361,7 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
     if (Object.keys(changedSeo).length) form.set("seo", JSON.stringify(changedSeo));
     const videoChange = currentVideoKey !== initialVideoKey ? videoPayload(video) : null;
     if (videoChange) form.set("featuredVideo", videoChange);
+    if (audio.trim() !== initialAudio.trim()) form.set("spotifyUrl", audio.trim());
     let response: Response;
     try { response = await fetch(editing ? "/api/admin/posts/?id=" + editId : "/api/admin/posts/", { method: editing ? "PUT" : "POST", body: form }); } catch { setSaving(false); throw new Error("Could not reach the server. Check the connection and try again."); }
     const body = await response.json().catch(() => ({}));
@@ -442,6 +450,8 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
           </section>
 
           <FeaturedVideoCard value={video} onChange={setVideo} onBusyChange={setVideoUploading} unavailable={videoUnavailable} />
+
+          <ArticleAudioCard value={audio} onChange={setAudio} />
         </div>
       </div>
 

@@ -39,6 +39,7 @@ const shapes = {
   reset: <path d="M4 12a8 8 0 112.600 5.900M4 19.500V15h4.500" />,
   arrowUp: <path d="M12 19V5M6 11l6-6 6 6" />,
   video: <><rect x="3.500" y="4.500" width="17" height="15" rx="2.500" /><path d="M10 9l5 3-5 3z" /></>,
+  headphones: <path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3" />,
   table: <><rect x="3.500" y="4.500" width="17" height="15" rx="2.500" /><path d="M3.500 10h17M3.500 14.500h17M9.500 4.500v15M15 4.500v15" /></>,
   mail: <><rect x="3.500" y="5.500" width="17" height="13" rx="2.500" /><path d="M4 7.500l8 5.500 8-5.500" /></>,
   lock: <><rect x="5" y="10.500" width="14" height="9.500" rx="2.500" /><path d="M8 10.500V8a4 4 0 018 0v2.500" /></>,
