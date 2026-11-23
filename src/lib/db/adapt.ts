@@ -1,6 +1,7 @@
 import { safeTitle } from "@/lib/sanitize";
 import type { CategoryDoc, MediaDoc, PageDoc, PostDoc, TagDoc, UserDoc } from "@/lib/db/types";
-import type { WPCategory, WPPage, WPPost, WPUser } from "@/lib/wp-model";
+import { stripHtml, type WPCategory, type WPPage, type WPPost, type WPUser } from "@/lib/wp-model";
+import { SPOTIFY_META_KEY } from "@/lib/spotify";
 
 /* MongoDB documents → the WordPress REST shapes the site already renders.
 
@@ -83,6 +84,21 @@ function toEmbeddedTerm(term: CategoryDoc | TagDoc, taxonomy: "category" | "post
 /** A post as the list endpoints return it — no body, no SEO head. */
 export type ListPostDoc = Omit<PostDoc, "content" | "content_raw" | "seo"> & Partial<Pick<PostDoc, "content" | "seo">>;
 
+/** A WordPress auto-excerpt ends in "[&hellip;]"; anything else was written by an editor. */
+const AUTO_EXCERPT = /\[(&hellip;|…)\]\s*(<\/p>)?\s*$/;
+
+/**
+ * What only the article page shows: the excerpt the editor wrote (posts saved
+ * in the admin record it in excerpt_raw, "" for an auto-excerpt; migrated ones
+ * are judged by WordPress's "[…]" ending) and the Spotify link from the post meta.
+ */
+export function articleExtras(doc: Pick<ListPostDoc, "excerpt" | "excerpt_raw" | "meta">): { manual_excerpt?: string; spotify_url?: string } {
+  const typed = doc.excerpt_raw !== undefined ? doc.excerpt_raw : AUTO_EXCERPT.test(doc.excerpt ?? "") ? "" : doc.excerpt ?? "";
+  const excerpt = stripHtml(typed);
+  const spotify = doc.meta?.[SPOTIFY_META_KEY]?.trim();
+  return { ...(excerpt ? { manual_excerpt: excerpt } : {}), ...(spotify ? { spotify_url: spotify } : {}) };
+}
+
 /**
  * One post in the REST shape. `full` adds the body and Yoast head, which only
  * the single-article request asks WordPress for; lists leave them out, as WP did.
@@ -114,6 +130,7 @@ export function toWPPost(doc: ListPostDoc, refs: PostRefs, full = false): WPPost
     categories: doc.categories,
     tags: doc.tags,
     ...(full && doc.seo ? { yoast_head_json: doc.seo } : {}),
+    ...(full ? articleExtras(doc) : {}),
     _embedded: embedded,
   };
   // Lists carry no `content`, exactly like WP's _fields response; nothing that

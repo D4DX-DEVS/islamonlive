@@ -25,6 +25,10 @@ export interface WPPost {
   tags?: number[];
   /** Yoast's precomputed head: titles, canonical, robots, OG and the JSON-LD graph */
   yoast_head_json?: YoastHead;
+  /** Single article only: the excerpt as the editor typed it (plain text); absent for an auto-excerpt. */
+  manual_excerpt?: string;
+  /** Single article only: the Spotify link the editor attached, played on the article. */
+  spotify_url?: string;
   _embedded?: {
     author?: { id?: number; slug?: string; name: string; description?: string; avatar_urls?: Record<string, string>; mpp_avatar?: Record<string, string> }[];
     "wp:featuredmedia"?: {
