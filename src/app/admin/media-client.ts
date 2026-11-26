@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { IMAGE_TYPES, UPLOAD_LIMIT_BYTES, UPLOAD_LIMIT_LABEL, VIDEO_TYPES } from "@/lib/admin-upload";
+import { AUDIO_LIMIT_BYTES, AUDIO_TYPES, IMAGE_TYPES, UPLOAD_LIMIT_BYTES, UPLOAD_LIMIT_LABEL, VIDEO_TYPES } from "@/lib/admin-upload";
 
 export type UploadedMedia = { id: number; url: string; alt: string; mime: string; width: number | null; height: number | null };
 
@@ -56,8 +56,15 @@ export function checkVideo(file: File): string | null {
   return null;
 }
 
+/** Checks an audio file against what can be uploaded here, before any bytes are sent. */
+export function checkAudio(file: File): string | null {
+  if (!AUDIO_TYPES.includes(file.type)) return `${file.name} is not an MP3, M4A, AAC, WAV or OGG audio file.`;
+  if (file.size > AUDIO_LIMIT_BYTES) return `${file.name} is ${mebibytes(file.size)}. Audio files can be up to ${UPLOAD_LIMIT_LABEL} here; for longer audio, put it on Spotify and paste the link.`;
+  return null;
+}
+
 /** Sends a file to the WordPress media library through the admin API. */
-export async function uploadMedia(file: File, kind: "image" | "video", alt = ""): Promise<UploadedMedia> {
+export async function uploadMedia(file: File, kind: "image" | "video" | "audio", alt = ""): Promise<UploadedMedia> {
   const form = new FormData();
   form.set("file", file); form.set("kind", kind);
   if (alt.trim()) form.set("alt", alt.trim());

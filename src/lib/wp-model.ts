@@ -29,6 +29,10 @@ export interface WPPost {
   manual_excerpt?: string;
   /** Single article only: the Spotify link the editor attached, played on the article. */
   spotify_url?: string;
+  /** Single article only: an audio file uploaded in the admin, played with the browser's player. */
+  audio_file_url?: string;
+  /** Single article only: the featured video set in the admin (a link, or an uploaded file). */
+  featured_video?: { kind: "embed"; url: string } | { kind: "file"; url: string };
   _embedded?: {
     author?: { id?: number; slug?: string; name: string; description?: string; avatar_urls?: Record<string, string>; mpp_avatar?: Record<string, string> }[];
     "wp:featuredmedia"?: {

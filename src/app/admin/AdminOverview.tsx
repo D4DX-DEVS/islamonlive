@@ -7,6 +7,7 @@ import { delta, metric } from "./analytics/format";
 import type { ContentStatus } from "@/lib/content-status";
 import Avatar from "./avatar";
 import { Icon } from "./icons";
+import { Select } from "./Select";
 import { cardClass, formatDay, formatDuration, iconProps, Skeleton, tints } from "./ui";
 
 export type OverviewData = {
@@ -31,14 +32,8 @@ export function OverviewSkeleton() {
   </div>;
 }
 
-function RangePicker({ days, onChange, label, className = "", children }: { days: number; onChange: (days: number) => void; label: string; className?: string; children: React.ReactNode }) {
-  return <label className={`relative flex min-h-11 items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-800 shadow-sm transition focus-within:border-violet-500 focus-within:ring-4 focus-within:ring-violet-100 hover:bg-slate-50 ${className}`}>
-    {children}
-    <svg {...iconProps} strokeWidth={2} className="h-4 w-4 shrink-0 text-slate-500"><path d="M6 9l6 6 6-6" /></svg>
-    <select aria-label={label} value={days} onChange={(event) => onChange(Number(event.target.value))} className="absolute inset-0 h-full w-full cursor-pointer opacity-0">
-      {RANGES.map((range) => <option key={range} value={range}>Last {range} days</option>)}
-    </select>
-  </label>;
+function RangePicker({ days, onChange, label, display, className = "" }: { days: number; onChange: (days: number) => void; label: string; display: string; className?: string }) {
+  return <Select label={label} icon="calendar" display={display} value={String(days)} onChange={(next) => onChange(Number(next))} options={RANGES.map((range) => ({ value: String(range), label: `Last ${range} days` }))} className={`font-medium ${className}`} />;
 }
 
 const readerIcons = {
@@ -137,10 +132,7 @@ export function Overview({ data, loading, error, days, onDaysChange, onRefresh, 
           <p className="mt-1.5 text-sm text-slate-500">Publishing activity and reader engagement across the site.</p>
         </div>
         <div className="flex w-full items-center gap-3 sm:w-auto">
-          <RangePicker days={days} onChange={onDaysChange} label="Date range" className="min-w-0 flex-1 sm:flex-none">
-            <Icon name="calendar" className="h-[18px] w-[18px] shrink-0 text-slate-600" />
-            <span className="truncate">{rangeText}</span>
-          </RangePicker>
+          <RangePicker days={days} onChange={onDaysChange} label="Date range" display={rangeText} className="min-w-0 flex-1 sm:w-auto sm:flex-none" />
           <button type="button" onClick={onRefresh} disabled={loading} className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50 disabled:opacity-60">
             <Icon name="reset" className={`h-[18px] w-[18px] ${loading ? "animate-spin" : ""}`} />Refresh
           </button>

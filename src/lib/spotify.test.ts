@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseSpotifyField, spotifyEmbed, SPOTIFY_META_KEY } from "./spotify";
+import { audioFileUrl, AUDIO_FILE_META_KEY, parseAudioFileField, parseSpotifyField, spotifyEmbed, SPOTIFY_META_KEY } from "./spotify";
 
 const EPISODE = "https://open.spotify.com/episode/4rOoJ6Egrf8K2IrywzwOMk?si=abc";
 
@@ -45,5 +45,21 @@ describe("parseSpotifyField", () => {
 
   it("flags anything that is not a Spotify link", () => {
     expect(parseSpotifyField("https://example.com/audio.mp3")).toBe("invalid");
+  });
+});
+
+describe("parseAudioFileField", () => {
+  it("accepts an https audio file", () => {
+    expect(parseAudioFileField("https://cdn.example/2026/11/talk.mp3")).toEqual({ [AUDIO_FILE_META_KEY]: "https://cdn.example/2026/11/talk.mp3" });
+  });
+  it("clears on empty, ignores when not sent", () => {
+    expect(parseAudioFileField("")).toEqual({ [AUDIO_FILE_META_KEY]: "" });
+    expect(parseAudioFileField(null)).toBeNull();
+  });
+  it("refuses non-https or non-audio addresses", () => {
+    expect(parseAudioFileField("http://cdn.example/a.mp3")).toBe("invalid");
+    expect(parseAudioFileField("javascript:alert(1)//a.mp3")).toBe("invalid");
+    expect(parseAudioFileField("https://cdn.example/page.html")).toBe("invalid");
+    expect(audioFileUrl("https://cdn.example/a.mp3")).toBe("https://cdn.example/a.mp3");
   });
 });

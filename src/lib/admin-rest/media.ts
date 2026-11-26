@@ -26,6 +26,17 @@ const TYPES: Record<string, { ext: string; sniff: (b: Uint8Array) => boolean }> 
   "video/quicktime": { ext: "mov", sniff: (b) => ["ftyp", "moov", "mdat", "free", "wide", "skip"].includes(ascii(b, 4, 4)) },
   "video/webm": { ext: "webm", sniff: (b) => b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3 },
   "video/ogg": { ext: "ogv", sniff: (b) => ascii(b, 0, 4) === "OggS" },
+  // ID3 tag, or an MPEG frame sync (0xFFE…)
+  "audio/mpeg": { ext: "mp3", sniff: (b) => ascii(b, 0, 3) === "ID3" || (b[0] === 0xff && (b[1] & 0xe0) === 0xe0) },
+  "audio/mp3": { ext: "mp3", sniff: (b) => ascii(b, 0, 3) === "ID3" || (b[0] === 0xff && (b[1] & 0xe0) === 0xe0) },
+  "audio/mp4": { ext: "m4a", sniff: (b) => ascii(b, 4, 4) === "ftyp" },
+  "audio/x-m4a": { ext: "m4a", sniff: (b) => ascii(b, 4, 4) === "ftyp" },
+  "audio/aac": { ext: "aac", sniff: (b) => b[0] === 0xff && (b[1] & 0xf6) === 0xf0 },
+  "audio/wav": { ext: "wav", sniff: (b) => ascii(b, 0, 4) === "RIFF" && ascii(b, 8, 4) === "WAVE" },
+  "audio/x-wav": { ext: "wav", sniff: (b) => ascii(b, 0, 4) === "RIFF" && ascii(b, 8, 4) === "WAVE" },
+  "audio/wave": { ext: "wav", sniff: (b) => ascii(b, 0, 4) === "RIFF" && ascii(b, 8, 4) === "WAVE" },
+  "audio/ogg": { ext: "ogg", sniff: (b) => ascii(b, 0, 4) === "OggS" },
+  "audio/opus": { ext: "opus", sniff: (b) => ascii(b, 0, 4) === "OggS" },
 };
 
 function ascii(bytes: Uint8Array, start: number, length: number): string {
@@ -60,7 +71,7 @@ function fileName(disposition: string, ext: string): { base: string; ext: string
   return { base: stem || "upload", ext };
 }
 
-const mediaType = (mime: string | null) => (mime?.startsWith("video/") ? "video" : mime?.startsWith("image/") ? "image" : "file");
+const mediaType = (mime: string | null) => (mime?.startsWith("video/") ? "video" : mime?.startsWith("audio/") ? "audio" : mime?.startsWith("image/") ? "image" : "file");
 
 /** The attachment as WP REST returns it in edit context, trimmed to the fields any caller reads. */
 function attachment(doc: MediaDoc): Record<string, unknown> {

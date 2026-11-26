@@ -11,6 +11,9 @@ export const UPLOAD_LIMIT_LABEL = "4 MB";
 
 export const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 export const VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime", "video/ogg"];
+export const AUDIO_TYPES = ["audio/mpeg", "audio/mp3", "audio/mp4", "audio/x-m4a", "audio/aac", "audio/wav", "audio/x-wav", "audio/wave", "audio/ogg", "audio/opus"];
+/** Audio files may be larger than images and videos sent through here. */
+export const AUDIO_LIMIT_BYTES = 4 * 1024 * 1024;
 
 /** A profile photo is held to a smaller limit than other uploads. */
 export const PHOTO_LIMIT_BYTES = 2 * 1024 * 1024;

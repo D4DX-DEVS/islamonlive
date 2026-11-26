@@ -5,7 +5,7 @@ import { invalidateAdminTaxonomyCache } from "@/lib/admin-taxonomy-cache";
 import { parsePublishDate, parseSeo, POST_STATS_CACHE, resolveTagIds } from "@/lib/admin-posts";
 import { parseVideoChange, readFeaturedVideo, saveFeaturedVideo, type VideoChange } from "@/lib/featured-video";
 import { invalidatePublicPostCache } from "@/lib/admin-public-cache";
-import { parseSpotifyField } from "@/lib/spotify";
+import { parseAudioFileField, parseSpotifyField } from "@/lib/spotify";
 import { absoluteUploads } from "@/lib/urls";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +25,9 @@ function readExtras(form: FormData): { meta: Record<string, string> | null; vide
   if (video === "invalid") return NextResponse.json({ error: "The featured video link is not a YouTube, Vimeo or Dailymotion address, or its upload is missing." }, { status: 400 });
   const audio = parseSpotifyField(form.get("spotifyUrl"));
   if (audio === "invalid") return NextResponse.json({ error: "The audio link must be a Spotify episode, show, track, playlist or album link." }, { status: 400 });
-  const meta = { ...parseSeo(form.get("seo")), ...audio };
+  const audioFile = parseAudioFileField(form.get("audioFile"));
+  if (audioFile === "invalid") return NextResponse.json({ error: "The uploaded audio file address is not valid. Upload it again." }, { status: 400 });
+  const meta = { ...parseSeo(form.get("seo")), ...audio, ...audioFile };
   return { meta: Object.keys(meta).length ? meta : null, video };
 }
 

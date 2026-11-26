@@ -5,6 +5,7 @@ import type { Embed } from "@/lib/video-embed";
 import { ImageDialog, TableDialog, VideoDialog } from "./EditorDialogs";
 import ImageEditor, { canEditImage } from "./ImageEditor";
 import { Icon, type IconName } from "./icons";
+import { Select } from "./Select";
 import { prepareImage, uploadMedia, type UploadedMedia } from "./media-client";
 
 const blockTags = new Set(["ADDRESS", "ARTICLE", "ASIDE", "BLOCKQUOTE", "DIV", "FIGCAPTION", "FIGURE", "FOOTER", "H1", "H2", "H3", "H4", "H5", "H6", "HEADER", "HR", "LI", "MAIN", "NAV", "OL", "P", "PRE", "SECTION", "TABLE", "UL"]);
@@ -200,6 +201,11 @@ export default function HtmlEditor({ label, value, onChange, minHeight = "min-h-
     const selection = window.getSelection();
     savedRange.current = selection?.rangeCount && editorRef.current?.contains(selection.anchorNode) ? selection.getRangeAt(0).cloneRange() : null;
   }
+  function restoreCaret() {
+    const selection = window.getSelection();
+    if (savedRange.current) { editorRef.current?.focus(); selection?.removeAllRanges(); selection?.addRange(savedRange.current); }
+    savedRange.current = null;
+  }
   function openDialog(next: Dialog) { rememberCaret(); setDialog(next); }
   /** Puts HTML at the remembered caret, else at the caret, else at the end of the text. */
   function insertHtml(html: string) {
@@ -240,11 +246,7 @@ export default function HtmlEditor({ label, value, onChange, minHeight = "min-h-
     <div className="mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white transition focus-within:border-violet-500 focus-within:ring-4 focus-within:ring-violet-100">
       {mode === "visual" ? <>
         <div role="toolbar" aria-label="Formatting" className="flex flex-nowrap items-center gap-1 overflow-x-auto border-b border-slate-200 bg-white p-1.5">
-          <label className="relative mr-1 flex h-9 shrink-0 items-center rounded-lg px-2.5 text-sm text-slate-800 hover:bg-slate-50">
-            {blockOptions.find((option) => option.value === block)?.label}
-            <Icon name="chevronDown" className="ml-2 h-4 w-4 text-slate-500" strokeWidth={2} />
-            <select aria-label="Text style" value={block} onChange={(event) => { setBlock(event.target.value); run("formatBlock", event.target.value); }} className="absolute inset-0 h-full w-full cursor-pointer opacity-0">{blockOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
-          </label>
+          <Select variant="ghost" label="Text style" className="mr-1 shrink-0" value={block} options={blockOptions} onOpenChange={(open) => { if (open) rememberCaret(); }} onChange={(next) => { setBlock(next); restoreCaret(); run("formatBlock", next); }} />
           {(compact ? compactToolbar : fullToolbar).map((group, index) => <div key={index} className="flex shrink-0 items-center border-l border-slate-200 pl-1">
             {group.map((action) => <button type="button" key={action.label} aria-label={action.label} title={action.label} onMouseDown={(event) => event.preventDefault()} onClick={() => (action.dialog ? openDialog(action.dialog) : run(action.command!, action.value))} className={toolButton}>{action.icon ? <Icon name={action.icon} className="h-[18px] w-[18px]" /> : action.glyph}</button>)}
           </div>)}
