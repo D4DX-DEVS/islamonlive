@@ -14,7 +14,8 @@ import SaveButton from "@/components/SaveButton";
 import ReadTracker from "@/components/ReadTracker";
 import PageView from "@/components/PageView";
 import ReadingPrefsButton from "@/components/ReadingPrefsButton";
-import { spotifyEmbed } from "@/lib/spotify";
+import { audioFileUrl, spotifyEmbed } from "@/lib/spotify";
+import { parseEmbed } from "@/lib/video-embed";
 
 export const revalidate = 60;
 
@@ -278,6 +279,10 @@ export default async function PostPage({ params }: { params: Params }) {
 
   const a = author(post);
   const audio = spotifyEmbed(post.spotify_url);
+  const audioFile = audioFileUrl(post.audio_file_url);
+  // the featured video set in the admin: links are re-parsed so only an allow-listed player lands in the iframe
+  const videoEmbed = post.featured_video?.kind === "embed" ? parseEmbed(post.featured_video.url) : null;
+  const videoFile = post.featured_video?.kind === "file" && /^https:\/\//i.test(post.featured_video.url) ? post.featured_video.url : null;
   // same-category reads, minus this post. A dead related-posts call must not 500 the article.
   const related: WPPost[] = post.categories?.[0]
     ? (await getPosts({ categories: [post.categories[0]], perPage: 5 }).catch(() => []))
@@ -321,7 +326,13 @@ export default async function PostPage({ params }: { params: Params }) {
           {post.manual_excerpt}
         </p>
       )}
-      {img && (
+      {videoEmbed ? (
+        <div className="mt-5 aspect-video w-full overflow-hidden rounded-xl bg-black sm:mt-6 print:hidden">
+          <iframe title="Featured video" src={videoEmbed.src} loading="lazy" referrerPolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen className="h-full w-full border-0" />
+        </div>
+      ) : videoFile ? (
+        <video controls preload="metadata" playsInline src={videoFile} poster={img?.url} className="mt-5 aspect-video w-full rounded-xl bg-black sm:mt-6 print:hidden" />
+      ) : img && (
         <div className="relative mt-5 aspect-[16/9] w-full overflow-hidden rounded-xl bg-zinc-100 sm:mt-6">
           <Image src={img.url} alt={img.alt} fill priority sizes="(max-width: 1100px) 100vw, 1100px" className="object-cover" />
         </div>
@@ -329,6 +340,11 @@ export default async function PostPage({ params }: { params: Params }) {
       {audio && (
         <section aria-label="Listen to this article" className="mt-5 sm:mt-6 print:hidden">
           <iframe title="Spotify player" src={audio.src} height={audio.height} loading="lazy" allow="encrypted-media; clipboard-write" className="block w-full rounded-xl border-0" />
+        </section>
+      )}
+      {audioFile && (
+        <section aria-label="Listen to this article" className="mt-5 sm:mt-6 print:hidden">
+          <audio controls preload="metadata" src={audioFile} className="block w-full" />
         </section>
       )}
       <div

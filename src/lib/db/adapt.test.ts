@@ -26,3 +26,20 @@ describe("articleExtras", () => {
     expect(articleExtras({ excerpt: "", excerpt_raw: "", meta: { [SPOTIFY_META_KEY]: "" } })).toEqual({});
   });
 });
+
+describe("articleExtras featured video and audio file", () => {
+  const base = { excerpt: "<p>Body [&hellip;]</p>" };
+  const fv = { media_id: null, url: null, embed_url: null, poster_id: null, poster_url: null };
+  it("passes a linked video to the article", () => {
+    expect(articleExtras({ ...base, featured_video: { ...fv, source: "embed", embed_url: "https://youtu.be/dQw4w9WgXcQ" } })).toEqual({ featured_video: { kind: "embed", url: "https://youtu.be/dQw4w9WgXcQ" } });
+  });
+  it("passes an uploaded video to the article", () => {
+    expect(articleExtras({ ...base, featured_video: { ...fv, source: "self", media_id: 9, url: "https://cdn.example/v.mp4" } })).toEqual({ featured_video: { kind: "file", url: "https://cdn.example/v.mp4" } });
+  });
+  it("ignores a cleared video", () => {
+    expect(articleExtras({ ...base, featured_video: null })).toEqual({});
+  });
+  it("passes the uploaded audio file", () => {
+    expect(articleExtras({ ...base, meta: { _iol_audio_url: "https://cdn.example/a.mp3" } })).toEqual({ audio_file_url: "https://cdn.example/a.mp3" });
+  });
+});

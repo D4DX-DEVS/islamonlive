@@ -1,7 +1,7 @@
 import { safeTitle } from "@/lib/sanitize";
 import type { CategoryDoc, MediaDoc, PageDoc, PostDoc, TagDoc, UserDoc } from "@/lib/db/types";
 import { stripHtml, type WPCategory, type WPPage, type WPPost, type WPUser } from "@/lib/wp-model";
-import { SPOTIFY_META_KEY } from "@/lib/spotify";
+import { AUDIO_FILE_META_KEY, SPOTIFY_META_KEY } from "@/lib/spotify";
 
 /* MongoDB documents → the WordPress REST shapes the site already renders.
 
@@ -92,11 +92,21 @@ const AUTO_EXCERPT = /\[(&hellip;|…)\]\s*(<\/p>)?\s*$/;
  * in the admin record it in excerpt_raw, "" for an auto-excerpt; migrated ones
  * are judged by WordPress's "[…]" ending) and the Spotify link from the post meta.
  */
-export function articleExtras(doc: Pick<ListPostDoc, "excerpt" | "excerpt_raw" | "meta">): { manual_excerpt?: string; spotify_url?: string } {
+export function articleExtras(doc: Pick<ListPostDoc, "excerpt" | "excerpt_raw" | "meta"> & Partial<Pick<ListPostDoc, "featured_video">>): Pick<WPPost, "manual_excerpt" | "spotify_url" | "audio_file_url" | "featured_video"> {
   const typed = doc.excerpt_raw !== undefined ? doc.excerpt_raw : AUTO_EXCERPT.test(doc.excerpt ?? "") ? "" : doc.excerpt ?? "";
   const excerpt = stripHtml(typed);
   const spotify = doc.meta?.[SPOTIFY_META_KEY]?.trim();
-  return { ...(excerpt ? { manual_excerpt: excerpt } : {}), ...(spotify ? { spotify_url: spotify } : {}) };
+  const audioFile = doc.meta?.[AUDIO_FILE_META_KEY]?.trim();
+  const fv = doc.featured_video;
+  const video = fv?.source === "embed" && fv.embed_url ? { kind: "embed" as const, url: fv.embed_url }
+    : fv?.source === "self" && fv.url ? { kind: "file" as const, url: fv.url }
+    : null;
+  return {
+    ...(excerpt ? { manual_excerpt: excerpt } : {}),
+    ...(spotify ? { spotify_url: spotify } : {}),
+    ...(audioFile ? { audio_file_url: audioFile } : {}),
+    ...(video ? { featured_video: video } : {}),
+  };
 }
 
 /**

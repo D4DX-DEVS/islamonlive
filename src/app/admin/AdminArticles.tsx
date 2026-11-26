@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import ConfirmDialog from "./ConfirmDialog";
 import Avatar from "./avatar";
 import { Icon, type IconName } from "./icons";
+import { Select } from "./Select";
 import { cardClass, formatDay, inputClass, Skeleton, stripHtml, type Author, type Category } from "./ui";
 
 const PER_PAGE = 10;
@@ -95,12 +96,7 @@ export function RowMenu({ title, entries, compact = false }: { title: string; en
 }
 
 export function FilterSelect({ label, value, onChange, options, icon }: { label: string; value: string; onChange: (value: string) => void; options: string[][]; icon?: IconName }) {
-  return <label className="relative block">
-    <span className="sr-only">{label}</span>
-    {icon && <Icon name={icon} className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-500" />}
-    <select value={value} onChange={(event) => onChange(event.target.value)} className={`${inputClass} appearance-none pr-9 ${icon ? "pl-10" : ""}`}>{options.map(([optionValue, optionLabel]) => <option key={optionValue} value={optionValue}>{optionLabel}</option>)}</select>
-    <Icon name="chevronDown" className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" strokeWidth={2} />
-  </label>;
+  return <Select label={label} value={value} onChange={onChange} icon={icon} options={options.map(([optionValue, optionLabel, searchText]) => ({ value: optionValue, label: optionLabel, searchText }))} />;
 }
 
 export default function Articles({ initialSearch, initialStatus, initialAuthor = "", initialNotice = "", authors, categories, authorsLoading, onNew, onEdit }: { initialSearch: string; initialStatus: string; /** An author id to start filtered to. */ initialAuthor?: string; /** A message to show above the list, such as a warning from saving an article. */ initialNotice?: string; authors: Author[]; categories: Category[]; authorsLoading: boolean; onNew: () => void; onEdit: (id: number, publishOnOpen?: boolean) => void }) {
@@ -227,7 +223,7 @@ export default function Articles({ initialSearch, initialStatus, initialAuthor =
           <Icon name="search" className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-500" />
           <input type="search" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Search by article title or content…" className={`${inputClass} pl-10 [&::-webkit-search-cancel-button]:hidden`} />
         </label>
-        <FilterSelect label="Filter by author" value={query.author} onChange={(author) => apply({ author })} options={[["", "All authors"], ...authors.map((item) => [String(item.id), item.name])]} />
+        <FilterSelect label="Filter by author" value={query.author} onChange={(author) => apply({ author })} options={[["", "All authors"], ...authors.map((item) => [String(item.id), item.name, item.slug ?? ""])]} />
         <FilterSelect label="Filter by category" value={query.category} onChange={(next) => apply({ category: next })} options={[["", "All categories"], ...categories.map((item) => [String(item.id), stripHtml(item.name)])]} />
         <FilterSelect label="Filter by status" value={query.status} onChange={(status) => apply({ status })} options={statusOptions} />
         <FilterSelect label="Filter by date" value={query.days} onChange={(days) => apply({ days })} options={dateOptions} icon="calendar" />

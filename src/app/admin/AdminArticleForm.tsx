@@ -3,12 +3,13 @@
 import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import FeaturedVideoCard, { noVideo, videoKey, videoPayload, type VideoChoice } from "./ArticleVideo";
-import ArticleAudioCard, { spotifyInvalid } from "./ArticleAudio";
-import { SPOTIFY_META_KEY } from "@/lib/spotify";
+import ArticleAudioCard, { spotifyInvalid, type AudioFile } from "./ArticleAudio";
+import { AUDIO_FILE_META_KEY, SPOTIFY_META_KEY } from "@/lib/spotify";
 import SeoCard, { keywordIdeas, type SeoFields } from "./ArticleSeo";
 import { CardTitle, FieldLabel } from "./form-parts";
 import HtmlEditor from "./HtmlEditor";
 import { Icon, type IconName } from "./icons";
+import { Select, type SelectOption } from "./Select";
 import { cardClass, inputClass, Skeleton, stripHtml, type Author, type Category } from "./ui";
 import ConfirmDialog from "./ConfirmDialog";
 import ImageEditor, { canEditImage } from "./ImageEditor";
@@ -37,7 +38,7 @@ const noSeo: SeoFields = { focusKeyword: "", title: "", description: "" };
 /** The fields that make an article different from when it was opened (the body is tracked by typing, see `typed`). */
 type Snapshot = { title: string; slug: string; excerpt: string; status: string; visibility: string; publishDate: string; publishTime: string; author: string; category: string; tags: string[]; image: string | null; imageAlt: string; removeImage: boolean; seo: SeoFields; video: string; audio: string };
 const snapshot = (fields: Snapshot) => JSON.stringify(fields);
-const emptySnapshot = (): string => snapshot({ title: "", slug: "", excerpt: "", status: "draft", visibility: "public", publishDate: "", publishTime: "", author: "", category: "", tags: [], image: null, imageAlt: "", removeImage: false, seo: noSeo, video: videoKey(noVideo), audio: "" });
+const emptySnapshot = (): string => snapshot({ title: "", slug: "", excerpt: "", status: "draft", visibility: "public", publishDate: "", publishTime: "", author: "", category: "", tags: [], image: null, imageAlt: "", removeImage: false, seo: noSeo, video: videoKey(noVideo), audio: "|" });
 const whenFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 const metaText = (meta: Record<string, unknown> | undefined, key: string) => (typeof meta?.[key] === "string" ? meta[key] as string : "");
 
@@ -85,15 +86,11 @@ function SearchableSelect({ label, icon, required, value, options, placeholder, 
   </div>;
 }
 
-function IconSelect({ label, icon, value, onChange, disabled = false, title, children }: { label: string; icon: IconName; value: string; onChange: (value: string) => void; disabled?: boolean; title?: string; children: React.ReactNode }) {
-  return <label className="block">
+function IconSelect({ label, icon, value, onChange, disabled = false, title, options }: { label: string; icon: IconName; value: string; onChange: (value: string) => void; disabled?: boolean; title?: string; options: SelectOption[] }) {
+  return <div>
     <span className="block text-sm font-semibold text-slate-900">{label}</span>
-    <span className="relative mt-2 block" title={title}>
-      <Icon name={icon} className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" />
-      <select disabled={disabled} value={value} onChange={(event) => onChange(event.target.value)} className={`${inputClass} appearance-none pl-11 pr-10`}>{children}</select>
-      <Icon name="chevronDown" className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" strokeWidth={2} />
-    </span>
-  </label>;
+    <div className="mt-2"><Select label={label} icon={icon} value={value} onChange={onChange} disabled={disabled} title={title} options={options} /></div>
+  </div>;
 }
 
 /** The tag the homepage "Editor's Picks" sections list (slug editorspicks). */
@@ -226,6 +223,9 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
   const [videoUploading, setVideoUploading] = useState(false);
   const [audio, setAudio] = useState("");
   const [initialAudio, setInitialAudio] = useState("");
+  const [audioFile, setAudioFile] = useState<AudioFile | null>(null);
+  const [initialAudioFile, setInitialAudioFile] = useState("");
+  const [audioUploading, setAudioUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [loadingPost, setLoadingPost] = useState(editing);
@@ -279,13 +279,15 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
       setVideo(choice); setInitialVideoKey(videoKey(choice));
       const loadedAudio = metaText(item.meta, SPOTIFY_META_KEY);
       setAudio(loadedAudio); setInitialAudio(loadedAudio);
+      const loadedAudioFile = metaText(item.meta, AUDIO_FILE_META_KEY);
+      setAudioFile(loadedAudioFile ? { url: loadedAudioFile, name: decodeURIComponent(loadedAudioFile.split("/").pop() || "Uploaded audio") } : null); setInitialAudioFile(loadedAudioFile);
       setBaseline(snapshot({
         title: item.title?.raw || stripHtml(item.title?.rendered || ""), slug: item.slug || "", excerpt: item.excerpt?.raw || item.excerpt?.rendered || "",
         status: publishOnOpen || stored === "private" || stored === "future" ? "publish" : ["draft", "pending", "publish"].includes(stored) ? stored : "draft",
         visibility: stored === "private" ? "private" : "public",
         publishDate: ["publish", "future", "private"].includes(stored) && item.date ? item.date.slice(0, 10) : "", publishTime: ["publish", "future", "private"].includes(stored) && item.date ? item.date.slice(11, 16) : "",
         author: item.author ? String(item.author) : "", category: item.categories?.[0] ? String(item.categories[0]) : "", tags: loadedTags,
-        image: null, imageAlt: media?.alt_text || "", removeImage: false, seo: loadedSeo, video: videoKey(choice), audio: loadedAudio,
+        image: null, imageAlt: media?.alt_text || "", removeImage: false, seo: loadedSeo, video: videoKey(choice), audio: `${loadedAudio}|${loadedAudioFile}`,
       }));
       setLoadingPost(false);
     }).catch(() => { if (!cancelled) { setMessage("Could not reach the article service"); setLoadingPost(false); } });
@@ -315,7 +317,7 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
   }
 
   const scheduled = status === "publish" && visibility === "public" && Boolean(publishDate) && new Date(`${publishDate}T${publishTime || "00:00"}`).getTime() > openedAt;
-  const dirty = typed || snapshot({ title, slug, excerpt, status, visibility, publishDate, publishTime, author, category, tags, image: image ? `${image.name}:${image.size}` : null, imageAlt, removeImage: removeExistingImage, seo, video: videoKey(video), audio: audio.trim() }) !== baseline;
+  const dirty = typed || snapshot({ title, slug, excerpt, status, visibility, publishDate, publishTime, author, category, tags, image: image ? `${image.name}:${image.size}` : null, imageAlt, removeImage: removeExistingImage, seo, video: videoKey(video), audio: `${audio.trim()}|${audioFile?.url ?? ""}` }) !== baseline;
   useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
   // closing the tab with unsaved changes asks first
@@ -362,6 +364,7 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
     const videoChange = currentVideoKey !== initialVideoKey ? videoPayload(video) : null;
     if (videoChange) form.set("featuredVideo", videoChange);
     if (audio.trim() !== initialAudio.trim()) form.set("spotifyUrl", audio.trim());
+    if ((audioFile?.url ?? "") !== initialAudioFile) form.set("audioFile", audioFile?.url ?? "");
     let response: Response;
     try { response = await fetch(editing ? "/api/admin/posts/?id=" + editId : "/api/admin/posts/", { method: editing ? "PUT" : "POST", body: form }); } catch { setSaving(false); throw new Error("Could not reach the server. Check the connection and try again."); }
     const body = await response.json().catch(() => ({}));
@@ -425,12 +428,8 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
         <div className="space-y-5">
           <section className={`${cardClass} space-y-4`}>
             <CardTitle icon="calendar">Publish</CardTitle>
-            <IconSelect label="Status" icon="doc" value={status} onChange={setStatus}>
-              <option value="draft">Save as draft</option><option value="pending">Submit for review</option><option value="publish">Publish</option>
-            </IconSelect>
-            <IconSelect label="Visibility" icon="globe" value={visibility} onChange={setVisibility} disabled={status !== "publish"} title={status !== "publish" ? "Visibility applies once the article is published" : undefined}>
-              <option value="public">Public</option><option value="private">Private</option>
-            </IconSelect>
+            <IconSelect label="Status" icon="doc" value={status} onChange={setStatus} options={[{ value: "draft", label: "Save as draft" }, { value: "pending", label: "Submit for review" }, { value: "publish", label: "Publish" }]} />
+            <IconSelect label="Visibility" icon="globe" value={visibility} onChange={setVisibility} disabled={status !== "publish"} title={status !== "publish" ? "Visibility applies once the article is published" : undefined} options={[{ value: "public", label: "Public" }, { value: "private", label: "Private" }]} />
             <PicksToggle tags={tags} onChange={setTags} />
             <div>
               <div className="flex items-center justify-between"><span className="block text-sm font-semibold text-slate-900">{publishDate ? "Publish on" : "Publish immediately"}</span>{dateTouched && <button type="button" onClick={() => { setDateTouched(false); setPublishDate(""); setPublishTime(""); }} className="text-xs font-semibold text-violet-700 hover:underline">Clear</button>}</div>
@@ -451,7 +450,7 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
 
           <FeaturedVideoCard value={video} onChange={setVideo} onBusyChange={setVideoUploading} unavailable={videoUnavailable} />
 
-          <ArticleAudioCard value={audio} onChange={setAudio} />
+          <ArticleAudioCard value={audio} onChange={setAudio} file={audioFile} onFileChange={setAudioFile} onBusyChange={setAudioUploading} />
         </div>
       </div>
 
@@ -462,7 +461,7 @@ export default function NewArticle({ authors, categories, taxonomiesLoading, edi
           <button type="button" onClick={onCancel} className="min-h-11 rounded-xl bg-slate-100 px-5 text-sm font-semibold text-slate-800 transition hover:bg-slate-200">Cancel</button>
           <div className="flex items-center gap-3">
             <button type="button" onClick={openPreview} className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"><Icon name="eye" className="h-[18px] w-[18px]" /><span className="max-sm:sr-only">Preview</span></button>
-            <button disabled={saving || videoUploading} className="flex min-h-11 items-center gap-2 rounded-xl bg-[linear-gradient(90deg,#7c3aed,#6d28d9)] px-5 text-sm font-bold text-white shadow-[0_10px_22px_-10px_rgba(109,40,217,0.8)] transition hover:brightness-110 disabled:opacity-60"><Icon name="send" className="h-[18px] w-[18px]" />{actionLabel}</button>
+            <button disabled={saving || videoUploading || audioUploading} className="flex min-h-11 items-center gap-2 rounded-xl bg-[linear-gradient(90deg,#7c3aed,#6d28d9)] px-5 text-sm font-bold text-white shadow-[0_10px_22px_-10px_rgba(109,40,217,0.8)] transition hover:brightness-110 disabled:opacity-60"><Icon name="send" className="h-[18px] w-[18px]" />{actionLabel}</button>
           </div>
         </div>
       </div>
